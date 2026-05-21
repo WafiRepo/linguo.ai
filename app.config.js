@@ -24,7 +24,7 @@ export default {
       predictiveBackGestureEnabled: false,
     },
     web: {
-      output: "static",
+      output: "server",
       favicon: "./assets/images/favicon.png",
     },
     plugins: [
@@ -67,10 +67,14 @@ export default {
       reactCompiler: true,
     },
     extra: {
+      eas: {
+        projectId: "632a6187-29f8-4cbe-ac06-94fa88c69014",
+      },
       posthogProjectToken: process.env.POSTHOG_PROJECT_TOKEN,
       posthogHost: process.env.POSTHOG_HOST,
       streamApiKey: process.env.STREAM_API_KEY,
       apiUrl: process.env.EXPO_PUBLIC_API_URL,
     },
+    owner: "wafirepo",
   },
 };
