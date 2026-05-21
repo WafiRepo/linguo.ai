@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "deploy:api": "eas deploy --prod",
     "deploy:api:preview": "eas deploy",
+    "deploy:setup": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-setup.ps1",
     "build:android:preview": "eas build -p android --profile preview",
     "build:android:prod": "eas build -p android --profile production",
     "build:ios:preview": "eas build -p ios --profile preview",
