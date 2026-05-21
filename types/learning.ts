@@ -1,4 +1,4 @@
-export type LanguageCode = "es" | "fr" | "ja" | "ko" | "de" | "zh";
+export type LanguageCode = "es" | "fr" | "ja" | "ko" | "de" | "zh" | "id";
 
 export interface Language {
   code: LanguageCode;
@@ -69,4 +69,12 @@ export interface Unit {
   description: string;
   order: number;
   lessonIds: string[];
+}
+
+export type FeedbackLevel = "needs_work" | "good" | "great" | "excellent";
+
+export interface SessionFeedback {
+  speaking: FeedbackLevel | null;
+  pronunciation: FeedbackLevel | null;
+  grammar: FeedbackLevel | null;
 }

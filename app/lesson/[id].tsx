@@ -1,4 +1,4 @@
-import { Lesson } from "@/types/learning";
+import { Lesson, LanguageCode, SessionFeedback } from "@/types/learning";
 import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -25,8 +25,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
 import { LESSONS } from "@/data/lessons";
+import { resolveAiTeacherPrompt } from "@/lib/instructionLanguage";
+import { apiUrl } from "@/lib/api";
+import {
+  getFeedbackColor,
+  getFeedbackLabel,
+  INITIAL_SESSION_FEEDBACK,
+  parseFeedbackUpdate,
+} from "@/lib/sessionFeedback";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
+import { useLearningStore } from "@/store/learningStore";
 
 type CallStatus = "idle" | "connecting" | "joined" | "error";
 type AgentStatus = "idle" | "connecting" | "connected" | "failed";
@@ -38,7 +47,8 @@ export default function LessonScreen() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
-  const { selectedLanguage } = useLanguageStore();
+  const { selectedLanguage, tutorVoice } = useLanguageStore();
+  const setActiveLesson = useLearningStore((state) => state.setActiveLesson);
 
   const lesson = LESSONS.find((l) => l.id === id);
 
@@ -46,6 +56,9 @@ export default function LessonScreen() {
   const [call, setCall] = useState<Call | null>(null);
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle");
+  const [sessionFeedback, setSessionFeedback] = useState<SessionFeedback>(
+    INITIAL_SESSION_FEEDBACK,
+  );
 
   const callRef = useRef<Call | null>(null);
   const clientRef = useRef<StreamVideoClient | null>(null);
@@ -58,6 +71,12 @@ export default function LessonScreen() {
 
     lessonStartTimeRef.current = Date.now();
     abandonedRef.current = false;
+    setSessionFeedback(INITIAL_SESSION_FEEDBACK);
+
+    const languageCode = (selectedLanguage ??
+      lesson.id.split("-")[0]) as LanguageCode;
+    setActiveLesson(languageCode, lesson.id);
+
     const lessonNumber = LESSONS.findIndex((l) => l.id === lesson.id) + 1;
     posthog.capture("lesson_started", {
       lesson_id: lesson.id,
@@ -82,7 +101,7 @@ export default function LessonScreen() {
       clientRef.current?.disconnectUser().catch(console.error);
       stopAgentSession(callRef.current?.id ?? null, agentSessionRef.current);
     };
-  }, [isLoaded, user, lesson]);
+  }, [isLoaded, user, lesson, selectedLanguage, setActiveLesson]);
 
   async function startCall() {
     if (!user || !lesson) return;
@@ -91,7 +110,7 @@ export default function LessonScreen() {
     try {
       const clerkToken = await getToken();
       if (!clerkToken) throw new Error("Not authenticated");
-      const res = await fetch("/api/stream-token", {
+      const res = await fetch(apiUrl("/api/stream-token"), {
         headers: { Authorization: `Bearer ${clerkToken}` },
       });
       if (!res.ok) throw new Error("Token fetch failed");
@@ -116,21 +135,27 @@ export default function LessonScreen() {
         await streamCall.microphone.disable();
       } catch {}
 
-      const language = selectedLanguage ?? (lesson.id.split("-")[0] as string);
+      const language = lesson.id.split("-")[0];
+      const aiPrompt = resolveAiTeacherPrompt(lesson, tutorVoice);
       try {
         await streamCall.update({
           custom: {
             lesson_id: lesson.id,
             lesson_title: lesson.title,
+            lesson_description: lesson.description,
             language,
+            language_code: language,
+            instruction_languages: aiPrompt.instructionLanguages,
             goals: lesson.goals.map((g) => g.description),
             vocabulary: lesson.vocabulary.map(
-              (v) => `${v.word}: ${v.translation}`,
+              (v) => `${v.word}: ${v.translation} | say: ${v.pronunciation}`,
             ),
-            phrases: lesson.phrases.map((p) => p.text),
+            phrases: lesson.phrases.map(
+              (p) => `${p.text}: ${p.translation} | say: ${p.pronunciation}`,
+            ),
             topics: lesson.aiTeacherPrompt.topics,
-            system_prompt: lesson.aiTeacherPrompt.systemPrompt,
-            intro_message: lesson.aiTeacherPrompt.introMessage,
+            system_prompt: aiPrompt.systemPrompt,
+            intro_message: aiPrompt.introMessage,
           },
         });
       } catch (updateErr) {
@@ -163,7 +188,7 @@ export default function LessonScreen() {
   async function startAgentSession(callId: string) {
     setAgentStatus("connecting");
     try {
-      const res = await fetch("/api/agent-session", {
+      const res = await fetch(apiUrl("/api/agent-session"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ callId, callType: "default" }),
@@ -186,7 +211,9 @@ export default function LessonScreen() {
   function stopAgentSession(callId: string | null, sessionId: string | null) {
     if (!callId || !sessionId) return;
     fetch(
-      `/api/agent-session?callId=${encodeURIComponent(callId)}&sessionId=${encodeURIComponent(sessionId)}`,
+      apiUrl(
+        `/api/agent-session?callId=${encodeURIComponent(callId)}&sessionId=${encodeURIComponent(sessionId)}`,
+      ),
       { method: "DELETE" },
     ).catch(() => {});
   }
@@ -289,6 +316,7 @@ export default function LessonScreen() {
               lesson={lesson}
               call={call}
               onRetry={() => startAgentSession(call.id)}
+              onFeedbackUpdate={setSessionFeedback}
             />
           </StreamCall>
         </StreamVideo>
@@ -341,34 +369,37 @@ export default function LessonScreen() {
         </>
       )}
 
-      {/* Session feedback */}
-      <View style={styles.feedbackRow}>
-        <View style={styles.feedbackItem}>
-          <Text style={styles.feedbackLabel}>Speaking</Text>
-          <Text
-            style={[styles.feedbackValue, { color: colors.semantic.success }]}
-          >
-            Excellent
-          </Text>
-        </View>
-        <View style={styles.feedbackDivider} />
-        <View style={styles.feedbackItem}>
-          <Text style={styles.feedbackLabel}>Pronunciation</Text>
-          <Text style={[styles.feedbackValue, { color: colors.primary.blue }]}>
-            Great
-          </Text>
-        </View>
-        <View style={styles.feedbackDivider} />
-        <View style={styles.feedbackItem}>
-          <Text style={styles.feedbackLabel}>Grammar</Text>
-          <Text
-            style={[styles.feedbackValue, { color: colors.primary.purple }]}
-          >
-            Good
-          </Text>
-        </View>
-      </View>
+      <SessionFeedbackRow feedback={sessionFeedback} />
     </SafeAreaView>
+  );
+}
+
+function SessionFeedbackRow({ feedback }: { feedback: SessionFeedback }) {
+  const items: Array<{ key: keyof SessionFeedback; label: string }> = [
+    { key: "speaking", label: "Speaking" },
+    { key: "pronunciation", label: "Pronunciation" },
+    { key: "grammar", label: "Grammar" },
+  ];
+
+  return (
+    <View style={styles.feedbackRow}>
+      {items.map((item, index) => (
+        <View key={item.key} style={styles.feedbackItemWrap}>
+          {index > 0 ? <View style={styles.feedbackDivider} /> : null}
+          <View style={styles.feedbackItem}>
+            <Text style={styles.feedbackLabel}>{item.label}</Text>
+            <Text
+              style={[
+                styles.feedbackValue,
+                { color: getFeedbackColor(feedback[item.key]) },
+              ]}
+            >
+              {getFeedbackLabel(feedback[item.key])}
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -380,11 +411,13 @@ function ActiveCallContent({
   lesson,
   call,
   onRetry,
+  onFeedbackUpdate,
 }: {
   agentStatus: AgentStatus;
   lesson: Lesson;
   call: Call;
   onRetry: () => void;
+  onFeedbackUpdate: (feedback: SessionFeedback) => void;
 }) {
   const { useMicrophoneState, useCallClosedCaptions } = useCallStateHooks();
   const { microphone } = useMicrophoneState();
@@ -399,12 +432,23 @@ function ActiveCallContent({
       type?: string;
       speaker?: "agent" | "user";
       text?: string;
+      speaking?: string;
+      pronunciation?: string;
+      grammar?: string;
     };
   }
 
   useEffect(() => {
     const unsubscribe = call.on("custom", (event: StreamCustomEvent) => {
       const data = event?.custom ?? {};
+      if (data.type === "feedback_update") {
+        const parsed = parseFeedbackUpdate(data);
+        if (parsed) {
+          onFeedbackUpdate(parsed);
+          posthog.capture("lesson_feedback_updated", parsed);
+        }
+        return;
+      }
       if (data.type === "transcript_partial" && data.text) {
         setPartial({ speaker: data.speaker ?? "agent", text: data.text });
         // Auto-clear if no further deltas arrive (speech ended without a final event)
@@ -416,7 +460,7 @@ function ActiveCallContent({
       unsubscribe();
       if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
     };
-  }, [call]);
+  }, [call, onFeedbackUpdate]);
 
   // Clear partial once a committed caption lands (the final transcript is now in captions)
   useEffect(() => {
@@ -898,6 +942,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
+  feedbackItemWrap: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+  },
   feedbackItem: {
     flex: 1,
     alignItems: "center",
@@ -916,5 +966,6 @@ const styles = StyleSheet.create({
     width: 1,
     height: 32,
     backgroundColor: colors.neutral.border,
+    marginRight: 0,
   },
 });
