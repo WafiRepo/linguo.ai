@@ -4,6 +4,10 @@ Ikuti urutan ini. Centang setiap langkah setelah selesai.
 
 Repo GitHub: **https://github.com/WafiRepo/linguo.ai**
 
+Expo project: **https://expo.dev/accounts/wafirepo/projects/linguo-ai**
+
+Production API URL: **https://linguo-ai.expo.app**
+
 ---
 
 ## Fase A — Railway (Vision Agent) ~15 menit
