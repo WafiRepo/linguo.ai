@@ -1,3 +1,7 @@
+import type { TutorEmotionCode } from "@/lib/tutorEmotion";
+
+export type { TutorEmotionCode };
+
 export type LanguageCode = "es" | "fr" | "ja" | "ko" | "de" | "zh" | "id";
 
 export interface Language {
@@ -46,6 +50,8 @@ export interface AITeacherPrompt {
   systemPrompt: string;
   introMessage: string;
   topics: string[];
+  /** Optional per-lesson override for tutor emotional style */
+  emotion?: TutorEmotionCode;
 }
 
 export interface Lesson {

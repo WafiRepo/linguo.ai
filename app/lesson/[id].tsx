@@ -47,7 +47,9 @@ export default function LessonScreen() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
-  const { selectedLanguage, tutorVoice } = useLanguageStore();
+  const { selectedLanguage, tutorVoice, tutorEmotion } = useLanguageStore();
+  const completeLesson = useLearningStore((state) => state.completeLesson);
+  const markTodayPlanItem = useLearningStore((state) => state.markTodayPlanItem);
   const setActiveLesson = useLearningStore((state) => state.setActiveLesson);
 
   const lesson = LESSONS.find((l) => l.id === id);
@@ -65,6 +67,7 @@ export default function LessonScreen() {
   const agentSessionRef = useRef<string | null>(null);
   const lessonStartTimeRef = useRef<number | null>(null);
   const abandonedRef = useRef(false);
+  const agentConnectedRef = useRef(false);
 
   useEffect(() => {
     if (!isLoaded || !user || !lesson) return;
@@ -103,6 +106,12 @@ export default function LessonScreen() {
     };
   }, [isLoaded, user, lesson, selectedLanguage, setActiveLesson]);
 
+  useEffect(() => {
+    if (agentStatus === "connected") {
+      agentConnectedRef.current = true;
+    }
+  }, [agentStatus]);
+
   async function startCall() {
     if (!user || !lesson) return;
     setCallStatus("connecting");
@@ -136,7 +145,7 @@ export default function LessonScreen() {
       } catch {}
 
       const language = lesson.id.split("-")[0];
-      const aiPrompt = resolveAiTeacherPrompt(lesson, tutorVoice);
+      const aiPrompt = resolveAiTeacherPrompt(lesson, tutorVoice, tutorEmotion);
       try {
         await streamCall.update({
           custom: {
@@ -146,6 +155,7 @@ export default function LessonScreen() {
             language,
             language_code: language,
             instruction_languages: aiPrompt.instructionLanguages,
+            tutor_emotion: tutorEmotion,
             goals: lesson.goals.map((g) => g.description),
             vocabulary: lesson.vocabulary.map(
               (v) => `${v.word}: ${v.translation} | say: ${v.pronunciation}`,
@@ -219,6 +229,27 @@ export default function LessonScreen() {
   }
 
   async function handleLeave() {
+    if (
+      lesson &&
+      agentConnectedRef.current &&
+      lessonStartTimeRef.current
+    ) {
+      const secondsInLesson = Math.floor(
+        (Date.now() - lessonStartTimeRef.current) / 1000,
+      );
+
+      if (secondsInLesson >= 45) {
+        completeLesson(lesson.id, lesson.xpReward);
+        markTodayPlanItem(lesson.id, "ai-conversation");
+        posthog.capture("lesson_completed", {
+          lesson_id: lesson.id,
+          language: selectedLanguage ?? lesson.id.split("-")[0],
+          xp_reward: lesson.xpReward,
+          duration_seconds: secondsInLesson,
+        });
+      }
+    }
+
     if (!abandonedRef.current) {
       abandonedRef.current = true;
       posthog.capture("lesson_abandoned", {

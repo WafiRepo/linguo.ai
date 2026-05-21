@@ -7,6 +7,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/constants/theme";
 import { LANGUAGES } from "@/data/languages";
 import {
+  TUTOR_EMOTION_OPTIONS,
+  TutorEmotionCode,
+} from "@/lib/tutorEmotion";
+import {
   TUTOR_VOICE_OPTIONS,
   TutorVoiceCode,
 } from "@/lib/instructionLanguage";
@@ -15,7 +19,8 @@ import { useLanguageStore } from "@/store/languageStore";
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useUser();
-  const { selectedLanguage, tutorVoice, setTutorVoice } = useLanguageStore();
+  const { selectedLanguage, tutorVoice, tutorEmotion, setTutorVoice, setTutorEmotion } =
+    useLanguageStore();
 
   const language = LANGUAGES.find((l) => l.code === selectedLanguage);
   const displayName =
@@ -113,6 +118,56 @@ export default function ProfileScreen() {
                     activeOpacity={0.8}
                     testID={`profile-tutor-voice-${option.code}`}
                     onPress={() => setTutorVoice(option.code as TutorVoiceCode)}
+                    className={`flex-row items-center rounded-[20px] border px-4 py-4 ${
+                      selected
+                        ? "bg-primary-purple/5 border-primary-purple"
+                        : "bg-white border-border"
+                    }`}
+                    style={styles.cardShadow}
+                  >
+                    <View className="w-11 h-11 rounded-full bg-surface items-center justify-center">
+                      <Text className="text-xl">{option.emoji}</Text>
+                    </View>
+                    <View className="flex-1 ml-3">
+                      <Text className="font-poppins-semibold text-base text-text-primary">
+                        {option.name}
+                      </Text>
+                      <Text className="font-poppins text-sm text-text-secondary mt-0.5">
+                        {option.description}
+                      </Text>
+                    </View>
+                    {selected ? (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={22}
+                        color={colors.primary.purple}
+                      />
+                    ) : (
+                      <View className="w-[22px] h-[22px] rounded-full border-2 border-border" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
+
+        {selectedLanguage === "id" ? (
+          <>
+            <Text className="font-poppins-semibold text-sm text-text-secondary mb-2 mt-6 uppercase tracking-wide">
+              Gaya Guru AI
+            </Text>
+            <View className="gap-3">
+              {TUTOR_EMOTION_OPTIONS.map((option) => {
+                const selected = tutorEmotion === option.code;
+                return (
+                  <TouchableOpacity
+                    key={option.code}
+                    activeOpacity={0.8}
+                    testID={`profile-tutor-emotion-${option.code}`}
+                    onPress={() =>
+                      setTutorEmotion(option.code as TutorEmotionCode)
+                    }
                     className={`flex-row items-center rounded-[20px] border px-4 py-4 ${
                       selected
                         ? "bg-primary-purple/5 border-primary-purple"

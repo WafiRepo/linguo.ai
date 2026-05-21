@@ -1,3 +1,8 @@
+import {
+  appendEmotionToPrompt,
+  DEFAULT_TUTOR_EMOTION,
+  TutorEmotionCode,
+} from "@/lib/tutorEmotion";
 import { Lesson, LanguageCode } from "@/types/learning";
 
 /** Language the AI teacher uses to explain (not the language being learned). */
@@ -106,21 +111,29 @@ export interface ResolvedAiTeacherPrompt {
 export function resolveAiTeacherPrompt(
   lesson: Lesson,
   tutorVoice: TutorVoiceCode,
+  tutorEmotion: TutorEmotionCode = DEFAULT_TUTOR_EMOTION,
 ): ResolvedAiTeacherPrompt {
   const languageCode = lesson.id.split("-")[0] as LanguageCode;
   const instructionLanguages = getInstructionLanguages(languageCode, tutorVoice);
+  const emotion = lesson.aiTeacherPrompt.emotion ?? tutorEmotion;
 
   if (languageCode === "id" && tutorVoice === "en") {
     return {
       instructionLanguages,
-      systemPrompt: buildEnglishIndonesianSystemPrompt(lesson),
+      systemPrompt: appendEmotionToPrompt(
+        buildEnglishIndonesianSystemPrompt(lesson),
+        emotion,
+      ),
       introMessage: buildEnglishIndonesianIntro(lesson),
     };
   }
 
   return {
     instructionLanguages,
-    systemPrompt: lesson.aiTeacherPrompt.systemPrompt,
+    systemPrompt: appendEmotionToPrompt(
+      lesson.aiTeacherPrompt.systemPrompt,
+      emotion,
+    ),
     introMessage: lesson.aiTeacherPrompt.introMessage,
   };
 }

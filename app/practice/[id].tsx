@@ -37,6 +37,7 @@ export default function PracticeScreen() {
     (s) => s.activeLessonIdsByLanguage,
   );
   const addXP = useLearningStore((s) => s.addXP);
+  const markTodayPlanItem = useLearningStore((s) => s.markTodayPlanItem);
 
   const activeLessonId = selectedLanguage
     ? activeLessonIdsByLanguage[selectedLanguage]
@@ -114,6 +115,9 @@ export default function PracticeScreen() {
         activities.length,
       );
       addXP(xpEarned);
+      if (id && id !== "mixed") {
+        markTodayPlanItem(id, "new-words");
+      }
       setFinished(true);
       posthog.capture("practice_completed", {
         practice_id: id,
