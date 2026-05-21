@@ -69,7 +69,7 @@ Get keys from [Clerk](https://clerk.com), [Stream](https://getstream.io), and [O
 cd vision-agent
 pip install "vision-agents[getstream,openai]" python-dotenv
 # Add OPENAI_API_KEY to vision-agent/.env
-python main.py serve-cmd --host 0.0.0.0 --port 8000
+python main.py serve --host 0.0.0.0 --port 8000
 ```
 
 ### 4. Start the mobile app

@@ -12,4 +12,4 @@ ENV PORT=8000
 EXPOSE 8000
 
 # Railway/Fly inject PORT at runtime
-CMD ["sh", "-c", "python main.py serve-cmd --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "python main.py serve --host 0.0.0.0 --port ${PORT:-8000}"]
