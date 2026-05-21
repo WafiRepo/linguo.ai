@@ -1,4 +1,6 @@
-const AGENT_URL = process.env.VISION_AGENT_URL ?? "http://127.0.0.1:8000";
+const PRODUCTION_AGENT_URL = "https://linguoai-production.up.railway.app";
+const AGENT_URL =
+  process.env.VISION_AGENT_URL?.replace(/\/$/, "") ?? PRODUCTION_AGENT_URL;
 
 export async function POST(request: Request): Promise<Response> {
   let body: { callId?: string; callType?: string };
