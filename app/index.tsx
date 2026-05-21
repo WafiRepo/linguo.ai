@@ -3,6 +3,7 @@ import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
+import { isLanguageAvailable } from "@/data/languages";
 import { useLanguageStore } from "@/store/languageStore";
 
 export default function Index() {
@@ -14,9 +15,13 @@ export default function Index() {
 
   useEffect(() => {
     if (languageHydrated) return;
-    return useLanguageStore.persist.onFinishHydration(() =>
-      setLanguageHydrated(true)
-    );
+    return useLanguageStore.persist.onFinishHydration(() => {
+      const current = useLanguageStore.getState().selectedLanguage;
+      if (current && !isLanguageAvailable(current)) {
+        useLanguageStore.getState().clearSelectedLanguage();
+      }
+      setLanguageHydrated(true);
+    });
   }, [languageHydrated]);
 
   if (!isLoaded || !languageHydrated) {
@@ -31,7 +36,7 @@ export default function Index() {
     return <Redirect href="/onboarding" />;
   }
 
-  if (!selectedLanguage) {
+  if (!selectedLanguage || !isLanguageAvailable(selectedLanguage)) {
     return <Redirect href="/language-select" />;
   }
 

@@ -1,11 +1,11 @@
 import { images } from "@/constants/images";
-import { LANGUAGES } from "@/data/languages";
+import { DEFAULT_LANGUAGE_CODE, isLanguageAvailable, LANGUAGES } from "@/data/languages";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
 import { Language, LanguageCode } from "@/types/learning";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useState } from "react";
+import { type Href, router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   FlatList,
   Image,
@@ -18,13 +18,61 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LanguageSelectScreen() {
-  const { setSelectedLanguage } = useLanguageStore();
-  const [selectedCode, setSelectedCode] = useState<string>(LANGUAGES[0].code);
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const isSwitchMode = mode === "switch";
+  const { selectedLanguage, setSelectedLanguage } = useLanguageStore();
+  const [selectedCode, setSelectedCode] = useState<string>(
+    selectedLanguage ?? DEFAULT_LANGUAGE_CODE
+  );
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (selectedLanguage && isLanguageAvailable(selectedLanguage)) {
+      setSelectedCode(selectedLanguage);
+      return;
+    }
+    if (LANGUAGES.length === 1) {
+      setSelectedCode(LANGUAGES[0].code);
+    }
+  }, [selectedLanguage]);
 
   const filtered = LANGUAGES.filter((lang) =>
     lang.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  function handleConfirm() {
+    const languageCode =
+      LANGUAGES.find((lang) => lang.code === selectedCode)?.code ??
+      LANGUAGES[0]?.code;
+
+    if (!languageCode) return;
+
+    setSelectedLanguage(languageCode as LanguageCode);
+
+    if (isSwitchMode) {
+      router.back();
+    } else {
+      router.replace("/(tabs)" as Href);
+    }
+
+    const selectedLang = LANGUAGES.find((lang) => lang.code === languageCode);
+    try {
+      if (isSwitchMode) {
+        posthog.capture("language_changed", {
+          language_code: languageCode,
+          language_name: selectedLang?.name ?? languageCode,
+          previous_language: selectedLanguage,
+        });
+      } else {
+        posthog.capture("language_selected", {
+          language_code: languageCode,
+          language_name: selectedLang?.name ?? languageCode,
+        });
+      }
+    } catch {
+      // Analytics must not block language selection
+    }
+  }
 
   const renderItem = ({ item }: { item: Language }) => {
     const isSelected = item.code === selectedCode;
@@ -56,74 +104,77 @@ export default function LanguageSelectScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
-      {/* Header */}
-      <View className="flex-row items-center px-4 py-3">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="w-8 h-8 items-center justify-center"
-        >
-          <Ionicons name="chevron-back" size={24} color="#001328" />
-        </TouchableOpacity>
-        <Text className="flex-1 text-center font-poppins-semibold text-lg text-text-primary">
-          Choose a language
-        </Text>
-        <View className="w-8" />
-      </View>
-
-      {/* Search */}
-      <View className="px-4 mb-4">
-        <View className="flex-row items-center bg-surface rounded-2xl px-4 py-3">
-          <Ionicons name="search-outline" size={18} color="#9ca3af" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search languages"
-            placeholderTextColor="#9ca3af"
-            value={search}
-            onChangeText={setSearch}
-          />
+      <View style={{ flex: 1 }}>
+        {/* Header */}
+        <View className="flex-row items-center px-4 py-3">
+          {isSwitchMode ? (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              className="w-8 h-8 items-center justify-center"
+            >
+              <Ionicons name="chevron-back" size={24} color="#001328" />
+            </TouchableOpacity>
+          ) : (
+            <View className="w-8" />
+          )}
+          <Text className="flex-1 text-center font-poppins-semibold text-lg text-text-primary">
+            {isSwitchMode ? "Change language" : "Choose a language"}
+          </Text>
+          <View className="w-8" />
         </View>
+
+        {/* Search */}
+        <View className="px-4 mb-4">
+          <View className="flex-row items-center bg-surface rounded-2xl px-4 py-3">
+            <Ionicons name="search-outline" size={18} color="#9ca3af" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search languages"
+              placeholderTextColor="#9ca3af"
+              value={search}
+              onChangeText={setSearch}
+            />
+          </View>
+        </View>
+
+        {/* Popular label */}
+        <Text className="px-4 font-poppins-semibold text-base text-text-primary mb-2">
+          Popular
+        </Text>
+
+        {/* Language list */}
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.code}
+          renderItem={renderItem}
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => (
+            <View className="h-px bg-gray-200" />
+          )}
+        />
       </View>
 
-      {/* Popular label */}
-      <Text className="px-4 font-poppins-semibold text-base text-text-primary mb-2">
-        Popular
-      </Text>
-
-      {/* Language list */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.code}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => (
-          <View className="h-px bg-gray-200" />
-        )}
-      />
-
-      {/* Confirm button */}
-      <View className="px-4 pt-3 pb-3">
+      {/* Confirm button — kept above decorative earth image */}
+      <View style={styles.footer}>
         <TouchableOpacity
           className="bg-lingua-purple rounded-2xl items-center py-4"
           activeOpacity={0.85}
           testID="language-confirm-button"
-          onPress={() => {
-            const selectedLang = LANGUAGES.find((l) => l.code === selectedCode);
-            posthog.capture("language_selected", {
-              language_code: selectedCode,
-              language_name: selectedLang?.name ?? selectedCode,
-            });
-            setSelectedLanguage(selectedCode as LanguageCode);
-            router.replace("/");
-          }}
+          onPress={handleConfirm}
         >
           <Text className="font-poppins-semibold text-base text-white">
-            Continue
+            {isSwitchMode ? "Save" : "Continue"}
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Earth image */}
-      <Image source={images.earth} style={styles.earthImage} resizeMode="cover" />
+      <Image
+        source={images.earth}
+        style={styles.earthImage}
+        resizeMode="cover"
+        pointerEvents="none"
+      />
     </SafeAreaView>
   );
 }
@@ -146,9 +197,22 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    backgroundColor: "#fff",
+    zIndex: 2,
   },
   earthImage: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     width: "100%",
     height: 130,
+    zIndex: 0,
   },
 });

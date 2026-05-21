@@ -70,6 +70,7 @@ export default {
       posthogProjectToken: process.env.POSTHOG_PROJECT_TOKEN,
       posthogHost: process.env.POSTHOG_HOST,
       streamApiKey: process.env.STREAM_API_KEY,
+      apiUrl: process.env.EXPO_PUBLIC_API_URL,
     },
   },
 };

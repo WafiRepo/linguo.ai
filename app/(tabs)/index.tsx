@@ -1,7 +1,11 @@
 import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useMemo, useState } from "react";
 import {
+  Alert,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,10 +14,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { NotificationsModal } from "@/components/NotificationsModal";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
 import { LANGUAGES } from "@/data/languages";
-import { UNITS } from "@/data/units";
+import { getActiveUnit, getCefrLevelForUnit, getLessonNumber, getLessonsForLanguage, getNextLesson, getUnitForLesson } from "@/lib/curriculum";
+import { buildHomeNotifications } from "@/lib/notifications";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
@@ -29,20 +35,20 @@ function getGreeting(langCode: LanguageCode | null): string {
       return "こんにちは";
     case "de":
       return "Hallo";
+    case "id":
+      return "Halo";
     default:
       return "Hello";
   }
 }
 
-const PLAN_ITEMS = [
+const PLAN_META = [
   {
     id: "lesson",
     icon: "book" as const,
     iconBg: "#EDE9FE",
     iconColor: colors.primary.purple,
     title: "Lesson",
-    subtitle: "At the café",
-    completed: true,
   },
   {
     id: "ai-conversation",
@@ -50,8 +56,6 @@ const PLAN_ITEMS = [
     iconBg: "#EDE9FE",
     iconColor: colors.primary.purple,
     title: "AI Conversation",
-    subtitle: "Talk about your day",
-    completed: false,
   },
   {
     id: "new-words",
@@ -59,72 +63,252 @@ const PLAN_ITEMS = [
     iconBg: "#FEE2E2",
     iconColor: "#EF4444",
     title: "New words",
-    subtitle: "10 words",
-    completed: false,
   },
-];
+] as const;
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { user } = useUser();
   const { signOut } = useAuth();
   const { selectedLanguage } = useLanguageStore();
-  const { xpToday, dailyGoal, streak } = useLearningStore();
+  const { xpToday, dailyGoal, streak, completedLessonIds, getActiveLessonId } =
+    useLearningStore();
 
   const language = LANGUAGES.find((l) => l.code === selectedLanguage);
-  const unit = UNITS.find((u) => u.languageCode === selectedLanguage);
+  const activeUnit = selectedLanguage
+    ? getActiveUnit(selectedLanguage, completedLessonIds)
+    : undefined;
+  const nextLesson = selectedLanguage
+    ? getNextLesson(selectedLanguage, completedLessonIds)
+    : undefined;
+  const activeLessonId = selectedLanguage
+    ? getActiveLessonId(selectedLanguage)
+    : undefined;
+  const continueLesson =
+    (activeLessonId
+      ? getLessonsForLanguage(selectedLanguage!).find(
+          (l) => l.id === activeLessonId,
+        )
+      : undefined) ?? nextLesson;
+  const progressUnit =
+    continueLesson && selectedLanguage
+      ? getUnitForLesson(selectedLanguage, continueLesson.id)
+      : activeUnit;
+  const lessonNumber =
+    continueLesson && selectedLanguage
+      ? getLessonNumber(selectedLanguage, continueLesson.id)
+      : 1;
+  const progressLabel =
+    progressUnit && selectedLanguage
+      ? `${getCefrLevelForUnit(progressUnit.order)} · Unit ${progressUnit.order}`
+      : "A1 · Unit 1";
+  const continueLessonTitle =
+    continueLesson?.title ?? "Start your first lesson";
+  const continueLessonTopic =
+    continueLesson?.description ?? progressUnit?.description ?? "";
   const firstName = user?.firstName ?? "Learner";
   const greeting = getGreeting(selectedLanguage);
   const xpProgress =
     dailyGoal > 0 ? Math.min((xpToday / dailyGoal) * 100, 100) : 0;
+  const canSwitchLanguage = LANGUAGES.length > 1;
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [notificationsRead, setNotificationsRead] = useState(false);
+
+  const planItems = useMemo(() => {
+    const lessonNumber =
+      continueLesson && selectedLanguage
+        ? getLessonNumber(selectedLanguage, continueLesson.id)
+        : 1;
+    const vocabularyCount = continueLesson?.vocabulary.length ?? 10;
+
+    return PLAN_META.map((item) => {
+      if (item.id === "lesson") {
+        return {
+          ...item,
+          subtitle: continueLesson?.title ?? "Start your first lesson",
+          completed: continueLesson
+            ? completedLessonIds.includes(continueLesson.id)
+            : false,
+        };
+      }
+
+      if (item.id === "ai-conversation") {
+        return {
+          ...item,
+          subtitle: continueLesson
+            ? `Practice lesson ${lessonNumber} with Sari`
+            : "Talk with your AI teacher",
+          completed: false,
+        };
+      }
+
+      return {
+        ...item,
+        subtitle: `${vocabularyCount} words`,
+        completed: false,
+      };
+    });
+  }, [continueLesson, completedLessonIds, selectedLanguage]);
+
+  const notifications = useMemo(
+    () =>
+      buildHomeNotifications({
+        xpToday,
+        dailyGoal,
+        streak,
+        nextLessonTitle: continueLesson?.title,
+        languageName: language?.name,
+      }),
+    [xpToday, dailyGoal, streak, continueLesson?.title, language?.name],
+  );
+  const showNotificationBadge =
+    notifications.length > 0 && !notificationsRead;
+
+  function handleContinueLearning() {
+    posthog.capture("continue_learning_tapped", {
+      language_code: selectedLanguage,
+      unit_order: activeUnit?.order ?? 1,
+      xp_today: xpToday,
+      streak,
+      lesson_id: continueLesson?.id ?? null,
+    });
+
+    if (continueLesson) {
+      router.push(`/lesson/${continueLesson.id}`);
+      return;
+    }
+
+    router.push("/learn");
+  }
+
+  function handleOpenNotifications() {
+    setNotificationsVisible(true);
+    try {
+      posthog.capture("notifications_opened", {
+        notification_count: notifications.length,
+      });
+    } catch {
+      // Analytics must not block notifications UI
+    }
+  }
+
+  function handleCloseNotifications() {
+    setNotificationsVisible(false);
+    setNotificationsRead(true);
+  }
+
+  function handleSignOut() {
+    Alert.alert("Sign out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            posthog.capture("sign_out_tapped");
+            posthog.reset();
+            await signOut();
+            router.replace("/onboarding");
+          } catch (error) {
+            console.error("Sign out failed:", error);
+            Alert.alert(
+              "Sign out failed",
+              "Something went wrong. Please try again.",
+            );
+          }
+        },
+      },
+    ]);
+  }
+
+  const headerContent = (
+    <>
+      {language ? (
+        <Image
+          source={{ uri: language.flag }}
+          className="w-[34px] h-[34px] rounded-full"
+        />
+      ) : (
+        <View className="w-[34px] h-[34px] rounded-full bg-surface" />
+      )}
+      <Text
+        className="font-poppins-semibold text-base text-text-primary flex-shrink"
+        numberOfLines={1}
+      >
+        {greeting}, {firstName}! 👋
+      </Text>
+    </>
+  );
 
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: colors.neutral.background }}
     >
+      {/* Header — outside ScrollView so taps are not blocked */}
+      <View style={styles.headerRow}>
+        <View
+          style={styles.headerLeft}
+          pointerEvents="box-none"
+        >
+          {canSwitchLanguage ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              testID="change-language-button"
+              onPress={() => router.push("/language-select?mode=switch")}
+              style={styles.headerGreeting}
+            >
+              {headerContent}
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerGreeting}>{headerContent}</View>
+          )}
+        </View>
+
+        <View style={styles.headerActions}>
+          <View style={styles.streakWrap}>
+            <Image source={images.streakFire} style={styles.streakIcon} />
+            <Text style={styles.streakText}>{streak}</Text>
+          </View>
+          <Pressable
+            testID="notifications-button"
+            onPress={handleOpenNotifications}
+            style={({ pressed }) => [
+              styles.headerIconButton,
+              pressed && styles.headerIconButtonPressed,
+            ]}
+            hitSlop={8}
+          >
+            <Ionicons
+              name="notifications-outline"
+              size={24}
+              color={colors.neutral.textPrimary}
+            />
+            {showNotificationBadge ? (
+              <View style={styles.notificationBadge} pointerEvents="none" />
+            ) : null}
+          </Pressable>
+          <Pressable
+            testID="sign-out-button"
+            onPress={handleSignOut}
+            style={({ pressed }) => [
+              styles.headerIconButton,
+              pressed && styles.headerIconButtonPressed,
+            ]}
+            hitSlop={8}
+          >
+            <Ionicons
+              name="log-out-outline"
+              size={24}
+              color={colors.neutral.textPrimary}
+            />
+          </Pressable>
+        </View>
+      </View>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ── Header ── */}
-        <View className="flex-row items-center justify-between mb-5">
-          <View className="flex-row items-center gap-[10px]">
-            {language ? (
-              <Image
-                source={{ uri: language.flag }}
-                className="w-[34px] h-[34px] rounded-full"
-              />
-            ) : (
-              <View className="w-[34px] h-[34px] rounded-full bg-surface" />
-            )}
-            <Text className="font-poppins-semibold text-base text-text-primary">
-              {greeting}, {firstName}! 👋
-            </Text>
-          </View>
-
-          <View className="flex-row items-center gap-[14px]">
-            <View className="flex-row items-center gap-1">
-              <Image source={images.streakFire} className="w-[22px] h-[22px]" />
-              <Text className="font-poppins-semibold text-[15px] text-streak">
-                {streak}
-              </Text>
-            </View>
-            <TouchableOpacity activeOpacity={0.7}>
-              <Ionicons
-                name="notifications-outline"
-                size={24}
-                color={colors.neutral.textPrimary}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity activeOpacity={0.7} onPress={() => signOut()}>
-              <Ionicons
-                name="log-out-outline"
-                size={24}
-                color={colors.neutral.textPrimary}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* ── Daily Goal Card ── */}
         <View className="flex-row items-center bg-[#FFF5E8] rounded-[20px] py-4 pl-5 pr-3 mb-4">
           <View className="flex-1 pr-2">
@@ -154,7 +338,7 @@ export default function HomeScreen() {
         </View>
 
         {/* ── Continue Learning Card ── */}
-        <View className="flex-row bg-lingua-purple rounded-[20px] h-[160px] mb-6 overflow-hidden">
+        <View className="flex-row bg-lingua-purple rounded-[20px] min-h-[160px] mb-6 overflow-hidden">
           <View className="flex-1 py-5 pl-5 pr-2 justify-between">
             <View>
               <Text className="font-poppins text-[11px] text-white/75 mb-0.5">
@@ -163,22 +347,25 @@ export default function HomeScreen() {
               <Text className="font-poppins-bold text-[22px] text-white leading-7">
                 {language?.name ?? "Pick a language"}
               </Text>
-              <Text className="font-poppins text-xs text-white/65 mt-0.5">
-                A1 · Unit {unit?.order ?? 1}
+              <Text
+                className="font-poppins-semibold text-[13px] text-white mt-1"
+                numberOfLines={1}
+              >
+                Lesson {lessonNumber} · {continueLessonTitle}
+              </Text>
+              <Text
+                className="font-poppins text-[11px] text-white/65 mt-0.5"
+                numberOfLines={2}
+              >
+                {progressLabel}
+                {continueLessonTopic ? ` · ${continueLessonTopic}` : ""}
               </Text>
             </View>
             <TouchableOpacity
               className="bg-white rounded-xl py-2 px-[22px] self-start"
               activeOpacity={0.85}
               testID="continue-learning-button"
-              onPress={() => {
-                posthog.capture("continue_learning_tapped", {
-                  language_code: selectedLanguage,
-                  unit_order: unit?.order ?? 1,
-                  xp_today: xpToday,
-                  streak,
-                });
-              }}
+              onPress={handleContinueLearning}
             >
               <Text className="font-poppins-semibold text-[13px] text-lingua-purple">
                 Continue
@@ -209,7 +396,7 @@ export default function HomeScreen() {
           className="bg-white rounded-[20px] border border-border mb-4 overflow-hidden"
           style={styles.planCardShadow}
         >
-          {PLAN_ITEMS.map((item, index) => (
+          {planItems.map((item, index) => (
             <View key={item.id}>
               {index > 0 && <View className="h-px bg-border mx-4" />}
               <View className="flex-row items-center px-4 py-[14px]">
@@ -239,15 +426,74 @@ export default function HomeScreen() {
           ))}
         </View>
       </ScrollView>
+
+      <NotificationsModal
+        visible={notificationsVisible}
+        notifications={notifications}
+        onClose={handleCloseNotifications}
+        onMarkAllRead={() => setNotificationsRead(true)}
+      />
     </SafeAreaView>
   );
 }
 
 // ScrollView.contentContainerStyle and shadow (iOS/Android) must stay in StyleSheet
 const styles = StyleSheet.create({
-  scrollContent: {
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 12,
+    paddingBottom: 8,
+    zIndex: 10,
+    elevation: 10,
+  },
+  headerLeft: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
+  },
+  headerGreeting: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    maxWidth: "100%",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
+  },
+  streakWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginRight: 4,
+  },
+  streakIcon: {
+    width: 22,
+    height: 22,
+  },
+  streakText: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 15,
+    color: colors.semantic.streak,
+  },
+  headerIconButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 22,
+  },
+  headerIconButtonPressed: {
+    backgroundColor: colors.neutral.surface,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
     paddingBottom: 100,
   },
   planCardShadow: {
@@ -256,5 +502,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: 1,
+    right: 1,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.semantic.error,
+    borderWidth: 1.5,
+    borderColor: colors.neutral.background,
   },
 });

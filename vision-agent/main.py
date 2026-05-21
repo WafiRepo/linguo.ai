@@ -1,3 +1,4 @@
+import asyncio
 import os
 from typing import Optional
 
@@ -12,11 +13,17 @@ from getstream.models import MemberRequest  # noqa: E402
 from openai.types.realtime.realtime_transcription_session_audio_input_turn_detection_param import ServerVad  # noqa: E402
 from vision_agents.core import Agent, AgentLauncher, User, Runner  # noqa: E402
 from vision_agents.core.instructions import Instructions  # noqa: E402
-from vision_agents.core.llm.events import (  # noqa: E402
-    RealtimeAgentSpeechTranscriptionEvent,
-    RealtimeUserSpeechTranscriptionEvent,
-)
 from vision_agents.plugins import getstream, openai  # noqa: E402
+
+from feedback import FeedbackRollingAverage, RepeatTracker, assess_user_turn  # noqa: E402
+from instruction_language import (  # noqa: E402
+    append_instruction_language_rules,
+    append_repeat_limit_rule,
+    greeting_hint_for_lesson,
+    move_on_after_repeats_hint,
+    normalize_instruction_languages,
+)
+from pronunciation import append_pronunciation_guide  # noqa: E402
 
 AGENT_USER_ID = "ai-teacher"
 
@@ -25,6 +32,7 @@ LANGUAGE_NAMES: dict[str, str] = {
     "fr": "French",
     "ja": "Japanese",
     "de": "German",
+    "id": "Indonesian",
 }
 
 DEFAULT_SYSTEM_PROMPT = (
@@ -43,19 +51,72 @@ DEFAULT_SYSTEM_PROMPT = (
     "- Never continue past a question mark. Every question is a hard stop.\n"
     "- Never role-play the student's response or write what you imagine they said.\n"
     "- Keep every reply to one or two short sentences maximum.\n"
-    "- Stay strictly within the current lesson's vocabulary."
+    "- Stay strictly within the current lesson's vocabulary.\n"
+    "- REPEAT LIMIT: Ask the student to repeat the SAME word at most 2 times. "
+    "After 2 repeat requests on one word, encourage briefly and teach the next lesson word. "
+    "Never ask for a 3rd repeat on the same word."
 )
+
+def _safe_log(message: str) -> None:
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        print(message.encode("ascii", errors="backslashreplace").decode("ascii"))
+
 
 def _require_env(var_name: str) -> None:
     if not os.getenv(var_name):
         raise RuntimeError(f"Missing required environment variable: {var_name}")
 
-def _language_name_from_call_id(call_id: str) -> Optional[str]:
-    # call_id format: lesson-{langCode}-lesson-{n}-{userId}
-    parts = call_id.split("-")
-    if len(parts) >= 2 and parts[0] == "lesson":
-        return LANGUAGE_NAMES.get(parts[1])
+def _language_code_from_call_id(call_id: str) -> Optional[str]:
+    """Parse language code from call_id like lesson-{lessonId}-{userId}."""
+    if not call_id.startswith("lesson-"):
+        return None
+    remainder = call_id[len("lesson-"):]
+    user_marker = "-user_"
+    if user_marker in remainder:
+        lesson_id = remainder[: remainder.index(user_marker)]
+    else:
+        lesson_id = remainder
+    if "-lesson-" in lesson_id:
+        return lesson_id.split("-lesson-", 1)[0]
     return None
+
+
+def _resolve_language(custom: dict, call_id: str) -> tuple[str, str]:
+    """Return (language_code, language_name) from call custom data or call_id."""
+    language_code = str(
+        custom.get("language_code") or custom.get("language") or ""
+    )
+    lesson_id = str(custom.get("lesson_id") or "")
+
+    if not language_code and lesson_id and "-lesson-" in lesson_id:
+        language_code = lesson_id.split("-lesson-", 1)[0]
+
+    if not language_code:
+        parsed = _language_code_from_call_id(call_id)
+        language_code = parsed or ""
+
+    language_name = LANGUAGE_NAMES.get(language_code) or "language"
+    return language_code, language_name
+
+
+def _configure_realtime_for_lesson(agent: Agent, language_code: str) -> None:
+    """Tune OpenAI Realtime session per lesson language."""
+    llm = agent.llm
+    realtime_session = getattr(llm, "realtime_session", None)
+    if not isinstance(realtime_session, dict):
+        return
+
+    audio = realtime_session.setdefault("audio", {})
+    input_cfg = audio.setdefault("input", {})
+    transcription = input_cfg.setdefault("transcription", {})
+    transcription["model"] = "gpt-4o-mini-transcribe"
+
+    if language_code == "id":
+        transcription["language"] = "id"
+    else:
+        transcription.pop("language", None)
 
 
 async def create_agent(**kwargs) -> Agent:
@@ -100,9 +161,39 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
 
     system_prompt  = custom.get("system_prompt") or DEFAULT_SYSTEM_PROMPT
     intro_message  = custom.get("intro_message")
-    language_code  = custom.get("language") or ""
     lesson_title   = custom.get("lesson_title") or ""
-    language_name  = LANGUAGE_NAMES.get(language_code) or _language_name_from_call_id(call_id) or "language"
+    lesson_description = custom.get("lesson_description") or ""
+    language_code, language_name = _resolve_language(custom, call_id)
+    instruction_languages = normalize_instruction_languages(custom)
+
+    print(
+        f"[agent] Joining call {call_id}: "
+        f"language_code={language_code!r}, language_name={language_name!r}, "
+        f"instruction_languages={instruction_languages!r}, "
+        f"lesson_title={lesson_title!r}, "
+        f"lesson_description={lesson_description!r}"
+    )
+
+    if language_name != "language" and language_name not in system_prompt:
+        system_prompt = (
+            f"You are teaching {language_name} (language code: {language_code}). "
+            f"{system_prompt}"
+        )
+
+    system_prompt = append_instruction_language_rules(
+        system_prompt,
+        language_code,
+        instruction_languages,
+    )
+    system_prompt = append_pronunciation_guide(
+        system_prompt,
+        custom.get("vocabulary") or [],
+        custom.get("phrases") or [],
+        language_code,
+    )
+    system_prompt = append_repeat_limit_rule(system_prompt)
+
+    _configure_realtime_for_lesson(agent, language_code)
 
     # Apply lesson-specific instructions before joining so the Realtime LLM receives them
     agent.instructions = Instructions(input_text=system_prompt)
@@ -123,63 +214,109 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
     # Accumulate transcript deltas and forward them as Stream custom events so the
     # mobile app can display real-time captions word-by-word as speech is generated.
     partial_agent: list[str] = []
-    partial_user: list[str] = []
+    lesson_vocabulary = custom.get("vocabulary") or []
+    lesson_phrases = custom.get("phrases") or []
+    feedback_tracker = FeedbackRollingAverage()
+    repeat_tracker = RepeatTracker()
 
-    async def on_transcript_event(event) -> None:
-        if isinstance(event, RealtimeAgentSpeechTranscriptionEvent):
-            if event.mode == "delta" and event.text:
-                partial_agent.append(event.text)
-                try:
-                    await agent.send_custom_event({
-                        "type": "transcript_partial",
-                        "speaker": "agent",
-                        "text": "".join(partial_agent),
-                    })
-                except Exception as e:
-                    print(f"[agent] send_custom_event error: {e}")
-            elif event.mode == "final":
-                partial_agent.clear()
+    async def send_feedback_update(scores: dict[str, str]) -> None:
+        try:
+            await agent.send_custom_event({
+                "type": "feedback_update",
+                "speaking": scores["speaking"],
+                "pronunciation": scores["pronunciation"],
+                "grammar": scores["grammar"],
+            })
+        except Exception as e:
+            print(f"[agent] feedback_update error: {e}")
 
-        elif isinstance(event, RealtimeUserSpeechTranscriptionEvent):
-            if event.mode == "delta" and event.text:
-                partial_user.append(event.text)
-                try:
-                    await agent.send_custom_event({
-                        "type": "transcript_partial",
-                        "speaker": "user",
-                        "text": "".join(partial_user),
-                    })
-                except Exception as e:
-                    print(f"[agent] send_custom_event error: {e}")
-            elif event.mode == "final":
-                partial_user.clear()
-
-    agent.subscribe(on_transcript_event)
-
-    async with agent.join(call):
-        # Wait for the student to join (returns immediately if already present)
-        await agent.wait_for_participant(timeout=60.0)
-
-        if intro_message:
-            context_parts = [f"A student just joined your {language_name} lesson"]
-            if lesson_title:
-                context_parts[0] += f" — '{lesson_title}'"
-            context_parts[0] += "."
-            context_parts.append(
-                f"Deliver this greeting and NOTHING else: \"{intro_message}\" "
-                f"After the greeting, ask the student one simple question to get them talking — "
-                f"for example 'Are you ready to get started?' or 'Have you learned any {language_name} before?' "
-                f"Then STOP and wait for the student's reply before teaching anything."
+    async def handle_user_feedback(final_text: str) -> None:
+        turn_scores = assess_user_turn(
+            final_text,
+            lesson_vocabulary,
+            lesson_phrases,
+        )
+        rolled_scores = feedback_tracker.update(turn_scores)
+        should_move_on = repeat_tracker.record_attempt(
+            final_text,
+            lesson_vocabulary,
+            lesson_phrases,
+        )
+        _safe_log(
+            f"[agent] feedback for {final_text!r}: {rolled_scores}, "
+            f"should_move_on={should_move_on}"
+        )
+        await send_feedback_update(rolled_scores)
+        if should_move_on:
+            hint = move_on_after_repeats_hint(
+                language_code,
+                final_text,
+                instruction_languages,
             )
-            await agent.simple_response(" ".join(context_parts))
-        else:
-            await agent.simple_response(
-                f"A student just joined your {language_name} lesson. "
-                f"Greet them warmly and ask one short question — like 'Ready to learn some {language_name}?' "
-                f"Then STOP and wait for their reply before you teach anything."
-            )
+            _safe_log("[agent] repeat limit reached — moving to next word")
+            await agent.simple_response(hint)
 
-        await agent.finish()
+    llm = agent.llm
+    original_emit_user = llm._emit_user_speech_transcription
+    original_emit_agent = llm._emit_agent_speech_transcription
+
+    def emit_user_speech_transcription(text: str, *, mode) -> None:
+        original_emit_user(text, mode=mode)
+        if mode != "final":
+            return
+        final_text = text.strip()
+        if final_text:
+            asyncio.create_task(handle_user_feedback(final_text))
+
+    def emit_agent_speech_transcription(text: str, *, mode) -> None:
+        original_emit_agent(text, mode=mode)
+        if mode == "delta" and text:
+            partial_agent.append(text)
+            asyncio.create_task(
+                agent.send_custom_event({
+                    "type": "transcript_partial",
+                    "speaker": "agent",
+                    "text": "".join(partial_agent),
+                })
+            )
+        elif mode == "final":
+            partial_agent.clear()
+
+    llm._emit_user_speech_transcription = emit_user_speech_transcription
+    llm._emit_agent_speech_transcription = emit_agent_speech_transcription
+
+    try:
+        async with agent.join(call):
+            # Wait for the student to join (returns immediately if already present)
+            await agent.wait_for_participant(timeout=60.0)
+
+            if intro_message:
+                context_parts = [f"A student just joined your {language_name} lesson"]
+                if lesson_description:
+                    context_parts[0] += f" — topic: {lesson_description}"
+                elif lesson_title:
+                    context_parts[0] += f" — '{lesson_title}'"
+                context_parts[0] += "."
+                follow_up = greeting_hint_for_lesson(
+                    language_name,
+                    language_code,
+                    instruction_languages,
+                )
+                context_parts.append(
+                    f'Deliver this greeting and NOTHING else: "{intro_message}" {follow_up}'
+                )
+                await agent.simple_response(" ".join(context_parts))
+            else:
+                await agent.simple_response(
+                    f"A student just joined your {language_name} lesson. "
+                    f"Greet them warmly and ask one short question — like 'Ready to learn some {language_name}?' "
+                    f"Then STOP and wait for their reply before you teach anything."
+                )
+
+            await agent.finish()
+    finally:
+        llm._emit_user_speech_transcription = original_emit_user
+        llm._emit_agent_speech_transcription = original_emit_agent
 
 
 if __name__ == "__main__":

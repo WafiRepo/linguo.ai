@@ -1,4 +1,4 @@
-import { Unit } from '@/types/learning';
+import { LanguageCode, Unit } from '@/types/learning';
 
 export const UNITS: Unit[] = [
   {
@@ -33,4 +33,50 @@ export const UNITS: Unit[] = [
     order: 1,
     lessonIds: ['de-lesson-1', 'de-lesson-2', 'de-lesson-3', 'de-lesson-4', 'de-lesson-5'],
   },
+  {
+    id: 'id-unit-1',
+    languageCode: 'id',
+    title: 'Salam & Dasar',
+    description: 'Mulai belajar Bahasa Indonesia dengan sapaan sehari-hari',
+    order: 1,
+    lessonIds: ['id-lesson-1', 'id-lesson-2', 'id-lesson-3', 'id-lesson-4', 'id-lesson-5'],
+  },
+  {
+    id: 'id-unit-2',
+    languageCode: 'id',
+    title: 'Keluarga & Teman',
+    description: 'Kenalan dengan keluarga, teman, pekerjaan, dan hobi',
+    order: 2,
+    lessonIds: ['id-lesson-6', 'id-lesson-7', 'id-lesson-8', 'id-lesson-9', 'id-lesson-10'],
+  },
+  {
+    id: 'id-unit-3',
+    languageCode: 'id',
+    title: 'Makanan & Minuman',
+    description: 'Pesan makanan, minuman, dan bicara soal rasa',
+    order: 3,
+    lessonIds: ['id-lesson-11', 'id-lesson-12', 'id-lesson-13', 'id-lesson-14', 'id-lesson-15'],
+  },
+  {
+    id: 'id-unit-4',
+    languageCode: 'id',
+    title: 'Belanja & Uang',
+    description: 'Belanja, tawar-menawar, dan bayar dengan rupiah',
+    order: 4,
+    lessonIds: ['id-lesson-16', 'id-lesson-17', 'id-lesson-18', 'id-lesson-19', 'id-lesson-20'],
+  },
+  {
+    id: 'id-unit-5',
+    languageCode: 'id',
+    title: 'Perjalanan & Sehari-hari',
+    description: 'Arah, transportasi, hotel, cuaca, dan darurat',
+    order: 5,
+    lessonIds: ['id-lesson-21', 'id-lesson-22', 'id-lesson-23', 'id-lesson-24', 'id-lesson-25'],
+  },
 ];
+
+export function getUnitsForLanguage(languageCode: LanguageCode): Unit[] {
+  return UNITS.filter((unit) => unit.languageCode === languageCode).sort(
+    (a, b) => a.order - b.order,
+  );
+}
