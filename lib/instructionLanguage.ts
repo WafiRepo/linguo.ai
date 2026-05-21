@@ -78,6 +78,9 @@ function buildEnglishIndonesianSystemPrompt(lesson: Lesson): string {
     "You're a warm English-speaking teacher helping a student learn Indonesian. " +
     `Today's topic (English label only — NOT Indonesian vocabulary): ${topic}. ` +
     "This is INTERACTIVE — not a lecture. " +
+    "INSTRUCTION LANGUAGE: English ONLY for every explanation, meaning, question, praise, and correction. " +
+    "ZERO MIXING: After you say an Indonesian lesson word, every other word in that turn must be English. " +
+    "Never insert Chinese characters or Indonesian explanation words. " +
     "TEACHING MODE order: (1) say ONLY the Indonesian word/phrase first with a brief pause, " +
     "using Indonesian phonetics — not English stress or English vowels; " +
     "(2) explain the meaning in English; (3) give one short pronunciation tip in English; " +
@@ -123,6 +126,7 @@ export function resolveAiTeacherPrompt(
       systemPrompt: appendEmotionToPrompt(
         buildEnglishIndonesianSystemPrompt(lesson),
         emotion,
+        "en",
       ),
       introMessage: buildEnglishIndonesianIntro(lesson),
     };
@@ -133,6 +137,7 @@ export function resolveAiTeacherPrompt(
     systemPrompt: appendEmotionToPrompt(
       lesson.aiTeacherPrompt.systemPrompt,
       emotion,
+      tutorVoice,
     ),
     introMessage: lesson.aiTeacherPrompt.introMessage,
   };
