@@ -26,7 +26,7 @@ from instruction_language import (  # noqa: E402
 from pronunciation import append_pronunciation_guide  # noqa: E402
 from tutor_emotion import (  # noqa: E402
     append_emotion_to_prompt,
-    apply_openai_voice,
+    log_emotion_voice,
     normalize_tutor_emotion,
 )
 
@@ -202,9 +202,11 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
     system_prompt = append_repeat_limit_rule(system_prompt)
     system_prompt = append_emotion_to_prompt(system_prompt, tutor_emotion)
 
-    voice_name = apply_openai_voice(agent, tutor_emotion)
-    if voice_name:
-        print(f"[agent] OpenAI Realtime voice: {voice_name} (emotion={tutor_emotion})")
+    voice_name = log_emotion_voice(tutor_emotion)
+    print(
+        f"[agent] Tutor emotion={tutor_emotion!r} "
+        f"(voice tone via prompt; default voice={voice_name})"
+    )
 
     _configure_realtime_for_lesson(agent, language_code)
 

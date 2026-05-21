@@ -1,7 +1,5 @@
 """Tutor emotional style presets for the AI teacher voice agent."""
 
-from typing import Optional
-
 VALID_EMOTIONS = frozenset({"warm", "calm", "energetic", "encouraging", "strict"})
 DEFAULT_EMOTION = "warm"
 
@@ -58,20 +56,6 @@ def append_emotion_to_prompt(system_prompt: str, emotion: str) -> str:
     return f"{system_prompt.strip()}\n\n{marker} (follow in every reply): {rule}"
 
 
-def apply_openai_voice(agent, emotion: str) -> Optional[str]:
-    """Best-effort voice override on the Realtime LLM plugin."""
-    voice = openai_voice_for_emotion(emotion)
-    llm = agent.llm
-
-    for attr in ("voice",):
-        if hasattr(llm, attr):
-            try:
-                setattr(llm, attr, voice)
-            except Exception:
-                pass
-
-    realtime_session = getattr(llm, "realtime_session", None)
-    if isinstance(realtime_session, dict):
-        realtime_session["voice"] = voice
-
-    return voice
+def log_emotion_voice(emotion: str) -> str:
+    """Return mapped OpenAI voice name for logging (prompt controls tone; no session.voice)."""
+    return openai_voice_for_emotion(emotion)
