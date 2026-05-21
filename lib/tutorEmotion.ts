@@ -1,3 +1,5 @@
+import type { InstructionLanguageCode } from "@/lib/instructionLanguage";
+
 export type TutorEmotionCode =
   | "warm"
   | "calm"
@@ -47,17 +49,27 @@ export const TUTOR_EMOTION_OPTIONS: TutorEmotionOption[] = [
   },
 ];
 
-const EMOTION_PROMPT_RULES: Record<TutorEmotionCode, string> = {
+const EMOTION_PROMPT_RULES_EN: Record<TutorEmotionCode, string> = {
   warm:
-    "Speak warmly and patiently. Use gentle encouragement. Stay friendly without being overly casual.",
+    "Speak warmly and patiently in English only. Use gentle encouragement. Stay friendly without being overly casual.",
   calm:
-    "Speak softly and at a relaxed pace. Stay calm even if the student struggles. Avoid sounding rushed or loud.",
+    "Speak softly and at a relaxed pace in English only. Stay calm even if the student struggles. Avoid sounding rushed or loud.",
   energetic:
-    "Be upbeat and lively. Show enthusiasm when the student tries. Keep energy high but still stop at each question mark.",
+    "Be upbeat and lively in English only. Show enthusiasm when the student tries. Keep energy high but still stop at each question mark.",
   encouraging:
-    "Focus on praise and motivation. Lead with what went well before any correction. Keep corrections brief and kind.",
+    "Focus on praise and motivation in English only. Lead with what went well before any correction. Keep corrections brief and kind.",
   strict:
-    "Be clear, direct, and structured. Correct mistakes promptly but respectfully. Stay professional and concise.",
+    "Be clear, direct, and structured in English only. Correct mistakes promptly but respectfully. Stay professional and concise.",
+};
+
+const EMOTION_PROMPT_RULES_ZH: Record<TutorEmotionCode, string> = {
+  warm: "用繁體中文（台灣）溫暖、耐心地說話，給予溫和的鼓勵，保持友善。",
+  calm: "用繁體中文（台灣）輕柔、從容地說話，即使學生卡住了也保持平靜，不要急促或大聲。",
+  energetic:
+    "用繁體中文（台灣）活潑、有精神地說話，學生嘗試時給予熱忱，但仍要在問號處停止。",
+  encouraging:
+    "用繁體中文（台灣）著重稱讚與動機，先肯定再簡短糾正，語氣要溫和。",
+  strict: "用繁體中文（台灣）清楚、直接、有條理地說話，及時糾正但保持尊重。",
 };
 
 /** OpenAI Realtime voice names — applied server-side in vision-agent. */
@@ -73,10 +85,21 @@ export function isTutorEmotionCode(value: string | null | undefined): value is T
   return TUTOR_EMOTION_OPTIONS.some((option) => option.code === value);
 }
 
+function emotionRuleForLanguage(
+  emotion: TutorEmotionCode,
+  tutorVoice: InstructionLanguageCode,
+): string {
+  if (tutorVoice === "zh-TW") {
+    return EMOTION_PROMPT_RULES_ZH[emotion];
+  }
+  return EMOTION_PROMPT_RULES_EN[emotion];
+}
+
 export function appendEmotionToPrompt(
   systemPrompt: string,
   emotion: TutorEmotionCode,
+  tutorVoice: InstructionLanguageCode = "zh-TW",
 ): string {
-  const rule = EMOTION_PROMPT_RULES[emotion];
-  return `${systemPrompt.trim()}\n\nEMOTION STYLE (follow in every reply): ${rule}`;
+  const rule = emotionRuleForLanguage(emotion, tutorVoice);
+  return `${systemPrompt.trim()}\n\nEMOTION STYLE (follow in every reply, in your instruction language only): ${rule}`;
 }

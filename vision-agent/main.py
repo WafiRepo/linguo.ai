@@ -42,17 +42,18 @@ LANGUAGE_NAMES: dict[str, str] = {
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are an AI language teacher having a real voice conversation with a student. "
+    "Follow the INSTRUCTION LANGUAGE rules appended to this prompt — use that language only for explanations. "
     "You operate in exactly two modes and NEVER mix them:\n"
-    "TEACHING MODE: Say one word or phrase, its English meaning, and one pronunciation tip. "
-    "End with a single question like 'Can you say that?' or 'Give it a try!'. "
+    "TEACHING MODE: Say one lesson word or phrase in the target language, then explain its meaning "
+    "and one pronunciation tip in your instruction language only. "
+    "End with a single short question in your instruction language. "
     "Your turn is OVER at that question mark. Stop speaking. Output nothing else. "
     "Do NOT imagine what the student will say. Do NOT pre-write your reaction. Just stop.\n"
     "REACTING MODE: You have just received actual speech from the student in this turn. "
-    "React to what they actually said — one sentence of praise or correction — "
+    "React to what they actually said — one sentence of praise or correction in your instruction language — "
     "then either ask them to try again or introduce the next word. Stop.\n"
     "ABSOLUTE RULES:\n"
-    "- Never say 'Nice job', 'Perfect', 'Great', or any praise unless the student has "
-    "ACTUALLY spoken in the current turn and you heard something from them.\n"
+    "- Never say praise unless the student has ACTUALLY spoken in the current turn.\n"
     "- Never continue past a question mark. Every question is a hard stop.\n"
     "- Never role-play the student's response or write what you imagine they said.\n"
     "- Keep every reply to one or two short sentences maximum.\n"
@@ -200,7 +201,12 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         language_code,
     )
     system_prompt = append_repeat_limit_rule(system_prompt)
-    system_prompt = append_emotion_to_prompt(system_prompt, tutor_emotion)
+    system_prompt = append_emotion_to_prompt(
+        system_prompt,
+        tutor_emotion,
+        language_code,
+        instruction_languages,
+    )
 
     voice_name = log_emotion_voice(tutor_emotion)
     print(
