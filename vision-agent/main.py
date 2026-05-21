@@ -24,6 +24,11 @@ from instruction_language import (  # noqa: E402
     normalize_instruction_languages,
 )
 from pronunciation import append_pronunciation_guide  # noqa: E402
+from tutor_emotion import (  # noqa: E402
+    append_emotion_to_prompt,
+    apply_openai_voice,
+    normalize_tutor_emotion,
+)
 
 AGENT_USER_ID = "ai-teacher"
 
@@ -36,7 +41,7 @@ LANGUAGE_NAMES: dict[str, str] = {
 }
 
 DEFAULT_SYSTEM_PROMPT = (
-    "You are a warm, energetic AI language teacher having a real voice conversation with a student. "
+    "You are an AI language teacher having a real voice conversation with a student. "
     "You operate in exactly two modes and NEVER mix them:\n"
     "TEACHING MODE: Say one word or phrase, its English meaning, and one pronunciation tip. "
     "End with a single question like 'Can you say that?' or 'Give it a try!'. "
@@ -123,6 +128,7 @@ async def create_agent(**kwargs) -> Agent:
     return Agent(
         edge=getstream.Edge(),
         llm=openai.Realtime(
+            voice="coral",
             # server_vad fires on raw audio energy (~100 ms after mic opens) rather
             # than waiting for semantic speech intent detection (~500 ms+).
             # This means the agent stops speaking almost immediately when the user
@@ -165,11 +171,13 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
     lesson_description = custom.get("lesson_description") or ""
     language_code, language_name = _resolve_language(custom, call_id)
     instruction_languages = normalize_instruction_languages(custom)
+    tutor_emotion = normalize_tutor_emotion(custom.get("tutor_emotion"))
 
     print(
         f"[agent] Joining call {call_id}: "
         f"language_code={language_code!r}, language_name={language_name!r}, "
         f"instruction_languages={instruction_languages!r}, "
+        f"tutor_emotion={tutor_emotion!r}, "
         f"lesson_title={lesson_title!r}, "
         f"lesson_description={lesson_description!r}"
     )
@@ -192,6 +200,11 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         language_code,
     )
     system_prompt = append_repeat_limit_rule(system_prompt)
+    system_prompt = append_emotion_to_prompt(system_prompt, tutor_emotion)
+
+    voice_name = apply_openai_voice(agent, tutor_emotion)
+    if voice_name:
+        print(f"[agent] OpenAI Realtime voice: {voice_name} (emotion={tutor_emotion})")
 
     _configure_realtime_for_lesson(agent, language_code)
 

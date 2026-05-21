@@ -1,7 +1,7 @@
 import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { Href, useRouter } from "expo-router";
+import { useMemo, useState, useEffect } from "react";
 import {
   Alert,
   Image,
@@ -15,11 +15,18 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { NotificationsModal } from "@/components/NotificationsModal";
+import { TodayPlanList } from "@/components/TodayPlanList";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
 import { LANGUAGES } from "@/data/languages";
 import { getActiveUnit, getCefrLevelForUnit, getLessonNumber, getLessonsForLanguage, getNextLesson, getUnitForLesson } from "@/lib/curriculum";
+import { getLocalDateKey } from "@/lib/dailyProgress";
 import { buildHomeNotifications } from "@/lib/notifications";
+import {
+  buildTodayPlanItems,
+  createEmptyTodayPlanProgress,
+  TodayPlanItem,
+} from "@/lib/todayPlan";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
@@ -42,37 +49,19 @@ function getGreeting(langCode: LanguageCode | null): string {
   }
 }
 
-const PLAN_META = [
-  {
-    id: "lesson",
-    icon: "book" as const,
-    iconBg: "#EDE9FE",
-    iconColor: colors.primary.purple,
-    title: "Lesson",
-  },
-  {
-    id: "ai-conversation",
-    icon: "headset" as const,
-    iconBg: "#EDE9FE",
-    iconColor: colors.primary.purple,
-    title: "AI Conversation",
-  },
-  {
-    id: "new-words",
-    icon: "chatbubble-ellipses" as const,
-    iconBg: "#FEE2E2",
-    iconColor: "#EF4444",
-    title: "New words",
-  },
-] as const;
-
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { signOut } = useAuth();
   const { selectedLanguage } = useLanguageStore();
+  const syncDailyProgress = useLearningStore((s) => s.syncDailyProgress);
+  const todayPlanProgress = useLearningStore((s) => s.todayPlanProgress);
   const { xpToday, dailyGoal, streak, completedLessonIds, getActiveLessonId } =
     useLearningStore();
+
+  useEffect(() => {
+    syncDailyProgress();
+  }, [syncDailyProgress]);
 
   const language = LANGUAGES.find((l) => l.code === selectedLanguage);
   const activeUnit = selectedLanguage
@@ -113,42 +102,37 @@ export default function HomeScreen() {
   const canSwitchLanguage = LANGUAGES.length > 1;
   const [notificationsVisible, setNotificationsVisible] = useState(false);
   const [notificationsRead, setNotificationsRead] = useState(false);
+  const today = getLocalDateKey();
+  const resolvedPlanProgress = useMemo(() => {
+    if (!continueLesson) return undefined;
 
-  const planItems = useMemo(() => {
-    const lessonNumber =
-      continueLesson && selectedLanguage
-        ? getLessonNumber(selectedLanguage, continueLesson.id)
-        : 1;
-    const vocabularyCount = continueLesson?.vocabulary.length ?? 10;
+    if (
+      todayPlanProgress?.date === today &&
+      todayPlanProgress.lessonId === continueLesson.id
+    ) {
+      return todayPlanProgress;
+    }
 
-    return PLAN_META.map((item) => {
-      if (item.id === "lesson") {
-        return {
-          ...item,
-          subtitle: continueLesson?.title ?? "Start your first lesson",
-          completed: continueLesson
-            ? completedLessonIds.includes(continueLesson.id)
-            : false,
-        };
-      }
+    return createEmptyTodayPlanProgress(continueLesson.id, today);
+  }, [continueLesson, today, todayPlanProgress]);
 
-      if (item.id === "ai-conversation") {
-        return {
-          ...item,
-          subtitle: continueLesson
-            ? `Practice lesson ${lessonNumber} with Sari`
-            : "Talk with your AI teacher",
-          completed: false,
-        };
-      }
-
-      return {
-        ...item,
-        subtitle: `${vocabularyCount} words`,
-        completed: false,
-      };
-    });
-  }, [continueLesson, completedLessonIds, selectedLanguage]);
+  const planItems = useMemo(
+    () =>
+      buildTodayPlanItems({
+        lesson: continueLesson,
+        lessonNumber,
+        progress: resolvedPlanProgress,
+        date: today,
+        completedLessonIds,
+      }),
+    [
+      completedLessonIds,
+      continueLesson,
+      lessonNumber,
+      resolvedPlanProgress,
+      today,
+    ],
+  );
 
   const notifications = useMemo(
     () =>
@@ -179,6 +163,21 @@ export default function HomeScreen() {
     }
 
     router.push("/learn");
+  }
+
+  function handlePlanItemPress(item: TodayPlanItem) {
+    posthog.capture("today_plan_item_tapped", {
+      item_id: item.id,
+      route: item.route,
+      completed: item.completed,
+      source: "home",
+    });
+    router.push(item.route as Href);
+  }
+
+  function handleViewAllPlan() {
+    posthog.capture("today_plan_view_all_tapped");
+    router.push("/today-plan" as Href);
   }
 
   function handleOpenNotifications() {
@@ -323,6 +322,11 @@ export default function HomeScreen() {
                 {` / ${dailyGoal} XP`}
               </Text>
             </Text>
+            {xpToday >= dailyGoal ? (
+              <Text className="font-poppins-medium text-xs text-lingua-blue mt-1">
+                Goal reached today!
+              </Text>
+            ) : null}
             <View className="h-2 bg-border rounded mt-[10px] overflow-hidden">
               <View
                 className="h-2 bg-streak rounded"
@@ -384,46 +388,19 @@ export default function HomeScreen() {
           <Text className="font-poppins-semibold text-[17px] text-text-primary">
             {"Today's plan"}
           </Text>
-          <TouchableOpacity activeOpacity={0.7}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            testID="today-plan-view-all"
+            onPress={handleViewAllPlan}
+          >
             <Text className="font-poppins-medium text-[13px] text-lingua-blue">
               View all
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── Today's Plan Card ── */}
-        <View
-          className="bg-white rounded-[20px] border border-border mb-4 overflow-hidden"
-          style={styles.planCardShadow}
-        >
-          {planItems.map((item, index) => (
-            <View key={item.id}>
-              {index > 0 && <View className="h-px bg-border mx-4" />}
-              <View className="flex-row items-center px-4 py-[14px]">
-                <View
-                  className="w-11 h-11 rounded-xl items-center justify-center"
-                  style={{ backgroundColor: item.iconBg }}
-                >
-                  <Ionicons name={item.icon} size={20} color={item.iconColor} />
-                </View>
-                <View className="flex-1 ml-3">
-                  <Text className="font-poppins-semibold text-sm text-text-primary mb-0.5">
-                    {item.title}
-                  </Text>
-                  <Text className="font-poppins text-xs text-text-secondary">
-                    {item.subtitle}
-                  </Text>
-                </View>
-                {item.completed ? (
-                  <View className="w-[26px] h-[26px] rounded-full bg-lingua-blue items-center justify-center">
-                    <Ionicons name="checkmark" size={14} color="#fff" />
-                  </View>
-                ) : (
-                  <View className="w-[26px] h-[26px] rounded-full border-2 border-border" />
-                )}
-              </View>
-            </View>
-          ))}
+        <View className="mb-4">
+          <TodayPlanList items={planItems} onItemPress={handlePlanItemPress} />
         </View>
       </ScrollView>
 
@@ -495,13 +472,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 4,
     paddingBottom: 100,
-  },
-  planCardShadow: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
   },
   notificationBadge: {
     position: "absolute",
