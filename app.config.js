@@ -1,7 +1,7 @@
 export default {
   expo: {
-    name: "duolingo-clone",
-    slug: "duolingo-clone",
+    name: "Lingua",
+    slug: "linguo-ai",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",

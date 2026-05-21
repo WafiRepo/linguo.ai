@@ -96,7 +96,9 @@ To share the app with others (beta testers), you must deploy:
 2. **API routes** → EAS Hosting (`eas deploy --prod`)
 3. **Mobile app** → EAS Build (APK / TestFlight)
 
-See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for the full step-by-step guide (Indonesian).
+See **[DEPLOY_NOW.md](./DEPLOY_NOW.md)** for a step-by-step checklist (start here).
+
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for the full reference guide (Indonesian).
 
 ## Scripts
 
