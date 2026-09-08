@@ -47,3 +47,6 @@ app-example
 # JVM crash logs
 hs_err_pid*.log
 replay_pid*.log
+
+# Source reference docs (not bundled by the app)
+assets/VINSA_classroom management (2).pdf

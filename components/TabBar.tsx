@@ -28,7 +28,7 @@ type TabConfig = {
 
 const TABS: TabConfig[] = [
   { label: "Home", icon: "home-outline", activeIcon: "home" },
-  { label: "Learn", icon: "book-outline", activeIcon: "book" },
+  { label: "Learning Materials", icon: "book-outline", activeIcon: "book" },
   { label: "AI Teacher", icon: "sparkles-outline", activeIcon: "sparkles" },
   { label: "Chat", icon: "chatbubbles-outline", activeIcon: "chatbubbles" },
   { label: "Profile", icon: "person-outline", activeIcon: "person" },
@@ -84,7 +84,11 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
               size={22}
               color={isFocused ? "#fff" : colors.neutral.textSecondary}
             />
-            {!isFocused && <Text style={styles.label}>{tab.label}</Text>}
+            {!isFocused && (
+              <Text style={styles.label} numberOfLines={2}>
+                {tab.label}
+              </Text>
+            )}
           </TouchableOpacity>
         );
       })}
@@ -121,8 +125,10 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fontFamily.medium,
-    fontSize: 10,
+    fontSize: 9,
     color: colors.neutral.textSecondary,
     marginTop: 3,
+    textAlign: "center",
+    paddingHorizontal: 2,
   },
 });

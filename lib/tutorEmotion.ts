@@ -62,6 +62,19 @@ const EMOTION_PROMPT_RULES_EN: Record<TutorEmotionCode, string> = {
     "Be clear, direct, and structured in English only. Correct mistakes promptly but respectfully. Stay professional and concise.",
 };
 
+const EMOTION_PROMPT_RULES_ID: Record<TutorEmotionCode, string> = {
+  warm:
+    "Bicara dengan hangat dan sabar dalam Bahasa Indonesia saja. Beri dorongan lembut. Tetap ramah.",
+  calm:
+    "Bicara dengan lembut dan tempo santai dalam Bahasa Indonesia saja. Tetap tenang meski siswa kesulitan.",
+  energetic:
+    "Bicara dengan semangat dan ceria dalam Bahasa Indonesia saja. Beri apresiasi saat siswa mencoba.",
+  encouraging:
+    "Fokus pada pujian dan motivasi dalam Bahasa Indonesia saja. Puji dulu, baru koreksi singkat.",
+  strict:
+    "Bicara dengan jelas, langsung, dan terstruktur dalam Bahasa Indonesia saja. Koreksi dengan sopan.",
+};
+
 const EMOTION_PROMPT_RULES_ZH: Record<TutorEmotionCode, string> = {
   warm: "用繁體中文（台灣）溫暖、耐心地說話，給予溫和的鼓勵，保持友善。",
   calm: "用繁體中文（台灣）輕柔、從容地說話，即使學生卡住了也保持平靜，不要急促或大聲。",
@@ -92,8 +105,20 @@ function emotionRuleForLanguage(
   if (tutorVoice === "zh-TW") {
     return EMOTION_PROMPT_RULES_ZH[emotion];
   }
+  if (tutorVoice === "id") {
+    return EMOTION_PROMPT_RULES_ID[emotion];
+  }
   return EMOTION_PROMPT_RULES_EN[emotion];
 }
+
+/**
+ * Marker used to find/strip a prior emotion block before re-appending one.
+ * Deliberately language-neutral (no English sentence) — this text sits at
+ * the very end of the prompt, right before the model starts generating, so
+ * an English wrapper sentence here measurably biases non-English sessions
+ * (zh-TW/id) toward slipping into English.
+ */
+export const EMOTION_MARKER = "===EMOTION===";
 
 export function appendEmotionToPrompt(
   systemPrompt: string,
@@ -101,5 +126,5 @@ export function appendEmotionToPrompt(
   tutorVoice: InstructionLanguageCode = "zh-TW",
 ): string {
   const rule = emotionRuleForLanguage(emotion, tutorVoice);
-  return `${systemPrompt.trim()}\n\nEMOTION STYLE (follow in every reply, in your instruction language only): ${rule}`;
+  return `${systemPrompt.trim()}\n\n${EMOTION_MARKER}\n${rule}`;
 }

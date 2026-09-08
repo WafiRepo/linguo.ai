@@ -1,10 +1,15 @@
 """Tutor emotional style presets for the AI teacher voice agent."""
 
-from instruction_language import uses_english_teacher, uses_zh_tw_teacher
+from instruction_language import uses_english_teacher, uses_indonesian_teacher, uses_zh_tw_teacher
 
 VALID_EMOTIONS = frozenset({"warm", "calm", "energetic", "encouraging", "strict"})
 DEFAULT_EMOTION = "warm"
-EMOTION_MARKER = "EMOTION STYLE"
+# Must match lib/tutorEmotion.ts's EMOTION_MARKER exactly — deliberately
+# language-neutral (no English sentence). This text sits at the very end of
+# the prompt, right before the model starts generating, so an English
+# wrapper sentence here measurably biases non-English sessions (zh-TW/id)
+# toward slipping into English.
+EMOTION_MARKER = "===EMOTION==="
 
 EMOTION_PROMPT_RULES_EN: dict[str, str] = {
     "warm": (
@@ -35,6 +40,14 @@ EMOTION_PROMPT_RULES_ZH: dict[str, str] = {
     "energetic": "用繁體中文（台灣）活潑、有精神地說話，學生嘗試時給予熱忱，但仍要在問號處停止。",
     "encouraging": "用繁體中文（台灣）著重稱讚與動機，先肯定再簡短糾正，語氣要溫和。",
     "strict": "用繁體中文（台灣）清楚、直接、有條理地說話，及時糾正但保持尊重。",
+}
+
+EMOTION_PROMPT_RULES_ID: dict[str, str] = {
+    "warm": "Bicara dengan hangat dan sabar dalam Bahasa Indonesia saja. Beri dorongan lembut. Tetap ramah.",
+    "calm": "Bicara dengan lembut dan tempo santai dalam Bahasa Indonesia saja. Tetap tenang meski siswa kesulitan.",
+    "energetic": "Bicara dengan semangat dan ceria dalam Bahasa Indonesia saja. Beri apresiasi saat siswa mencoba.",
+    "encouraging": "Fokus pada pujian dan motivasi dalam Bahasa Indonesia saja. Puji dulu, baru koreksi singkat.",
+    "strict": "Bicara dengan jelas, langsung, dan terstruktur dalam Bahasa Indonesia saja. Koreksi dengan sopan.",
 }
 
 OPENAI_VOICE_BY_EMOTION: dict[str, str] = {
@@ -68,6 +81,8 @@ def _emotion_rule(
         return EMOTION_PROMPT_RULES_ZH.get(emotion, EMOTION_PROMPT_RULES_ZH[DEFAULT_EMOTION])
     if uses_english_teacher(instruction_languages, language_code):
         return EMOTION_PROMPT_RULES_EN.get(emotion, EMOTION_PROMPT_RULES_EN[DEFAULT_EMOTION])
+    if uses_indonesian_teacher(instruction_languages, language_code):
+        return EMOTION_PROMPT_RULES_ID.get(emotion, EMOTION_PROMPT_RULES_ID[DEFAULT_EMOTION])
     return EMOTION_PROMPT_RULES_EN.get(emotion, EMOTION_PROMPT_RULES_EN[DEFAULT_EMOTION])
 
 
@@ -88,7 +103,7 @@ def append_emotion_to_prompt(
 ) -> str:
     rule = _emotion_rule(emotion, language_code, instruction_languages)
     cleaned = strip_emotion_style_block(system_prompt)
-    return f"{cleaned.strip()}\n\n{EMOTION_MARKER} (follow in every reply, in your instruction language only): {rule}"
+    return f"{cleaned.strip()}\n\n{EMOTION_MARKER}\n{rule}"
 
 
 def log_emotion_voice(emotion: str) -> str:

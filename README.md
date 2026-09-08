@@ -64,6 +64,8 @@ VISION_AGENT_URL=http://YOUR_LOCAL_IP:8000
 Get keys from [Clerk](https://clerk.com), [Stream](https://getstream.io), and [OpenAI](https://platform.openai.com).
 
 ### 3. Start the vision agent
+```bash
+pakai environment miniconda3 C:\Users\user\miniconda3\python.exe main.py serve --host 0.0.0.0 --port 8000
 
 ```bash
 cd vision-agent

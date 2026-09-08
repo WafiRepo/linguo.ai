@@ -21,11 +21,13 @@ interface LearningState {
   progressDate: string | null;
   lastStreakDate: string | null;
   completedLessonIds: string[];
+  completedClassTopicIds: string[];
   todayPlanProgress: TodayPlanProgress | null;
   activeLessonIdsByLanguage: Partial<Record<LanguageCode, string>>;
   syncDailyProgress: () => void;
   addXP: (amount: number) => void;
   completeLesson: (lessonId: string, xpReward?: number) => void;
+  completeClassTopic: (topicId: string, xpReward?: number) => void;
   markTodayPlanItem: (lessonId: string, itemId: TodayPlanItemId) => void;
   getTodayPlanProgress: (lessonId: string) => TodayPlanProgress;
   setActiveLesson: (languageCode: LanguageCode, lessonId: string) => void;
@@ -70,6 +72,7 @@ export const useLearningStore = create<LearningState>()(
       progressDate: null,
       lastStreakDate: null,
       completedLessonIds: [],
+      completedClassTopicIds: [],
       todayPlanProgress: null,
       activeLessonIdsByLanguage: {},
 
@@ -118,6 +121,18 @@ export const useLearningStore = create<LearningState>()(
         }
 
         get().markTodayPlanItem(lessonId, "lesson");
+      },
+
+      completeClassTopic: (topicId, xpReward = 10) => {
+        get().syncDailyProgress();
+        const alreadyCompleted = get().completedClassTopicIds.includes(topicId);
+
+        if (!alreadyCompleted) {
+          set((state) => ({
+            completedClassTopicIds: [...state.completedClassTopicIds, topicId],
+          }));
+          get().addXP(xpReward);
+        }
       },
 
       markTodayPlanItem: (lessonId, itemId) => {

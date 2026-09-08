@@ -16,10 +16,17 @@ from vision_agents.core.instructions import Instructions  # noqa: E402
 from vision_agents.plugins import getstream, openai  # noqa: E402
 
 from feedback import FeedbackRollingAverage, RepeatTracker, assess_user_turn  # noqa: E402
+from class_management import (  # noqa: E402
+    ClassManagementController,
+    build_class_management_system_prompt,
+    parse_allowed_phrases,
+    parse_class_turns,
+)
 from instruction_language import (  # noqa: E402
     append_instruction_language_rules,
     append_repeat_limit_rule,
     greeting_hint_for_lesson,
+    join_lesson_context_hint,
     move_on_after_repeats_hint,
     normalize_instruction_languages,
 )
@@ -28,6 +35,7 @@ from tutor_emotion import (  # noqa: E402
     append_emotion_to_prompt,
     log_emotion_voice,
     normalize_tutor_emotion,
+    strip_emotion_style_block,
 )
 
 AGENT_USER_ID = "ai-teacher"
@@ -109,6 +117,32 @@ def _resolve_language(custom: dict, call_id: str) -> tuple[str, str]:
 
 def _configure_realtime_for_lesson(agent: Agent, language_code: str) -> None:
     """Tune OpenAI Realtime session per lesson language."""
+    _apply_realtime_audio_config(
+        agent, language_code, create_response=True, interrupt_response=True
+    )
+
+
+def _configure_realtime_for_class_management(agent: Agent, language_code: str) -> None:
+    """Class management: Python controller owns every agent turn via simple_response.
+
+    interrupt_response=False here (unlike lesson mode): the mic is already
+    gated by push-to-talk on the client (only enabled during the student's
+    turn), so we don't need VAD-triggered interrupts as a safety net — and
+    leaving it on meant any echo/background noise picked up while Sari was
+    still speaking would cut her audio off mid-sentence.
+    """
+    _apply_realtime_audio_config(
+        agent, language_code, create_response=False, interrupt_response=False
+    )
+
+
+def _apply_realtime_audio_config(
+    agent: Agent,
+    language_code: str,
+    *,
+    create_response: bool,
+    interrupt_response: bool,
+) -> None:
     llm = agent.llm
     realtime_session = getattr(llm, "realtime_session", None)
     if not isinstance(realtime_session, dict):
@@ -123,6 +157,15 @@ def _configure_realtime_for_lesson(agent: Agent, language_code: str) -> None:
         transcription["language"] = "id"
     else:
         transcription.pop("language", None)
+
+    input_cfg["turn_detection"] = ServerVad(
+        type="server_vad",
+        threshold=0.5,
+        prefix_padding_ms=200,
+        silence_duration_ms=400,
+        interrupt_response=interrupt_response,
+        create_response=create_response,
+    )
 
 
 async def create_agent(**kwargs) -> Agent:
@@ -167,15 +210,37 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         print(f"[agent] Warning: could not fetch call custom data: {e}")
 
     system_prompt  = custom.get("system_prompt") or DEFAULT_SYSTEM_PROMPT
+    if not custom.get("system_prompt"):
+        print(
+            f"[agent] WARNING: no system_prompt in call custom data for {call_id!r} — "
+            "falling back to the English-only DEFAULT_SYSTEM_PROMPT. This means the "
+            "app's call.update() did not reach Stream before this agent joined, so the "
+            "tutor voice/language selection was never received."
+        )
     intro_message  = custom.get("intro_message")
     lesson_title   = custom.get("lesson_title") or ""
     lesson_description = custom.get("lesson_description") or ""
     language_code, language_name = _resolve_language(custom, call_id)
     instruction_languages = normalize_instruction_languages(custom)
+    # Guru Indonesia (id) speaks lesson vocabulary in native Indonesian but
+    # explains in Traditional Chinese — same explanation language as Guru
+    # Taiwan, just a different teacher persona (mirrors the client-side
+    # remap in lib/instructionLanguage.ts). Class management keeps "id" as
+    # pure Indonesian explanation, so use this only for lesson-mode hints
+    # (system prompt, greeting, repeat-limit) — never for class management.
+    lesson_instruction_languages = (
+        ["zh-TW"] if "id" in instruction_languages else instruction_languages
+    )
     tutor_emotion = normalize_tutor_emotion(custom.get("tutor_emotion"))
+    session_mode = str(custom.get("mode") or "lesson")
+    is_class_management = session_mode == "class_management"
+    practice_mode = str(custom.get("practice_mode") or "teach")
+    comic_scope = str(custom.get("comic_scope") or "")
+    allowed_phrases = parse_allowed_phrases(custom.get("allowed_phrases"))
 
     print(
         f"[agent] Joining call {call_id}: "
+        f"mode={session_mode!r}, "
         f"language_code={language_code!r}, language_name={language_name!r}, "
         f"instruction_languages={instruction_languages!r}, "
         f"tutor_emotion={tutor_emotion!r}, "
@@ -183,30 +248,52 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         f"lesson_description={lesson_description!r}"
     )
 
-    if language_name != "language" and language_name not in system_prompt:
-        system_prompt = (
-            f"You are teaching {language_name} (language code: {language_code}). "
-            f"{system_prompt}"
+    if is_class_management:
+        system_prompt = build_class_management_system_prompt(
+            system_prompt,
+            language_code,
+            instruction_languages,
+            comic_scope,
+            allowed_phrases,
+            practice_mode,
         )
+        system_prompt = append_emotion_to_prompt(
+            system_prompt,
+            tutor_emotion,
+            language_code,
+            instruction_languages,
+        )
+    else:
+        # The client always appends its own trailing emotion block. Strip it
+        # now, before the appends below — otherwise append_emotion_to_prompt's
+        # own strip (at the end of this chain) would find that marker first
+        # and silently truncate away everything appended after it (the
+        # pronunciation guide and repeat-limit rule).
+        system_prompt = strip_emotion_style_block(system_prompt)
 
-    system_prompt = append_instruction_language_rules(
-        system_prompt,
-        language_code,
-        instruction_languages,
-    )
-    system_prompt = append_pronunciation_guide(
-        system_prompt,
-        custom.get("vocabulary") or [],
-        custom.get("phrases") or [],
-        language_code,
-    )
-    system_prompt = append_repeat_limit_rule(system_prompt)
-    system_prompt = append_emotion_to_prompt(
-        system_prompt,
-        tutor_emotion,
-        language_code,
-        instruction_languages,
-    )
+        system_prompt = append_instruction_language_rules(
+            system_prompt,
+            language_code,
+            lesson_instruction_languages,
+        )
+        system_prompt = append_pronunciation_guide(
+            system_prompt,
+            custom.get("vocabulary") or [],
+            custom.get("phrases") or [],
+            language_code,
+            lesson_instruction_languages,
+        )
+        system_prompt = append_repeat_limit_rule(
+            system_prompt,
+            language_code,
+            lesson_instruction_languages,
+        )
+        system_prompt = append_emotion_to_prompt(
+            system_prompt,
+            tutor_emotion,
+            language_code,
+            lesson_instruction_languages,
+        )
 
     voice_name = log_emotion_voice(tutor_emotion)
     print(
@@ -214,7 +301,10 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         f"(voice tone via prompt; default voice={voice_name})"
     )
 
-    _configure_realtime_for_lesson(agent, language_code)
+    if is_class_management:
+        _configure_realtime_for_class_management(agent, language_code)
+    else:
+        _configure_realtime_for_lesson(agent, language_code)
 
     # Apply lesson-specific instructions before joining so the Realtime LLM receives them
     agent.instructions = Instructions(input_text=system_prompt)
@@ -239,6 +329,24 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
     lesson_phrases = custom.get("phrases") or []
     feedback_tracker = FeedbackRollingAverage()
     repeat_tracker = RepeatTracker()
+    class_mgmt: ClassManagementController | None = None
+
+    if is_class_management:
+        class_turns = parse_class_turns(
+            custom.get("class_turns") or custom.get("class_turns_json")
+        )
+        class_mgmt = ClassManagementController(
+            agent=agent,
+            turns=class_turns,
+            intro_message=str(intro_message or ""),
+            topic_title=str(custom.get("topic_title") or lesson_title or "Class Management"),
+            comic_scope=comic_scope,
+            allowed_phrases=allowed_phrases,
+            instruction_languages=instruction_languages,
+            language_code=language_code,
+            practice_mode=practice_mode,
+        )
+        print(f"[agent] Class management turns={len(class_turns)} practice_mode={practice_mode!r}")
 
     async def send_feedback_update(scores: dict[str, str]) -> None:
         try:
@@ -251,7 +359,17 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         except Exception as e:
             print(f"[agent] feedback_update error: {e}")
 
+    # Holds a queued "move to next word" hint until the in-flight automatic
+    # response finishes speaking — firing it immediately would race the
+    # Realtime session's own auto-response (create_response=True) to the same
+    # student turn and produce two overlapping AI voices.
+    pending_move_on_hint: str | None = None
+
     async def handle_user_feedback(final_text: str) -> None:
+        nonlocal pending_move_on_hint
+        if class_mgmt is not None:
+            await class_mgmt.on_student_speech(final_text)
+            return
         turn_scores = assess_user_turn(
             final_text,
             lesson_vocabulary,
@@ -269,13 +387,15 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         )
         await send_feedback_update(rolled_scores)
         if should_move_on:
-            hint = move_on_after_repeats_hint(
+            pending_move_on_hint = move_on_after_repeats_hint(
                 language_code,
                 final_text,
-                instruction_languages,
+                lesson_instruction_languages,
             )
-            _safe_log("[agent] repeat limit reached — moving to next word")
-            await agent.simple_response(hint)
+            _safe_log(
+                "[agent] repeat limit reached — will move to next word "
+                "once the current reply finishes"
+            )
 
     llm = agent.llm
     original_emit_user = llm._emit_user_speech_transcription
@@ -290,6 +410,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             asyncio.create_task(handle_user_feedback(final_text))
 
     def emit_agent_speech_transcription(text: str, *, mode) -> None:
+        nonlocal pending_move_on_hint
         original_emit_agent(text, mode=mode)
         if mode == "delta" and text:
             partial_agent.append(text)
@@ -301,7 +422,19 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 })
             )
         elif mode == "final":
+            full_text = "".join(partial_agent)
             partial_agent.clear()
+            if class_mgmt is not None:
+                # Logs exactly what Sari said for every turn — compare this
+                # against the hint that was sent if the script ever drifts
+                # to another topic's dialogue or adds unrequested commentary.
+                _safe_log(f"[class-mgmt] Sari said (final): {full_text!r}")
+                class_mgmt.on_agent_speech_final()
+            elif pending_move_on_hint is not None:
+                hint = pending_move_on_hint
+                pending_move_on_hint = None
+                _safe_log("[agent] repeat limit reached — moving to next word")
+                asyncio.create_task(agent.simple_response(hint))
 
     llm._emit_user_speech_transcription = emit_user_speech_transcription
     llm._emit_agent_speech_transcription = emit_agent_speech_transcription
@@ -311,22 +444,18 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             # Wait for the student to join (returns immediately if already present)
             await agent.wait_for_participant(timeout=60.0)
 
-            if intro_message:
-                context_parts = [f"A student just joined your {language_name} lesson"]
-                if lesson_description:
-                    context_parts[0] += f" — topic: {lesson_description}"
-                elif lesson_title:
-                    context_parts[0] += f" — '{lesson_title}'"
-                context_parts[0] += "."
-                follow_up = greeting_hint_for_lesson(
+            if is_class_management and class_mgmt is not None:
+                await class_mgmt.start()
+            elif intro_message:
+                context = join_lesson_context_hint(
                     language_name,
+                    lesson_description,
+                    lesson_title,
+                    intro_message,
                     language_code,
-                    instruction_languages,
+                    lesson_instruction_languages,
                 )
-                context_parts.append(
-                    f'Deliver this greeting and NOTHING else: "{intro_message}" {follow_up}'
-                )
-                await agent.simple_response(" ".join(context_parts))
+                await agent.simple_response(context)
             else:
                 await agent.simple_response(
                     f"A student just joined your {language_name} lesson. "

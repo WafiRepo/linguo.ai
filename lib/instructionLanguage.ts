@@ -6,7 +6,7 @@ import {
 import { Lesson, LanguageCode } from "@/types/learning";
 
 /** Language the AI teacher uses to explain (not the language being learned). */
-export type InstructionLanguageCode = "zh-TW" | "en";
+export type InstructionLanguageCode = "zh-TW" | "en" | "id";
 
 export type TutorVoiceCode = InstructionLanguageCode;
 
@@ -30,6 +30,12 @@ export const TUTOR_VOICE_OPTIONS: TutorVoiceOption[] = [
     description: "Explains in English",
     emoji: "🇺🇸",
   },
+  {
+    code: "id",
+    name: "Guru Indonesia",
+    description: "Kosakata Bahasa Indonesia, penjelasan 繁體中文（台灣）",
+    emoji: "🇮🇩",
+  },
 ];
 
 export function getInstructionLanguages(
@@ -42,14 +48,14 @@ export function getInstructionLanguages(
   return ["en"];
 }
 
-function buildPronunciationGuide(lesson: Lesson): string {
+function buildPronunciationGuide(lesson: Lesson, sayLabel = "Indonesian"): string {
   const wordLines = lesson.vocabulary.map(
     (v) =>
-      `- ${v.word} (${v.translation}) → Indonesian: ${v.pronunciation}`,
+      `- ${v.word} (${v.translation}) → ${sayLabel}: ${v.pronunciation}`,
   );
   const phraseLines = lesson.phrases.map(
     (p) =>
-      `- ${p.text} (${p.translation}) → Indonesian: ${p.pronunciation}`,
+      `- ${p.text} (${p.translation}) → ${sayLabel}: ${p.pronunciation}`,
   );
   return [...wordLines, ...phraseLines].join("\n");
 }
@@ -89,6 +95,8 @@ function buildEnglishIndonesianSystemPrompt(lesson: Lesson): string {
     "Never write a reaction in the same turn as a teaching step. Keep every reply to one or two sentences. " +
     "Do not use Bahasa Indonesia for explanations — only when saying lesson vocabulary or phrases. " +
     "Never anglicize Indonesian words (e.g. Halo = HA-lo, not HAY-lo). " +
+    "When you ask the student to practice, ask them to say ONLY the lesson word/phrase itself — " +
+    "never ask them to repeat your explanation, pronunciation tip, or question sentence back to you. " +
     "ONLY teach Indonesian words/phrases from ALLOWED LIST below — never teach English topic words " +
     "(e.g. Greetings, Friends, Shopping) as if they were Indonesian. " +
     `ALLOWED LIST: ${scope}.\n\n` +
@@ -132,12 +140,17 @@ export function resolveAiTeacherPrompt(
     };
   }
 
+  // Guru Indonesia (id) speaks lesson vocabulary in native Indonesian but explains
+  // in Traditional Chinese — same explanation language as Guru Taiwan, just a
+  // different teacher persona. Both share the lesson's zh-TW system prompt.
+  const explanationVoice = tutorVoice === "id" ? "zh-TW" : tutorVoice;
+
   return {
     instructionLanguages,
     systemPrompt: appendEmotionToPrompt(
       lesson.aiTeacherPrompt.systemPrompt,
       emotion,
-      tutorVoice,
+      explanationVoice,
     ),
     introMessage: lesson.aiTeacherPrompt.introMessage,
   };
