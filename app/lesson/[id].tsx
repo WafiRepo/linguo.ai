@@ -104,7 +104,7 @@ export default function LessonScreen() {
       clientRef.current?.disconnectUser().catch(console.error);
       stopAgentSession(callRef.current?.id ?? null, agentSessionRef.current);
     };
-  }, [isLoaded, user, lesson, selectedLanguage, setActiveLesson]);
+  }, [isLoaded, user, lesson, selectedLanguage, tutorVoice, tutorEmotion, setActiveLesson]);
 
   useEffect(() => {
     if (agentStatus === "connected") {

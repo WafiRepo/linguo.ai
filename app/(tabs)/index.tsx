@@ -21,6 +21,7 @@ import { colors } from "@/constants/theme";
 import { LANGUAGES } from "@/data/languages";
 import { getActiveUnit, getCefrLevelForUnit, getLessonNumber, getLessonsForLanguage, getNextLesson, getUnitForLesson } from "@/lib/curriculum";
 import { getLocalDateKey } from "@/lib/dailyProgress";
+import { TUTOR_VOICE_OPTIONS, TutorVoiceCode } from "@/lib/instructionLanguage";
 import { buildHomeNotifications } from "@/lib/notifications";
 import {
   buildTodayPlanItems,
@@ -53,7 +54,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { signOut } = useAuth();
-  const { selectedLanguage } = useLanguageStore();
+  const { selectedLanguage, tutorVoice, setTutorVoice } = useLanguageStore();
   const syncDailyProgress = useLearningStore((s) => s.syncDailyProgress);
   const todayPlanProgress = useLearningStore((s) => s.todayPlanProgress);
   const { xpToday, dailyGoal, streak, completedLessonIds, getActiveLessonId } =
@@ -64,6 +65,9 @@ export default function HomeScreen() {
   }, [syncDailyProgress]);
 
   const language = LANGUAGES.find((l) => l.code === selectedLanguage);
+  const currentTutorVoiceOption =
+    TUTOR_VOICE_OPTIONS.find((option) => option.code === tutorVoice) ??
+    TUTOR_VOICE_OPTIONS[0];
   const activeUnit = selectedLanguage
     ? getActiveUnit(selectedLanguage, completedLessonIds)
     : undefined;
@@ -196,6 +200,19 @@ export default function HomeScreen() {
     setNotificationsRead(true);
   }
 
+  function handleCycleTutorVoice() {
+    const currentIndex = TUTOR_VOICE_OPTIONS.findIndex(
+      (option) => option.code === tutorVoice,
+    );
+    const next =
+      TUTOR_VOICE_OPTIONS[(currentIndex + 1) % TUTOR_VOICE_OPTIONS.length];
+    setTutorVoice(next.code as TutorVoiceCode);
+    posthog.capture("tutor_voice_changed", {
+      tutor_voice: next.code,
+      source: "home_quick_switch",
+    });
+  }
+
   function handleSignOut() {
     Alert.alert("Sign out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
@@ -268,6 +285,21 @@ export default function HomeScreen() {
             <Image source={images.streakFire} style={styles.streakIcon} />
             <Text style={styles.streakText}>{streak}</Text>
           </View>
+          {selectedLanguage === "id" ? (
+            <Pressable
+              testID="tutor-voice-quick-switch"
+              onPress={handleCycleTutorVoice}
+              style={({ pressed }) => [
+                styles.headerIconButton,
+                pressed && styles.headerIconButtonPressed,
+              ]}
+              hitSlop={8}
+            >
+              <Text style={styles.tutorVoiceEmoji}>
+                {currentTutorVoiceOption.emoji}
+              </Text>
+            </Pressable>
+          ) : null}
           <Pressable
             testID="notifications-button"
             onPress={handleOpenNotifications}
@@ -467,6 +499,9 @@ const styles = StyleSheet.create({
   },
   headerIconButtonPressed: {
     backgroundColor: colors.neutral.surface,
+  },
+  tutorVoiceEmoji: {
+    fontSize: 20,
   },
   scrollContent: {
     paddingHorizontal: 20,
