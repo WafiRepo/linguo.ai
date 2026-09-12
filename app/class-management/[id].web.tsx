@@ -1,0 +1,35 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { colors } from "@/constants/theme";
+
+// Mirrors app/lesson/[id].web.tsx: the video-call SDK this screen depends on
+// is native-only and cannot be evaluated during static/server web export
+// (Metro would otherwise pull it in when resolving app/class-management/[id]
+// for the web platform). Without this file, `npx expo export -p web` fails.
+export default function ClassManagementWebScreen() {
+  const router = useRouter();
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.background }}>
+      <View className="flex-1 px-5 justify-center items-center">
+        <Ionicons name="mic-off-outline" size={48} color={colors.neutral.textSecondary} />
+        <Text className="font-poppins-semibold text-xl text-text-primary mt-4 text-center">
+          網頁版暫不提供語音練習
+        </Text>
+        <Text className="font-poppins text-sm text-text-secondary mt-2 text-center">
+          你可以先閱讀學習教材，和老師一起練習印尼語。
+        </Text>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.back()}
+          className="mt-6 bg-primary-purple rounded-2xl px-6 py-3"
+        >
+          <Text className="font-poppins-semibold text-white">返回</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}

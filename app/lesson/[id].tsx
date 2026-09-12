@@ -1,5 +1,6 @@
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { AIPilotNotice } from "@/components/AIPilotNotice";
+import { AITestingBanner } from "@/components/AITestingBanner";
 import { Lesson, LanguageCode, SessionFeedback } from "@/types/learning";
 import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
@@ -315,6 +316,7 @@ function LiveLessonScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+      <AITestingBanner />
       {/* Header — back left, title center, end call right */}
       <View style={styles.header}>
         <TouchableOpacity

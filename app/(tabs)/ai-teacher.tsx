@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from "react";
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { AIPilotNotice } from "@/components/AIPilotNotice";
+import { AITestingBanner } from "@/components/AITestingBanner";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -58,6 +59,7 @@ function AITeacherTopics() {
     <SafeAreaView
       style={{ flex: 1, backgroundColor: colors.neutral.background }}
     >
+      <AITestingBanner />
       <View className="px-5 pt-2 pb-3">
         <Text className="h2 text-center">AI Teacher</Text>
       </View>
