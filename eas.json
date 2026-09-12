@@ -24,6 +24,12 @@
         "simulator": false
       }
     },
+    "preview-ai-testing": {
+      "extends": "preview",
+      "env": {
+        "EXPO_PUBLIC_AI_TESTING_UNLOCK": "true"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "channel": "production",
