@@ -1,7 +1,6 @@
 import { useAuth, useUser } from "@clerk/expo";
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { AIPilotNotice } from "@/components/AIPilotNotice";
-import { AITestingBanner } from "@/components/AITestingBanner";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Call,
@@ -281,7 +280,6 @@ function LiveClassManagementScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AITestingBanner />
       <View style={styles.header}>
         <TouchableOpacity onPress={handleLeave} hitSlop={8}>
           <Ionicons name="chevron-back" size={24} color={colors.neutral.textPrimary} />
