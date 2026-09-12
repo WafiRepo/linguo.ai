@@ -10,6 +10,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -235,7 +236,7 @@ export default function PracticeScreen() {
                 const isSelected = selectedOption === option;
                 const isCorrectOption =
                   option === currentActivity.correctAnswer;
-                let optionStyle = styles.optionDefault;
+                let optionStyle: ViewStyle = styles.optionDefault;
 
                 if (answerState !== "idle") {
                   if (isCorrectOption) optionStyle = styles.optionCorrect;

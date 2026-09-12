@@ -1,14 +1,16 @@
 import { useAuth } from "@clerk/expo";
-import { Redirect } from "expo-router";
+import { type Href, Redirect } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 import { isLanguageAvailable } from "@/data/languages";
+import { useChildProfileStore } from "@/store/childProfileStore";
 import { useLanguageStore } from "@/store/languageStore";
 
 export default function Index() {
   const { isSignedIn, isLoaded } = useAuth();
   const { selectedLanguage } = useLanguageStore();
+  const { nickname, classGroup } = useChildProfileStore();
   const [languageHydrated, setLanguageHydrated] = useState(
     useLanguageStore.persist.hasHydrated()
   );
@@ -38,6 +40,10 @@ export default function Index() {
 
   if (!selectedLanguage || !isLanguageAvailable(selectedLanguage)) {
     return <Redirect href="/language-select" />;
+  }
+
+  if (!nickname || !classGroup) {
+    return <Redirect href={"/child-profile-setup" as Href} />;
   }
 
   return <Redirect href="/(tabs)" />;

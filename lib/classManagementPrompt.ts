@@ -25,6 +25,7 @@ function collectAllowedPhrases(topic: ClassManagementTopic): string[] {
   const phrases = new Set<string>();
   for (const turn of topic.turns) {
     phrases.add(turn.guruLine.id);
+    phrases.add(turn.guruLine.zhTW);
     phrases.add(turn.studentLine.id);
     for (const answer of turn.expectedAnswers) {
       phrases.add(answer);
@@ -179,6 +180,7 @@ export function resolveClassManagementPrompt(
     classTurnsJson: JSON.stringify(
       topic.turns.map((turn) => ({
         guruLine: turn.guruLine.id,
+        guruLineZh: turn.guruLine.zhTW,
         studentLine: turn.studentLine.id,
         expectedAnswers: turn.expectedAnswers,
         guruPanelIndex: turn.guruPanelIndex,

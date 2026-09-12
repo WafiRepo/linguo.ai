@@ -306,8 +306,19 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
     else:
         _configure_realtime_for_lesson(agent, language_code)
 
-    # Apply lesson-specific instructions before joining so the Realtime LLM receives them
+    # Apply lesson-specific instructions before joining so the Realtime LLM receives them.
+    #
+    # Setting agent.instructions alone is NOT enough: the Agent/LLM pairing only
+    # calls llm._attach_agent(agent) -> llm.set_instructions(agent.instructions)
+    # ONCE, at Agent construction time (during the warm-agent-pool startup in
+    # create_agent()). Since this agent instance is reused across every call,
+    # every session after the first would silently keep using that
+    # construction-time DEFAULT_SYSTEM_PROMPT instead of this call's real
+    # system_prompt — call llm.set_instructions() explicitly here so the
+    # Realtime session (realtime_session["instructions"], read fresh in
+    # llm.connect() below via agent.join()) picks up this call's prompt.
     agent.instructions = Instructions(input_text=system_prompt)
+    agent.llm.set_instructions(agent.instructions)
 
     # Grant admin role + go live so the agent can publish audio
     try:
@@ -335,6 +346,16 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         class_turns = parse_class_turns(
             custom.get("class_turns") or custom.get("class_turns_json")
         )
+        try:
+            # Every line spoken in class management is fixed script text, so
+            # this bypasses the Realtime LLM entirely (see
+            # ClassManagementController._speak_direct) — a plain TTS call
+            # instead of a full model round trip, and 100% faithful to the
+            # exact text instead of relying on the model to recite it right.
+            direct_tts = openai.TTS(voice="coral")
+        except Exception as exc:
+            print(f"[agent] Could not init direct TTS, will use LLM for every turn: {exc}")
+            direct_tts = None
         class_mgmt = ClassManagementController(
             agent=agent,
             turns=class_turns,
@@ -345,6 +366,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             instruction_languages=instruction_languages,
             language_code=language_code,
             practice_mode=practice_mode,
+            direct_tts=direct_tts,
         )
         print(f"[agent] Class management turns={len(class_turns)} practice_mode={practice_mode!r}")
 
@@ -422,13 +444,27 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 })
             )
         elif mode == "final":
-            full_text = "".join(partial_agent)
+            # openai_realtime.py's "response.audio_transcript.done" handler
+            # calls this with the COMPLETE transcript in `text` directly —
+            # it does not depend on "delta" events having accumulated
+            # anything in partial_agent first (OpenAI doesn't always send
+            # deltas for short utterances). Reading only partial_agent here
+            # made full_text empty on every single turn, so class_mgmt's
+            # "skip empty finals" guard ended up skipping ALL of them,
+            # permanently stalling the state machine after the first line.
+            full_text = text.strip() or "".join(partial_agent).strip()
             partial_agent.clear()
             if class_mgmt is not None:
                 # Logs exactly what Sari said for every turn — compare this
                 # against the hint that was sent if the script ever drifts
                 # to another topic's dialogue or adds unrequested commentary.
                 _safe_log(f"[class-mgmt] Sari said (final): {full_text!r}")
+                if not full_text:
+                    # A handful of internal events (e.g. an interrupt/flush
+                    # with nothing pending) can still fire this callback with
+                    # truly no text. Only a turn Sari actually spoke should
+                    # advance the state machine.
+                    return
                 class_mgmt.on_agent_speech_final()
             elif pending_move_on_hint is not None:
                 hint = pending_move_on_hint

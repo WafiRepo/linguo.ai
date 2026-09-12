@@ -21,11 +21,7 @@ export function ClassTopicCard({
 
   return (
     <View style={styles.card}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => onPress("teach")}
-        style={styles.cardTop}
-      >
+      <View style={styles.cardTop}>
         <Image
           source={thumbnail}
           contentFit="cover"
@@ -50,14 +46,8 @@ export function ClassTopicCard({
           <View style={styles.checkCircle}>
             <Ionicons name="checkmark" size={16} color="#fff" />
           </View>
-        ) : (
-          <Ionicons
-            name="chevron-forward"
-            size={18}
-            color={colors.primary.purple}
-          />
-        )}
-      </TouchableOpacity>
+        ) : null}
+      </View>
 
       <View style={styles.actionRow}>
         <TouchableOpacity

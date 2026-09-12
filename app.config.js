@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: "Lingua",
+    name: "Bicara AI",
     slug: "linguo-ai",
     version: "1.0.0",
     orientation: "portrait",

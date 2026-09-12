@@ -1,15 +1,12 @@
 import "../global.css";
+import { AccountStorageGate } from "@/components/AccountStorageGate";
 
-import { posthog } from "@/lib/posthog";
-import { useLanguageStore } from "@/store/languageStore";
-import { useUser } from "@clerk/expo";
 import { ClerkProvider } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { useFonts } from "expo-font";
-import { Stack, useGlobalSearchParams, usePathname } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { PostHogProvider } from "posthog-react-native";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
@@ -19,21 +16,6 @@ if (!publishableKey) {
 
 SplashScreen.preventAutoHideAsync();
 
-function ClerkIdentifier() {
-  const { isSignedIn, user, isLoaded } = useUser();
-  const { selectedLanguage } = useLanguageStore();
-
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn || !user) return;
-    posthog.identify(user.id, {
-      $set_once: { signup_date: new Date().toISOString() },
-      $set: { preferred_language: selectedLanguage ?? null },
-    });
-  }, [isLoaded, isSignedIn, user?.id, selectedLanguage]);
-
-  return null;
-}
-
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     "Poppins-Regular": require("../assets/fonts/Poppins-Regular.ttf"),
@@ -42,9 +24,6 @@ export default function RootLayout() {
     "Poppins-Bold": require("../assets/fonts/Poppins-Bold.ttf"),
   });
 
-  const pathname = usePathname();
-  const params = useGlobalSearchParams();
-  const previousPathname = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -52,37 +31,21 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
-  useEffect(() => {
-    if (previousPathname.current !== pathname) {
-      posthog.screen(pathname, {
-        previous_screen: previousPathname.current ?? null,
-        ...params,
-      });
-      previousPathname.current = pathname;
-    }
-  }, [pathname, params]);
 
   if (!fontsLoaded && !fontError) {
     return null;
   }
 
   return (
-    <PostHogProvider
-      client={posthog}
-      autocapture={{
-        captureScreens: true,
-        captureTouches: false,
-        propsToCapture: ["testID"],
-        maxElementsCaptured: 20,
-      }}
-    >
       <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-        <ClerkIdentifier />
+        <AccountStorageGate>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="language-select" />
+          <Stack.Screen name="child-profile-setup" />
+          <Stack.Screen name="help" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="lesson/[id]" />
           <Stack.Screen name="practice/[id]" />
@@ -90,7 +53,7 @@ export default function RootLayout() {
           <Stack.Screen name="learning-material/[id]" />
           <Stack.Screen name="today-plan" />
         </Stack>
+        </AccountStorageGate>
       </ClerkProvider>
-    </PostHogProvider>
   );
 }

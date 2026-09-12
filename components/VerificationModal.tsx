@@ -86,10 +86,10 @@ export default function VerificationModal({
             <Ionicons name="close" size={22} color="#6b7280" />
           </TouchableOpacity>
 
-          <Text style={styles.title}>Check your email</Text>
+          <Text style={styles.title}>請查看電子郵件</Text>
           <Text style={styles.subtitle}>
-            We sent a 6-digit code to{"\n"}
-            <Text style={styles.emailText}>{email || "your email"}</Text>
+            我們已將 6 位數驗證碼寄至{"\n"}
+            <Text style={styles.emailText}>{email || "你的電子郵件"}</Text>
           </Text>
 
           {/* Code boxes — tap to focus hidden input */}
@@ -131,8 +131,8 @@ export default function VerificationModal({
 
           <TouchableOpacity style={styles.resendBtn} onPress={handleResend}>
             <Text style={styles.resendText}>
-              Didn't receive it?{" "}
-              <Text style={styles.resendLink}>Resend</Text>
+              沒收到驗證碼？{" "}
+              <Text style={styles.resendLink}>重新寄送</Text>
             </Text>
           </TouchableOpacity>
         </View>

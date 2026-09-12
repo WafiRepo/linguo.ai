@@ -173,7 +173,6 @@ export default function LanguageSelectScreen() {
         source={images.earth}
         style={styles.earthImage}
         resizeMode="cover"
-        pointerEvents="none"
       />
     </SafeAreaView>
   );

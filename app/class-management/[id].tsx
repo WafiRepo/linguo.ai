@@ -1,4 +1,6 @@
 import { useAuth, useUser } from "@clerk/expo";
+import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
+import { AIPilotNotice } from "@/components/AIPilotNotice";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Call,
@@ -42,6 +44,10 @@ const COMIC_HEIGHT = Math.min(SCREEN_HEIGHT * 0.46, 420);
 type PartialCaption = { speaker: "agent" | "user"; text: string };
 
 export default function ClassManagementScreen() {
+  return CHILD_AI_RELEASE_READY ? <LiveClassManagementScreen /> : <AIPilotNotice />;
+}
+
+function LiveClassManagementScreen() {
   const { id, mode } = useLocalSearchParams<{ id: string; mode?: string }>();
   const router = useRouter();
   const { user, isLoaded } = useUser();
@@ -166,9 +172,14 @@ export default function ClassManagementScreen() {
   async function startAgentSession(callId: string) {
     setAgentStatus("connecting");
     try {
+      const clerkToken = await getToken();
+      if (!clerkToken) throw new Error("Not authenticated");
       const res = await fetch(apiUrl("/api/agent-session"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${clerkToken}`,
+        },
         body: JSON.stringify({ callId, callType: "default" }),
       });
       if (res.ok) {
@@ -185,12 +196,17 @@ export default function ClassManagementScreen() {
 
   function stopAgentSession(callId: string | null, sessionId: string | null) {
     if (!callId || !sessionId) return;
-    fetch(
-      apiUrl(
-        `/api/agent-session?callId=${encodeURIComponent(callId)}&sessionId=${encodeURIComponent(sessionId)}`,
-      ),
-      { method: "DELETE" },
-    ).catch(() => {});
+    getToken()
+      .then((clerkToken) => {
+        if (!clerkToken) return;
+        return fetch(
+          apiUrl(
+            `/api/agent-session?callId=${encodeURIComponent(callId)}&sessionId=${encodeURIComponent(sessionId)}`,
+          ),
+          { method: "DELETE", headers: { Authorization: `Bearer ${clerkToken}` } },
+        );
+      })
+      .catch(() => {});
   }
 
   function handlePhaseUpdate(
