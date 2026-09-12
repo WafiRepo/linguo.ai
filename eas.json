@@ -27,7 +27,8 @@
     "preview-ai-testing": {
       "extends": "preview",
       "env": {
-        "EXPO_PUBLIC_AI_TESTING_UNLOCK": "true"
+        "EXPO_PUBLIC_AI_TESTING_UNLOCK": "true",
+        "EXPO_PUBLIC_API_URL": "https://linguo-ai--ai-testing.expo.app"
       }
     },
     "production": {
