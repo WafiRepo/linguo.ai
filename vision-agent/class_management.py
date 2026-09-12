@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
+
+from vision_agents.core.agents.inference import AudioOutputChunk
 
 from feedback import _best_target_match
 from instruction_language import uses_indonesian_teacher, uses_zh_tw_teacher
@@ -180,6 +183,7 @@ class ClassManagementController:
     instruction_languages: list[str]
     language_code: str
     practice_mode: str = "teach"
+    direct_tts: Any = None
     turn_index: int = 0
     attempts: int = 0
     phase: str = "idle"
@@ -188,6 +192,13 @@ class ClassManagementController:
     started: bool = False
     _tasks: list[asyncio.Task] = field(default_factory=list)
     _response_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    _feedback_prefetch: dict[str, asyncio.Task] = field(default_factory=dict)
+
+    def _cancel_prefetch(self, prefetch: dict[str, asyncio.Task], *keys: str) -> None:
+        for key in keys:
+            task = prefetch.get(key)
+            if task is not None and not task.done():
+                task.cancel()
 
     async def _speak(self, hint: str) -> None:
         async with self._response_lock:
@@ -200,6 +211,87 @@ class ClassManagementController:
                 # student — so this print is the only signal. Check server
                 # logs if the panel ever stops changing between turns.
                 print(f"[class-mgmt] simple_response ERROR (turn will stall): {exc}")
+
+    async def _synthesize(self, text: str) -> Any:
+        """Fetch PCM audio for `text` WITHOUT playing it yet.
+
+        Split out from _speak_direct so a phase method can kick this off in
+        the background (asyncio.create_task) for whatever it already knows
+        comes NEXT, right before playing the CURRENT line — overlapping the
+        next line's network round trip with the current line's playback
+        time instead of paying for it afterward as a silent gap. Returns
+        None if there's nothing to say or synthesis failed.
+        """
+        if self.direct_tts is None or not text.strip():
+            return None
+        t_start = time.monotonic()
+        print(f"[class-mgmt] t={t_start:.2f} SYNTH START {text[:40]!r}")
+        try:
+            pcm = await self.direct_tts.stream_audio(text)
+            t_end = time.monotonic()
+            print(
+                f"[class-mgmt] t={t_end:.2f} SYNTH DONE  {text[:40]!r} "
+                f"took={t_end - t_start:.2f}s"
+            )
+            return pcm
+        except Exception as exc:
+            print(f"[class-mgmt] TTS prefetch ERROR for {text!r}: {exc}")
+            return None
+
+    async def _play_pcm(self, pcm: Any) -> None:
+        t_start = time.monotonic()
+        print(f"[class-mgmt] t={t_start:.2f} PLAY START duration={pcm.duration:.2f}s")
+        async with self._response_lock:
+            self.agent._audio_output_stream.send_nowait(
+                AudioOutputChunk(data=pcm, final=True)
+            )
+            await asyncio.sleep(pcm.duration)
+        print(f"[class-mgmt] t={time.monotonic():.2f} PLAY END")
+
+    async def _speak_direct(self, text: str, prefetched: Any = None) -> bool:
+        """Synthesize this exact text via a standalone TTS call and push it
+        straight onto the shared output track — skips the Realtime LLM
+        entirely.
+
+        Every phase in this controller is fixed script text (intro greeting,
+        comic lines, translation glosses, turn prompts, praise/retry
+        templates, closing line) — nothing here needs the model to compose
+        or recite anything from memory. Routing it through the LLM proved
+        unreliable in practice (it would sometimes skip the gloss, echo the
+        wrong line, answer its own instruction instead of reading it, or
+        return an empty response) on top of adding a full model round trip
+        per turn. This calls OpenAI's TTS endpoint directly and writes the
+        resulting PCM onto agent._audio_output_stream, the same sink the
+        Realtime LLM's own audio is chunked through — so it plays on the
+        exact same output track.
+
+        Pass `prefetched` (a PCM already obtained from _synthesize, e.g. via
+        a background task started earlier) to skip synthesis and play
+        immediately — this is what actually removes the gap between turns.
+
+        Returns True once the audio has actually finished playing — the
+        caller should immediately proceed to the next step.
+
+        Returns False only if TTS synthesis itself failed (rare — e.g. an
+        API error), in which case this falls back to the old LLM path via
+        `_speak()`. The caller must NOT advance immediately in that case:
+        the state machine resumes later through on_agent_speech_final()
+        once that fallback response actually finishes speaking.
+        """
+        if not text.strip():
+            return True
+
+        if self.direct_tts is None:
+            await self._speak(f'Ucapkan PERSIS kalimat berikut, tanpa tambahan apapun: "{text}"')
+            return False
+
+        pcm = prefetched if prefetched is not None else await self._synthesize(text)
+        if pcm is None:
+            await self._speak(f'Ucapkan PERSIS kalimat berikut, tanpa tambahan apapun: "{text}"')
+            return False
+
+        await self._play_pcm(pcm)
+        return True
 
     async def send_phase(
         self,
@@ -233,153 +325,88 @@ class ClassManagementController:
         except Exception as exc:
             print(f"[class-mgmt] feedback event error: {exc}")
 
-    def _intro_hint(self) -> str:
-        """Just the opening greeting — no explanation of scope/rules out loud.
-
-        Rules and scope are already enforced via the system prompt for the
-        model itself to follow; narrating them to the student turns this
-        into a lecture instead of an ordinary conversation.
-        """
+    def _roleplay_intro_text(self) -> str:
+        """Spoken ONCE at the start of a Role Play session — frames the
+        rules once so later turns don't need to repeat them."""
         if uses_zh_tw_teacher(self.instruction_languages, self.language_code):
-            return (
-                f"你現在是在唸稿，不是自由聊天。只說這句問候，一字不改：「{self.intro_message}」"
-                "說完立刻完全停止。不要加「意思是」、不要解釋、不要翻譯、不要補充任何一句話——"
-                "這裡不需要你做任何說明。"
-            )
+            return "這是角色扮演練習。我會唸出老師的台詞，請你照漫畫回答學生台詞。準備好了嗎？"
         if uses_indonesian_teacher(self.instruction_languages, self.language_code):
-            return (
-                f'Kamu sedang MEMBACA SKRIP, bukan mengobrol bebas. Ucapkan HANYA kalimat ini, '
-                f'kata demi kata, tanpa berubah: "{self.intro_message}" '
-                "BERHENTI TOTAL begitu kalimat itu selesai. JANGAN tambahkan kata 'artinya', "
-                "'maksudnya', atau penjelasan apapun setelah itu — di sini kamu tidak perlu "
-                "menjelaskan apa-apa."
-            )
-        return (
-            f"You are READING A SCRIPT here, not chatting freely. Say ONLY this exact sentence, "
-            f'word for word: "{self.intro_message}" STOP completely the instant it ends. '
-            "Do not add \"that means\", do not explain, do not translate, do not add any other "
-            "sentence — there is nothing to explain here."
-        )
+            return "Ini sesi Role Play. Saya akan ucapkan kalimat guru, kamu jawab sesuai kalimat siswa di komik. Siap?"
+        return "This is a Role Play session. I will say the teacher's lines — answer with the student's line from the comic. Ready?"
 
-    def _guru_line_hint(self, guru_line: str, part_number: int) -> str:
-        """Say ONLY the teacher's comic line — nothing else in the same turn.
-
-        Kept separate from _student_turn_prompt_hint below: asking the model
-        to say two different quoted sentences back-to-back in one instruction
-        risked it blending or repeating the wrong one (e.g. echoing the guru
-        line again instead of prompting the student line).
-        """
+    def _roleplay_turn_prompt_text(self) -> str:
+        """Short per-turn cue for Role Play — no revealing the student line
+        (it's already shown on the comic panel) and no repeated framing."""
         if uses_zh_tw_teacher(self.instruction_languages, self.language_code):
-            return (
-                f"漫畫第 {part_number} 段。你是在唸稿，不是自由聊天。只用印尼語逐字說出老師台詞："
-                f"「{guru_line}」。說完立刻完全停止。不要翻譯、不要加「意思是」、不要解釋、"
-                "不要加任何其他句子。絕對不要使用英文。"
-            )
+            return "輪到你了。"
         if uses_indonesian_teacher(self.instruction_languages, self.language_code):
-            return (
-                f"Bagian {part_number} komik. Kamu sedang MEMBACA SKRIP, bukan mengobrol bebas. "
-                f'Ucapkan HANYA kalimat GURU ini, kata demi kata: "{guru_line}" '
-                "BERHENTI TOTAL begitu selesai. JANGAN menerjemahkan, JANGAN bilang 'artinya' "
-                "atau 'maksudnya', JANGAN menjelaskan, JANGAN menambah kalimat apapun setelah "
-                "itu. JANGAN SAMA SEKALI menggunakan Bahasa Inggris."
-            )
-        return (
-            f'Comic part {part_number}. You are READING A SCRIPT, not chatting freely. Say '
-            f'ONLY the teacher line, word for word: "{guru_line}" STOP completely the instant '
-            'it ends. Do not translate, do not say "that means", do not explain, do not add '
-            "any other sentence."
-        )
+            return "Giliranmu."
+        return "Your turn."
 
-    def _student_turn_prompt_hint(self, student_line: str) -> str:
-        """Prompt the student's turn — issued only after the guru line finishes
-        speaking (see after_guru_spoke), never in the same turn as the guru line."""
+    def _student_turn_prompt_text(self, student_line: str) -> str:
+        """The literal sentence spoken to hand the turn to the student."""
         if uses_zh_tw_teacher(self.instruction_languages, self.language_code):
-            return (
-                f"你是在唸稿，不是自由聊天。用繁體中文只說這句話：「輪到你了。請照漫畫回答學生台詞："
-                f"{student_line}。不要重複老師台詞。」說完立刻完全停止。不要翻譯、不要加「意思是」、"
-                "不要加其他句子。絕對不要使用英文。"
-            )
+            return f"輪到你了。請照漫畫回答學生台詞：{student_line}。"
         if uses_indonesian_teacher(self.instruction_languages, self.language_code):
-            return (
-                f'Kamu sedang MEMBACA SKRIP, bukan mengobrol bebas. Ucapkan PERSIS kalimat ini '
-                f'kepada siswa, tanpa ubah satu kata pun: "Sekarang giliranmu sebagai siswa. '
-                f'Jawab: {student_line} Jangan ulangi kalimat guru." BERHENTI TOTAL begitu '
-                "selesai. JANGAN bilang 'artinya' atau 'maksudnya', JANGAN menjelaskan, JANGAN "
-                "menambah kalimat apapun setelah itu. JANGAN SAMA SEKALI menggunakan Bahasa Inggris."
-            )
-        return (
-            f'You are READING A SCRIPT, not chatting freely. Say EXACTLY: "Your turn as the '
-            f'student. Answer: {student_line} Do not repeat the teacher line." STOP completely '
-            'the instant it ends — do not say "that means", do not explain, do not add any '
-            "other sentence."
-        )
+            return f"Sekarang giliranmu sebagai siswa. Jawab: {student_line}"
+        return f"Your turn as the student. Answer: {student_line}"
 
-    def _praise_hint(self) -> str:
+    def _praise_text(self) -> str:
         if uses_zh_tw_teacher(self.instruction_languages, self.language_code):
-            return '只說這一句繁體中文，不要加其他話：「答對了！」'
+            return "答對了！"
         if uses_indonesian_teacher(self.instruction_languages, self.language_code):
-            return 'Ucapkan HANYA kalimat ini, persis, tanpa tambahan: "Bagus, jawaban siswa sudah benar."'
-        return 'Say ONLY: "Good, that matches the student line in the comic."'
+            return "Bagus, jawaban siswa sudah benar."
+        return "Good, that matches the student line in the comic."
 
-    def _retry_hint(self, student_line: str, repeated_guru: bool = False) -> str:
+    def _retry_text(self, student_line: str, repeated_guru: bool = False) -> str:
         if repeated_guru:
             if uses_zh_tw_teacher(self.instruction_languages, self.language_code):
-                return (
-                    f'只說這一句繁體中文，不要改字：「你剛才重複了老師的話。'
-                    f'請扮演學生，說：{student_line}」'
-                )
+                return f"你剛才重複了老師的話。請扮演學生，說：{student_line}"
             if uses_indonesian_teacher(self.instruction_languages, self.language_code):
-                return (
-                    "Ucapkan HANYA kalimat ini kepada siswa, persis, tanpa ubah kata: "
-                    f'"Kamu tadi mengulang kalimat guru. Sekarang jawab sebagai siswa: {student_line}"'
-                )
-            return (
-                f'Say ONLY: "You repeated the teacher. Answer as the student: {student_line}"'
-            )
+                return f"Kamu tadi mengulang kalimat guru. Sekarang jawab sebagai siswa: {student_line}"
+            return f"You repeated the teacher. Answer as the student: {student_line}"
 
         if uses_zh_tw_teacher(self.instruction_languages, self.language_code):
-            return (
-                f'只說這一句繁體中文，不要改字：「請照漫畫回答學生台詞：{student_line}」'
-            )
+            return f"請照漫畫回答學生台詞：{student_line}"
         if uses_indonesian_teacher(self.instruction_languages, self.language_code):
-            return (
-                "Ucapkan HANYA kalimat ini kepada siswa, persis, tanpa ubah kata: "
-                f'"Coba lagi. Jawab sebagai siswa di komik: {student_line}"'
-            )
-        return f'Say ONLY: "Try again. Answer as the student in the comic: {student_line}"'
+            return f"Coba lagi. Jawab sebagai siswa di komik: {student_line}"
+        return f"Try again. Answer as the student in the comic: {student_line}"
 
-    def _model_answer_hint(self, student_line: str) -> str:
+    def _model_answer_text(self, student_line: str) -> str:
         if uses_zh_tw_teacher(self.instruction_languages, self.language_code):
-            return (
-                f'只說這兩句繁體中文：「正確答案是：{student_line}」'
-                "「沒關係，我們繼續下一段。」"
-            )
+            return f"正確答案是：{student_line}。沒關係，我們繼續下一段。"
         if uses_indonesian_teacher(self.instruction_languages, self.language_code):
-            return (
-                "Ucapkan HANYA ini, persis: "
-                f'"Jawaban siswa di komik: {student_line}. '
-                'Tidak apa-apa, kita lanjut bagian berikutnya."'
-            )
-        return (
-            f'Say ONLY: "The student line is: {student_line}. '
-            'That is okay, let us continue."'
+            return f"Jawaban siswa di komik: {student_line}. Tidak apa-apa, kita lanjut bagian berikutnya."
+        return f"The student line is: {student_line}. That is okay, let us continue."
+
+    def _closing_text(self) -> str:
+        if uses_zh_tw_teacher(self.instruction_languages, self.language_code):
+            return f"漫畫「{self.topic_title}」的對話練習完成了，你做得很好！"
+        if uses_indonesian_teacher(self.instruction_languages, self.language_code):
+            return f"Latihan percakapan komik {self.topic_title} sudah selesai. Kamu hebat!"
+        return f"You have completed the comic dialogue practice for {self.topic_title}. Great job!"
+
+    def _guru_speech_text(self, turn: dict[str, Any]) -> str:
+        """The literal text spoken for a turn's guru phase — the comic line,
+        plus (in "teach" mode, zh-TW sessions only) its gloss, combined into
+        one string so it's ONE TTS call instead of two. See start_guru_turn.
+        """
+        guru_line = str(turn.get("guruLine") or "").strip()
+        guru_line_zh = str(turn.get("guruLineZh") or "").strip()
+        explain = (
+            self.practice_mode == "teach"
+            and bool(guru_line_zh)
+            and uses_zh_tw_teacher(self.instruction_languages, self.language_code)
         )
+        return f"{guru_line} {guru_line_zh}" if explain else guru_line
 
-    def _closing_hint(self) -> str:
-        if uses_zh_tw_teacher(self.instruction_languages, self.language_code):
-            return (
-                f"漫畫「{self.topic_title}」的三段對話完成了。用繁體中文稱讚，"
-                "提醒學生剛才練的就是圖片中的對話。"
-            )
-        if uses_indonesian_teacher(self.instruction_languages, self.language_code):
-            return (
-                f"Tiga dialog komik {self.topic_title} selesai. Puji siswa dalam Bahasa Indonesia — "
-                "mereka sudah mengikuti percakapan di gambar tadi."
-            )
-        return (
-            f"All three comic dialogues for {self.topic_title} are done. "
-            "Praise the student in English for following the image."
-        )
+    def _turn_prompt_text(self, student_line: str) -> str:
+        """The text spoken to hand the turn to the student — the short
+        no-spoilers cue in Role Play, or the full "your turn, answer: X"
+        guidance in Latihan (Teach) mode."""
+        if self.practice_mode == "roleplay":
+            return self._roleplay_turn_prompt_text()
+        return self._student_turn_prompt_text(student_line)
 
     async def start(self) -> None:
         if self.started:
@@ -387,39 +414,91 @@ class ClassManagementController:
         self.started = True
         self.phase = "intro"
         await self.send_phase("intro", 0)
-        await self._speak(self._intro_hint())
 
-    async def start_guru_turn(self) -> None:
+        intro_text = (
+            self._roleplay_intro_text()
+            if self.practice_mode == "roleplay"
+            else self.intro_message
+        )
+
+        # Prefetch the first guru line's audio while the intro greeting
+        # plays, so there's no synthesis gap between them.
+        next_task = (
+            asyncio.create_task(self._synthesize(self._guru_speech_text(self.turns[0])))
+            if self.turns
+            else None
+        )
+
+        if await self._speak_direct(intro_text):
+            await self.start_guru_turn(prefetched=await next_task if next_task else None)
+        elif next_task:
+            next_task.cancel()
+        # else: LLM fallback in flight — on_agent_speech_final() takes over.
+
+    async def start_guru_turn(self, prefetched: Any = None) -> None:
         if self.turn_index >= len(self.turns):
             await self.complete()
             return
 
         turn = self.turns[self.turn_index]
-        guru_line = str(turn.get("guruLine") or "").strip()
         panel_index = int(turn.get("guruPanelIndex") or self.turn_index * 2)
-        part_number = self.turn_index + 1
 
         self.phase = "guru_speaking"
         self.attempts = 0
         self.waiting_for_student = False
         await self.send_phase("guru_speaking", self.turn_index, {"panelIndex": panel_index})
 
-        await self._speak(self._guru_line_hint(guru_line, part_number))
+        # Prefetch the student-turn prompt while the guru line plays.
+        student_line = str(turn.get("studentLine") or "").strip()
+        prompt_task = asyncio.create_task(self._synthesize(self._turn_prompt_text(student_line)))
 
-    async def after_guru_spoke(self) -> None:
+        guru_speech = self._guru_speech_text(turn)
+        if not await self._speak_direct(guru_speech, prefetched=prefetched):
+            prompt_task.cancel()
+            return  # LLM fallback in flight — on_agent_speech_final() takes over.
+
+        await self.after_guru_spoke(prefetched=await prompt_task)
+
+    async def after_guru_spoke(self, prefetched: Any = None) -> None:
         if self.phase != "guru_speaking":
             return
         turn = self.turns[self.turn_index]
         student_line = str(turn.get("studentLine") or "").strip()
         panel_index = int(turn.get("studentPanelIndex") or self.turn_index * 2 + 1)
         self.phase = "student_turn"
+
+        if self.practice_mode != "roleplay":
+            # Prefetch every possible feedback outcome now, while the prompt
+            # plays and the student is still answering — we already know
+            # the exact text for each outcome, we just don't know which one
+            # applies until the student actually speaks. This is the one
+            # gap that couldn't be prefetched any earlier than this. Role
+            # Play never evaluates or gives feedback, so there's nothing to
+            # prefetch there. (Kicking this off doesn't touch the shared
+            # audio output, so it's safe to start before we've even spoken
+            # the turn prompt below.)
+            self._feedback_prefetch = {
+                "praise": asyncio.create_task(self._synthesize(self._praise_text())),
+                "retry": asyncio.create_task(self._synthesize(self._retry_text(student_line))),
+                "model_answer": asyncio.create_task(
+                    self._synthesize(self._model_answer_text(student_line))
+                ),
+            }
+
+        # Speak the turn prompt BEFORE telling the client the mic is open.
+        # The client enables the mic purely on receiving the "student_turn"
+        # phase event, independent of audio — sending that event first let
+        # a quick student start answering while Sari was still saying
+        # "Giliranmu." (very short in Role Play), overlapping their voice
+        # with hers. Speaking first, then opening the mic, removes that race.
+        await self._speak_direct(self._turn_prompt_text(student_line), prefetched=prefetched)
+
         self.waiting_for_student = True
         await self.send_phase(
             "student_turn",
             self.turn_index,
             {"panelIndex": panel_index},
         )
-        await self._speak(self._student_turn_prompt_hint(student_line))
 
     async def on_student_speech(self, text: str) -> None:
         if not self.waiting_for_student or self.processing or self.phase != "student_turn":
@@ -443,6 +522,9 @@ class ClassManagementController:
                 self.processing = False
             return
 
+        prefetch = self._feedback_prefetch
+        self._feedback_prefetch = {}
+
         turn = self.turns[self.turn_index]
         expected = [str(item) for item in (turn.get("expectedAnswers") or [])]
         student_line = str(turn.get("studentLine") or "").strip()
@@ -455,39 +537,99 @@ class ClassManagementController:
 
         try:
             if correct:
+                self._cancel_prefetch(prefetch, "retry", "model_answer")
                 await self.send_result(True)
-                await self._speak(self._praise_hint())
                 self.turn_index += 1
                 self.waiting_for_student = False
                 self.phase = "between_turns"
+                next_task = self._prefetch_next_guru_speech()
+                praise_pcm = await prefetch["praise"] if "praise" in prefetch else None
+                if await self._speak_direct(self._praise_text(), prefetched=praise_pcm):
+                    await self.after_feedback_spoke(
+                        prefetched=await next_task if next_task else None
+                    )
+                elif next_task:
+                    next_task.cancel()
             else:
                 self.attempts += 1
-                await self.send_result(False)
+                # send_result(False) is what lets the client's mic open again
+                # (studentCanSpeak treats phase="feedback"+correct=false the
+                # same as student_turn) — sending it before the retry/model
+                # answer audio finishes let a quick student start talking
+                # over the tail of that audio, same overlap bug as the
+                # student_turn prompt above. Speak first, THEN send it.
                 if self.attempts >= MAX_ATTEMPTS:
-                    await self._speak(self._model_answer_hint(student_line))
+                    self._cancel_prefetch(prefetch, "praise", "retry")
                     self.turn_index += 1
                     self.waiting_for_student = False
                     self.phase = "between_turns"
-                else:
-                    await self._speak(
-                        self._retry_hint(student_line, repeated_guru=repeated_guru)
+                    next_task = self._prefetch_next_guru_speech()
+                    model_answer_pcm = (
+                        await prefetch["model_answer"] if "model_answer" in prefetch else None
                     )
+                    spoke_ok = await self._speak_direct(
+                        self._model_answer_text(student_line), prefetched=model_answer_pcm
+                    )
+                    await self.send_result(False)
+                    if spoke_ok:
+                        await self.after_feedback_spoke(
+                            prefetched=await next_task if next_task else None
+                        )
+                    elif next_task:
+                        next_task.cancel()
+                else:
+                    self._cancel_prefetch(prefetch, "praise", "model_answer")
+                    # Stay in student_turn — waiting_for_student is unchanged,
+                    # so the next speech event retries this same turn.
+                    if repeated_guru:
+                        # Different wording than the prefetched "retry" text
+                        # (the "you repeated the teacher" variant) — can't
+                        # reuse it, so synthesize this one fresh.
+                        self._cancel_prefetch(prefetch, "retry")
+                        await self._speak_direct(
+                            self._retry_text(student_line, repeated_guru=True)
+                        )
+                    else:
+                        retry_pcm = await prefetch["retry"] if "retry" in prefetch else None
+                        await self._speak_direct(
+                            self._retry_text(student_line), prefetched=retry_pcm
+                        )
+                    await self.send_result(False)
+                    # One retry chance left before MAX_ATTEMPTS — prefetch
+                    # this second attempt's outcomes too (no further retry
+                    # is possible after this one, so no need for that key).
+                    self._feedback_prefetch = {
+                        "praise": asyncio.create_task(self._synthesize(self._praise_text())),
+                        "model_answer": asyncio.create_task(
+                            self._synthesize(self._model_answer_text(student_line))
+                        ),
+                    }
         finally:
             self.processing = False
 
-    async def after_feedback_spoke(self) -> None:
+    def _prefetch_next_guru_speech(self) -> Optional[asyncio.Task]:
+        """Kick off synthesis for the NEXT turn's guru line while the current
+        feedback (praise/model-answer) is still playing — called only after
+        self.turn_index has already been advanced to that next turn."""
+        if self.turn_index >= len(self.turns):
+            return None
+        return asyncio.create_task(
+            self._synthesize(self._guru_speech_text(self.turns[self.turn_index]))
+        )
+
+    async def after_feedback_spoke(self, prefetched: Any = None) -> None:
         if self.phase != "between_turns":
             return
         if self.turn_index >= len(self.turns):
             await self.complete()
             return
-        await self.start_guru_turn()
+        await self.start_guru_turn(prefetched=prefetched)
 
     async def complete(self) -> None:
         self.phase = "complete"
         self.waiting_for_student = False
         await self.send_phase("complete", self.turn_index)
-        await self._speak(self._closing_hint())
+        await self._speak_direct(self._closing_text())
 
     async def _resend_student_turn(self) -> None:
         if self.phase != "student_turn" or not self.waiting_for_student:

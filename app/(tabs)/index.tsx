@@ -18,6 +18,7 @@ import { NotificationsModal } from "@/components/NotificationsModal";
 import { TodayPlanList } from "@/components/TodayPlanList";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
+import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { LANGUAGES } from "@/data/languages";
 import { getActiveUnit, getCefrLevelForUnit, getLessonNumber, getLessonsForLanguage, getNextLesson, getUnitForLesson } from "@/lib/curriculum";
 import { getLocalDateKey } from "@/lib/dailyProgress";
@@ -96,10 +97,10 @@ export default function HomeScreen() {
       ? `${getCefrLevelForUnit(progressUnit.order)} · Unit ${progressUnit.order}`
       : "A1 · Unit 1";
   const continueLessonTitle =
-    continueLesson?.title ?? "Start your first lesson";
+    continueLesson?.title ?? "開始第一課";
   const continueLessonTopic =
     continueLesson?.description ?? progressUnit?.description ?? "";
-  const firstName = user?.firstName ?? "Learner";
+  const firstName = user?.firstName ?? "同學";
   const greeting = getGreeting(selectedLanguage);
   const xpProgress =
     dailyGoal > 0 ? Math.min((xpToday / dailyGoal) * 100, 100) : 0;
@@ -162,7 +163,7 @@ export default function HomeScreen() {
     });
 
     if (continueLesson) {
-      router.push(`/lesson/${continueLesson.id}`);
+      router.push(CHILD_AI_RELEASE_READY ? `/lesson/${continueLesson.id}` : `/practice/${continueLesson.id}`);
       return;
     }
 
@@ -214,10 +215,10 @@ export default function HomeScreen() {
   }
 
   function handleSignOut() {
-    Alert.alert("Sign out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert("登出", "確定要登出嗎？", [
+      { text: "取消", style: "cancel" },
       {
-        text: "Sign out",
+        text: "登出",
         style: "destructive",
         onPress: async () => {
           try {
@@ -344,7 +345,7 @@ export default function HomeScreen() {
         <View className="flex-row items-center bg-[#FFF5E8] rounded-[20px] py-4 pl-5 pr-3 mb-4">
           <View className="flex-1 pr-2">
             <Text className="font-poppins text-xs text-text-secondary mb-1">
-              Daily goal
+              今日目標
             </Text>
             <Text>
               <Text className="font-poppins-bold text-[28px] text-text-primary leading-[34px]">
@@ -378,10 +379,10 @@ export default function HomeScreen() {
           <View className="flex-1 py-5 pl-5 pr-2 justify-between">
             <View>
               <Text className="font-poppins text-[11px] text-white/75 mb-0.5">
-                Continue learning
+                繼續學習
               </Text>
               <Text className="font-poppins-bold text-[22px] text-white leading-7">
-                {language?.name ?? "Pick a language"}
+                {language?.code === "id" ? "印尼語" : language?.name ?? "選擇語言"}
               </Text>
               <Text
                 className="font-poppins-semibold text-[13px] text-white mt-1"
@@ -404,7 +405,7 @@ export default function HomeScreen() {
               onPress={handleContinueLearning}
             >
               <Text className="font-poppins-semibold text-[13px] text-lingua-purple">
-                Continue
+                繼續
               </Text>
             </TouchableOpacity>
           </View>
@@ -418,7 +419,7 @@ export default function HomeScreen() {
         {/* ── Today's Plan Header ── */}
         <View className="flex-row items-center justify-between mb-3">
           <Text className="font-poppins-semibold text-[17px] text-text-primary">
-            {"Today's plan"}
+            今日學習計畫
           </Text>
           <TouchableOpacity
             activeOpacity={0.7}

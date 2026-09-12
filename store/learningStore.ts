@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { accountStorage } from "@/lib/accountStorage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -22,12 +22,14 @@ interface LearningState {
   lastStreakDate: string | null;
   completedLessonIds: string[];
   completedClassTopicIds: string[];
+  startedClassTopicIds: string[];
   todayPlanProgress: TodayPlanProgress | null;
   activeLessonIdsByLanguage: Partial<Record<LanguageCode, string>>;
   syncDailyProgress: () => void;
   addXP: (amount: number) => void;
   completeLesson: (lessonId: string, xpReward?: number) => void;
   completeClassTopic: (topicId: string, xpReward?: number) => void;
+  markClassTopicStarted: (topicId: string) => void;
   markTodayPlanItem: (lessonId: string, itemId: TodayPlanItemId) => void;
   getTodayPlanProgress: (lessonId: string) => TodayPlanProgress;
   setActiveLesson: (languageCode: LanguageCode, lessonId: string) => void;
@@ -73,6 +75,7 @@ export const useLearningStore = create<LearningState>()(
       lastStreakDate: null,
       completedLessonIds: [],
       completedClassTopicIds: [],
+      startedClassTopicIds: [],
       todayPlanProgress: null,
       activeLessonIdsByLanguage: {},
 
@@ -135,6 +138,15 @@ export const useLearningStore = create<LearningState>()(
         }
       },
 
+      markClassTopicStarted: (topicId) => {
+        const alreadyStarted = get().startedClassTopicIds.includes(topicId);
+        if (!alreadyStarted) {
+          set((state) => ({
+            startedClassTopicIds: [...state.startedClassTopicIds, topicId],
+          }));
+        }
+      },
+
       markTodayPlanItem: (lessonId, itemId) => {
         get().syncDailyProgress();
 
@@ -181,7 +193,8 @@ export const useLearningStore = create<LearningState>()(
     }),
     {
       name: "learning-storage",
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => accountStorage),
+      skipHydration: true,
       onRehydrateStorage: () => (state) => {
         state?.syncDailyProgress();
       },

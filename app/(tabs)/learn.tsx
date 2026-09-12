@@ -41,7 +41,7 @@ export default function LearnScreen() {
             className="flex-1 text-center font-poppins-semibold text-base text-text-primary"
             numberOfLines={1}
           >
-            Learning Materials
+            學習教材
           </Text>
 
           <TouchableOpacity
@@ -56,7 +56,7 @@ export default function LearnScreen() {
         </View>
 
         <Text className="caption text-center">
-          {LEARNING_MATERIALS.length} bagian materi
+          共 {LEARNING_MATERIALS.length} 個學習單元
         </Text>
       </View>
 

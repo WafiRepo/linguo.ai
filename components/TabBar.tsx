@@ -10,13 +10,12 @@ import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fontFamily } from "@/constants/theme";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CIRCLE_SIZE = 52;
 const TAB_HEIGHT = 64;
 
@@ -27,16 +26,17 @@ type TabConfig = {
 };
 
 const TABS: TabConfig[] = [
-  { label: "Home", icon: "home-outline", activeIcon: "home" },
-  { label: "Learning Materials", icon: "book-outline", activeIcon: "book" },
-  { label: "AI Teacher", icon: "sparkles-outline", activeIcon: "sparkles" },
-  { label: "Chat", icon: "chatbubbles-outline", activeIcon: "chatbubbles" },
-  { label: "Profile", icon: "person-outline", activeIcon: "person" },
+  { label: "首頁", icon: "home-outline", activeIcon: "home" },
+  { label: "學習教材", icon: "book-outline", activeIcon: "book" },
+  { label: "AI 老師", icon: "sparkles-outline", activeIcon: "sparkles" },
+  { label: "資訊", icon: "information-circle-outline", activeIcon: "information-circle" },
+  { label: "我的學習", icon: "person-outline", activeIcon: "person" },
 ];
 
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const tabWidth = SCREEN_WIDTH / TABS.length;
+  const { width } = useWindowDimensions();
+  const tabWidth = width / TABS.length;
 
   const indicatorX = useSharedValue(
     state.index * tabWidth + (tabWidth - CIRCLE_SIZE) / 2
@@ -47,7 +47,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
       state.index * tabWidth + (tabWidth - CIRCLE_SIZE) / 2,
       { damping: 18, stiffness: 160 }
     );
-  }, [state.index]);
+  }, [state.index, tabWidth, indicatorX]);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: indicatorX.value }],
@@ -75,6 +75,9 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
         return (
           <TouchableOpacity
             key={route.key}
+            accessibilityRole="tab"
+            accessibilityLabel={tab.label}
+            accessibilityState={{ selected: isFocused }}
             onPress={onPress}
             style={styles.tab}
             activeOpacity={0.8}
@@ -125,7 +128,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fontFamily.medium,
-    fontSize: 9,
+    fontSize: 12,
     color: colors.neutral.textSecondary,
     marginTop: 3,
     textAlign: "center",

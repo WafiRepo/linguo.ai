@@ -1,4 +1,6 @@
 import { ReactNode, useEffect } from "react";
+import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
+import { AIPilotNotice } from "@/components/AIPilotNotice";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -30,8 +32,23 @@ function ModuleSection({
 }
 
 export default function AITeacherScreen() {
+  return CHILD_AI_RELEASE_READY ? <AITeacherTopics /> : <AIPilotNotice />;
+}
+
+function AITeacherTopics() {
   const router = useRouter();
   const completedClassTopicIds = useLearningStore((s) => s.completedClassTopicIds);
+  const startedClassTopicIds = useLearningStore((s) => s.startedClassTopicIds);
+  const markClassTopicStarted = useLearningStore((s) => s.markClassTopicStarted);
+  const isTopicMarked = (topicId: string) =>
+    completedClassTopicIds.includes(topicId) || startedClassTopicIds.includes(topicId);
+  const startTopic = (topicId: string, mode: "teach" | "roleplay") => {
+    markClassTopicStarted(topicId);
+    router.push({
+      pathname: "/class-management/[id]",
+      params: { id: topicId, mode },
+    });
+  };
 
   useEffect(() => {
     posthog.capture("ai_teacher_viewed");
@@ -57,13 +74,8 @@ export default function AITeacherScreen() {
             <ClassTopicCard
               key={topic.id}
               topic={topic}
-              isCompleted={completedClassTopicIds.includes(topic.id)}
-              onPress={(mode) =>
-                router.push({
-                  pathname: "/class-management/[id]",
-                  params: { id: topic.id, mode },
-                })
-              }
+              isCompleted={isTopicMarked(topic.id)}
+              onPress={(mode) => startTopic(topic.id, mode)}
             />
           ))}
         </ModuleSection>
@@ -76,13 +88,8 @@ export default function AITeacherScreen() {
             <ClassTopicCard
               key={topic.id}
               topic={topic}
-              isCompleted={completedClassTopicIds.includes(topic.id)}
-              onPress={(mode) =>
-                router.push({
-                  pathname: "/class-management/[id]",
-                  params: { id: topic.id, mode },
-                })
-              }
+              isCompleted={isTopicMarked(topic.id)}
+              onPress={(mode) => startTopic(topic.id, mode)}
             />
           ))}
         </ModuleSection>
@@ -95,13 +102,8 @@ export default function AITeacherScreen() {
             <ClassTopicCard
               key={topic.id}
               topic={topic}
-              isCompleted={completedClassTopicIds.includes(topic.id)}
-              onPress={(mode) =>
-                router.push({
-                  pathname: "/class-management/[id]",
-                  params: { id: topic.id, mode },
-                })
-              }
+              isCompleted={isTopicMarked(topic.id)}
+              onPress={(mode) => startTopic(topic.id, mode)}
             />
           ))}
         </ModuleSection>
