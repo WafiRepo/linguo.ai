@@ -187,9 +187,12 @@ function LiveClassManagementScreen() {
         agentSessionRef.current = session_id ?? null;
         setAgentStatus("connected");
       } else {
+        const errBody = await res.text().catch(() => "");
+        console.error("[class-mgmt] agent-session failed:", res.status, errBody);
         setAgentStatus("failed");
       }
-    } catch {
+    } catch (err) {
+      console.error("[class-mgmt] agent-session network error:", err);
       setAgentStatus("failed");
     }
   }
