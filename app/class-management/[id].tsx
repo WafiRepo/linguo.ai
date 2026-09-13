@@ -62,6 +62,7 @@ function LiveClassManagementScreen() {
   const [call, setCall] = useState<Call | null>(null);
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle");
+  const [agentErrorDetail, setAgentErrorDetail] = useState<string | null>(null);
   const [phase, setPhase] = useState<ClassMgmtPhase | "feedback">("intro");
   const [turnIndex, setTurnIndex] = useState(0);
   const [highlightPanel, setHighlightPanel] = useState(0);
@@ -171,6 +172,7 @@ function LiveClassManagementScreen() {
 
   async function startAgentSession(callId: string) {
     setAgentStatus("connecting");
+    setAgentErrorDetail(null);
     try {
       const clerkToken = await getToken();
       if (!clerkToken) throw new Error("Not authenticated");
@@ -189,10 +191,13 @@ function LiveClassManagementScreen() {
       } else {
         const errBody = await res.text().catch(() => "");
         console.error("[class-mgmt] agent-session failed:", res.status, errBody);
+        setAgentErrorDetail(`HTTP ${res.status}: ${errBody || "(no body)"}`);
         setAgentStatus("failed");
       }
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error("[class-mgmt] agent-session network error:", err);
+      setAgentErrorDetail(`Network error: ${message}`);
       setAgentStatus("failed");
     }
   }
@@ -315,6 +320,7 @@ function LiveClassManagementScreen() {
               <ActiveClassContent
               topic={topic}
               agentStatus={agentStatus}
+              agentErrorDetail={agentErrorDetail}
               call={call}
               phase={phase}
               turnIndex={turnIndex}
@@ -345,6 +351,7 @@ function LiveClassManagementScreen() {
 function ActiveClassContent({
   topic,
   agentStatus,
+  agentErrorDetail,
   call,
   phase,
   turnIndex,
@@ -356,6 +363,7 @@ function ActiveClassContent({
 }: {
   topic: NonNullable<ReturnType<typeof getClassTopic>>;
   agentStatus: AgentStatus;
+  agentErrorDetail: string | null;
   call: Call;
   phase: ClassMgmtPhase | "feedback";
   turnIndex: number;
@@ -502,6 +510,11 @@ function ActiveClassContent({
             <TouchableOpacity onPress={onRetry} style={styles.retryRow}>
               <Text style={styles.hintTitle}>Sari tidak tersedia</Text>
               <Text style={styles.hintBody}>Ketuk untuk coba lagi</Text>
+              {agentErrorDetail ? (
+                <Text selectable style={styles.hintError}>
+                  {agentErrorDetail}
+                </Text>
+              ) : null}
             </TouchableOpacity>
           ) : (
             <>
@@ -808,6 +821,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.neutral.textSecondary,
     lineHeight: 20,
+  },
+  hintError: {
+    fontFamily: "Poppins-Regular",
+    fontSize: 11,
+    color: colors.semantic.error,
+    lineHeight: 16,
+    marginTop: 6,
+    textAlign: "center",
   },
   retryRow: { alignItems: "center" },
   pushToTalkSection: {
