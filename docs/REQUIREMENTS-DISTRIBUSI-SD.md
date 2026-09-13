@@ -23,6 +23,7 @@ Keputusan yang harus ditutup sebelum pengembangan rilis:
 | AI | Opsional dan didampingi; kamera anak mati secara default | Sekolah + penanggung jawab perlindungan anak |
 | Anggaran | Tetapkan biaya maksimum per siswa/bulan dan jumlah sesi bersamaan | Pemilik anggaran |
 | Pengelola data | Tetapkan badan/pihak pengelola, kontak privasi, serta hubungan sekolah dan vendor | Pengelola + penanggung jawab hukum |
+| Dasar persetujuan (pilot) | Dikonfirmasi petugas hukum: persetujuan institusional sekolah mencukupi untuk cakupan pilot ini, menggantikan formulir wali per siswa; tinjau ulang bila cakupan/wilayah berubah | Petugas hukum |
 
 Tidak mengasumsikan targetnya belajar Bahasa Inggris: materi aktif saat ini justru mengajarkan Bahasa Indonesia, dengan bagian penjelasan Inggris dan Mandarin Tradisional.
 
@@ -63,7 +64,7 @@ Tetap mengikuti AGENTS.md: konten JSON/TypeScript, Zustand dan AsyncStorage, Cle
 | --- | --- | --- |
 | Siswa | Membuka materi sesuai tingkat, latihan, melihat progres sendiri, menghentikan AI, meminta bantuan | Tidak mengubah persetujuan, membuka data siswa lain, atau mengakses pengaturan vendor |
 | Orang tua/wali | Aktivasi, persetujuan, kontrol fitur AI, batas penggunaan, ringkasan anak, permintaan penghapusan | Hanya anak yang menjadi tanggung jawabnya |
-| Guru pendamping | Memilih materi, mendampingi praktik, meninjau hasil yang dibagikan secara sah | Tidak otomatis menggantikan persetujuan wali atau melihat percakapan privat |
+| Guru pendamping | Memilih materi, mendampingi praktik, meninjau hasil yang dibagikan secara sah | Tidak melihat percakapan privat; untuk pilot ini bertindak atas dasar persetujuan institusional sekolah (lihat bagian 9) |
 | Operator sekolah | Instalasi, bantuan teknis, koordinasi daftar perangkat | Tidak perlu akses audio/video atau kata sandi |
 | Pengelola layanan | Konfigurasi, respons insiden, penghentian layanan AI | Akses minimum dan operasi administratif tercatat |
 
@@ -73,7 +74,7 @@ Untuk pilot tanpa database, administrasi persetujuan dapat menggunakan prosedur 
 
 | ID | Prioritas | Requirement | Kriteria penerimaan |
 | --- | --- | --- | --- |
-| F01 | P0 | Pendamping mengaktifkan penggunaan sebelum pengumpulan data anak | Akun baru belum mengirim data anak/AI sebelum alur yang sesuai selesai; penolakan menyediakan jalur materi lokal |
+| F01 | P0 | Pendamping mengaktifkan penggunaan sebelum pengumpulan data anak; untuk pilot ini, aktivasi dapat dilakukan operator sekolah atas dasar persetujuan institusional yang sudah dikonfirmasi petugas hukum (lihat bagian 9) | Akun baru belum mengirim data anak/AI sebelum alur yang sesuai selesai; penolakan menyediakan jalur materi lokal |
 | F02 | P0 | Akun pendamping memakai Clerk; anak tidak diwajibkan mempunyai email, nomor telepon, atau akun sosial pribadi | Siswa dapat masuk ke pengalaman belajar melalui profil yang diaktifkan pendamping |
 | F03 | P0 | Profil minimal: ID lokal/acak, nama panggilan, kelompok kelas, bahasa | Tidak meminta alamat, NIK, tanggal lahir lengkap, foto wajah, atau lokasi untuk fungsi belajar |
 | F04 | P0 | Pengaturan pendamping terlindungi | Anak tidak dapat mengubah izin, membuka tautan eksternal, atau menghapus profil hanya dari tombol biasa; tindakan sensitif memerlukan autentikasi ulang pendamping |
@@ -166,7 +167,7 @@ Matriks berikut adalah rancangan target, bukan klaim pengaturan vendor saat ini.
 
 **P0:** inventarisasi semua penerima data, termasuk Clerk, Stream, layanan AI/transkripsi/TTS, hosting API/agent, PostHog bila aktif, dan permintaan aset eksternal. Catat jenis data, tujuan, lokasi pemrosesan, subprosesor, akses dukungan, retensi, serta ketentuan penggunaan untuk layanan yang ditujukan kepada anak.
 
-**P0:** persetujuan terpisah untuk pemrosesan inti dan AI opsional; penolakan AI tidak menghalangi materi lokal. Persetujuan dapat dicabut; server menolak sesi baru setelah pencabutan. Jangan menyebut anak sudah memberi persetujuan hanya karena mengetuk “setuju”.
+**P0:** persetujuan terpisah untuk pemrosesan inti dan AI opsional; penolakan AI tidak menghalangi materi lokal. Persetujuan dapat dicabut; server menolak sesi baru setelah pencabutan. Jangan menyebut anak sudah memberi persetujuan hanya karena mengetuk “setuju”. Untuk pilot ini, dasar persetujuan adalah persetujuan institusional sekolah (dikonfirmasi petugas hukum, lihat bagian 9); prinsip pemisahan AI opsional dan pencabutan tetap berlaku terlepas dari siapa yang memberi persetujuan.
 
 **P0:** pemberitahuan ringkas yang bisa dipahami anak dan kebijakan lengkap bagi wali tersedia sebelum aktivasi. Jelaskan pemrosesan lintas negara, keterbatasan offline, hilangnya progres saat uninstall, dan cara meminta akses/koreksi/hapus.
 
@@ -176,7 +177,9 @@ Matriks berikut adalah rancangan target, bukan klaim pengaturan vendor saat ini.
 
 **Wilayah utama: Taiwan.** Kajian privasi berangkat dari Personal Data Protection Act Taiwan (個人資料保護法). Pemberitahuan pengumpulan data perlu menjelaskan pengelola, tujuan, jenis data, periode/wilayah/pihak/cara penggunaan, hak pengguna, dan dampak jika data tidak diberikan, dengan memperhatikan pengecualian hukum yang berlaku. Sebelum pilot, petugas hukum menetapkan dasar pemrosesan sesuai peran sekolah/pengelola, ketentuan yang sudah efektif, transfer lintas negara, serta prosedur akses, koreksi, penghapusan, dan insiden. [Sumber resmi PDPA Taiwan](https://law.pdpc.gov.tw/LawContent.aspx?id=FL010627).
 
-**P0:** alur aktivasi dan persetujuan wali ditinjau menurut ketentuan kapasitas anak dan perwakilan hukum di Taiwan; jangan menyalin aturan batas umur negara lain. Civil Code memuat ketentuan perwakilan dan persetujuan bagi pihak yang belum memiliki kapasitas hukum penuh. Kebijakan produk tetap mewajibkan pendamping untuk aktivasi dan fitur AI anak; ini bukan klaim bahwa semua pemrosesan hanya dapat berdasar persetujuan. [Civil Code Taiwan, terutama Pasal 76–79](https://mojlaw.moj.gov.tw/LawContentE.aspx?LSID=FL001351&media=print).
+**P0:** alur aktivasi dan persetujuan ditinjau menurut ketentuan kapasitas anak dan perwakilan hukum di Taiwan; jangan menyalin aturan batas umur negara lain. Civil Code memuat ketentuan perwakilan dan persetujuan bagi pihak yang belum memiliki kapasitas hukum penuh. [Civil Code Taiwan, terutama Pasal 76–79](https://mojlaw.moj.gov.tw/LawContentE.aspx?LSID=FL001351&media=print).
+
+**Diperbarui setelah tinjauan hukum (dasar persetujuan untuk pilot ini):** petugas hukum telah meninjau dan mengonfirmasi bahwa untuk cakupan pilot sekolah ini, **persetujuan institusional dari sekolah mencukupi sebagai dasar pemrosesan**, menggantikan kebutuhan formulir persetujuan wali terpisah per siswa. Keputusan ini spesifik untuk konteks dan skala pilot saat ini; jika cakupan berubah (mis. distribusi luas di luar pengawasan langsung sekolah, atau di luar Taiwan), dasar persetujuan ini perlu ditinjau ulang oleh petugas hukum sebelum diterapkan pada skala tersebut. Prinsip lain tetap berlaku meski dasarnya persetujuan sekolah: persetujuan terpisah untuk fitur AI opsional, kemampuan mencabut persetujuan, serta pemberitahuan dalam Mandarin Tradisional (lihat bagian 8).
 
 Dokumen wali, pemberitahuan data, dan kontak bantuan tersedia dalam Mandarin Tradisional. Hukum Indonesia tidak menjadi acuan utama hanya karena bahasa pelajarannya Bahasa Indonesia; kewajiban tambahan ditelaah jika lokasi pengelola atau operasi membuat hukum negara lain relevan. Checklist ini bukan jaminan kepatuhan hukum.
 
@@ -184,7 +187,7 @@ Google Play mewajibkan pengungkapan target usia, praktik data, serta kesesuaian 
 
 Untuk iOS, periksa ketentuan Kids Category serta privasi anak, parental gate, dan pembatasan analitik pihak ketiga. Jangan menganggap SDK analitik yang sudah terpasang otomatis boleh digunakan. **P0 toko:** keputusan kategori, rating, deklarasi privasi, dan review alur pendamping sebelum submission. [Apple App Review Guidelines, terutama 1.3 dan 5.1](https://developer.apple.com/app-store/review/guidelines/).
 
-Distribusi APK terbatas tidak menghapus kewajiban melindungi data anak. Jika wilayah sasaran berbeda, lakukan pemetaan hukum setempat sebelum mengumpulkan data. Persetujuan sekolah juga tidak otomatis menggantikan persetujuan wali.
+Distribusi APK terbatas tidak menghapus kewajiban melindungi data anak. Jika wilayah sasaran berbeda, lakukan pemetaan hukum setempat sebelum mengumpulkan data. Untuk pilot ini, persetujuan sekolah sebagai dasar pemrosesan sudah dikonfirmasi petugas hukum (lihat bagian 9 di atas); pemetaan ulang tetap diperlukan sebelum perluasan cakupan atau wilayah.
 
 ## 10. Kualitas teknis, aksesibilitas, dan kinerja
 
