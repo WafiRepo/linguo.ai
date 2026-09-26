@@ -13,6 +13,17 @@ export interface RoleplayHint {
   translation: string;
 }
 
+export interface RoleplayCorrection {
+  said: string;
+  better: string;
+  tip: string;
+}
+
+export interface RoleplayFeedback {
+  praise: string;
+  corrections: RoleplayCorrection[];
+}
+
 export interface RoleplayScenario {
   id: string;
   title: string;

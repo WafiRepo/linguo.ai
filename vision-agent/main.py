@@ -11,6 +11,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
 from getstream.models import MemberRequest  # noqa: E402
+from openai import AsyncOpenAI  # noqa: E402
 from openai.types.realtime.realtime_transcription_session_audio_input_turn_detection_param import SemanticVad, ServerVad  # noqa: E402
 from vision_agents.core import Agent, AgentLauncher, User, Runner  # noqa: E402
 from vision_agents.core.instructions import Instructions  # noqa: E402
@@ -34,8 +35,10 @@ from instruction_language import (  # noqa: E402
 from gpt_live import GptLive  # noqa: E402
 from pronunciation import append_pronunciation_guide  # noqa: E402
 from roleplay import (  # noqa: E402
+    RoleplayController,
     RoleplayTracker,
     build_roleplay_system_prompt,
+    generate_roleplay_feedback,
     help_language_name,
     parse_objectives,
     roleplay_kickoff_hint,
@@ -306,7 +309,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         f"lesson_description={lesson_description!r}"
     )
 
-    roleplay_tracker: RoleplayTracker | None = None
+    roleplay: RoleplayController | None = None
+    is_gpt_live = isinstance(agent.llm, GptLive)
 
     if is_class_management:
         system_prompt = build_class_management_system_prompt(
@@ -324,11 +328,30 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             instruction_languages,
         )
     elif is_roleplay:
-        roleplay_tracker = RoleplayTracker(parse_objectives(custom.get("objectives")))
+        help_language = help_language_name(language_code, lesson_instruction_languages)
+        tracker = RoleplayTracker(parse_objectives(custom.get("objectives")))
+        feedback_client = AsyncOpenAI()
+        feedback_model = os.getenv("ROLEPLAY_FEEDBACK_MODEL", "gpt-5.4-mini")
+
+        async def send_roleplay_event(payload: dict) -> None:
+            try:
+                await agent.send_custom_event(payload)
+            except Exception as e:
+                print(f"[roleplay] event error ({payload.get('type')}): {e}")
+
+        roleplay = RoleplayController(
+            send_event=send_roleplay_event,
+            tracker=tracker,
+            append_instructions=agent.llm.append_instructions if is_gpt_live else None,
+            generate_feedback=lambda turns: generate_roleplay_feedback(
+                feedback_client, feedback_model, turns, help_language
+            ),
+        )
         system_prompt = build_roleplay_system_prompt(
             custom,
-            roleplay_tracker.objectives,
-            help_language_name(language_code, lesson_instruction_languages),
+            tracker.objectives,
+            help_language,
+            live_mission_updates=is_gpt_live,
         )
         system_prompt = append_emotion_to_prompt(
             system_prompt,
@@ -467,16 +490,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         if class_mgmt is not None:
             await class_mgmt.on_student_speech(final_text)
             return
-        if roleplay_tracker is not None:
-            for objective in roleplay_tracker.record(final_text):
-                _safe_log(f"[roleplay] objective done: {objective.id} ({final_text!r})")
-                try:
-                    await agent.send_custom_event({
-                        "type": "roleplay_objective",
-                        "objectiveId": objective.id,
-                    })
-                except Exception as e:
-                    print(f"[roleplay] objective event error: {e}")
+        if roleplay is not None:
+            await roleplay.on_user_final(final_text)
             return
         turn_scores = assess_user_turn(
             final_text,
@@ -511,6 +526,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
 
     def emit_user_speech_transcription(text: str, *, mode) -> None:
         original_emit_user(text, mode=mode)
+        if mode == "delta" and text and roleplay is not None:
+            asyncio.create_task(roleplay.on_user_partial(text))
         if mode != "final":
             return
         final_text = text.strip()
@@ -540,7 +557,10 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             # permanently stalling the state machine after the first line.
             full_text = text.strip() or "".join(partial_agent).strip()
             partial_agent.clear()
-            if class_mgmt is not None:
+            if roleplay is not None:
+                if full_text:
+                    asyncio.create_task(roleplay.on_agent_final(full_text))
+            elif class_mgmt is not None:
                 # Logs exactly what Sari said for every turn — compare this
                 # against the hint that was sent if the script ever drifts
                 # to another topic's dialogue or adds unrequested commentary.
@@ -571,7 +591,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             elif is_roleplay:
                 # GPT-Live voices commentary as-is, so it gets the bare line;
                 # the Realtime fallback needs the instruction wrapper.
-                if isinstance(agent.llm, GptLive):
+                if is_gpt_live:
                     await agent.simple_response(roleplay_opening_line(custom))
                 else:
                     await agent.simple_response(roleplay_kickoff_hint(custom))
@@ -594,6 +614,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
 
             await agent.finish()
     finally:
+        if roleplay is not None:
+            roleplay.close()
         llm._emit_user_speech_transcription = original_emit_user
         llm._emit_agent_speech_transcription = original_emit_agent
 

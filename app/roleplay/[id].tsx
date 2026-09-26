@@ -2,7 +2,6 @@ import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Call,
-  CallClosedCaption,
   StreamCall,
   StreamVideo,
   StreamVideoClient,
@@ -31,12 +30,15 @@ import { getInstructionLanguages } from "@/lib/instructionLanguage";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
-import { RoleplayScenario } from "@/types/roleplay";
+import {
+  RoleplayCorrection,
+  RoleplayFeedback,
+  RoleplayScenario,
+} from "@/types/roleplay";
 
 type CallStatus = "idle" | "connecting" | "joined" | "error";
 type AgentStatus = "idle" | "connecting" | "connected" | "failed";
 
-const AGENT_USER_ID = "ai-teacher";
 const MAX_KNOWN_WORDS = 40;
 
 // Words from lessons the student finished, so the AI can stay at their level.
@@ -44,6 +46,20 @@ function getKnownWords(completedLessonIds: string[]): string[] {
   return LESSONS.filter((lesson) => completedLessonIds.includes(lesson.id))
     .flatMap((lesson) => lesson.vocabulary.map((item) => item.word))
     .slice(0, MAX_KNOWN_WORDS);
+}
+
+function parseFeedback(data: {
+  praise?: unknown;
+  corrections?: unknown;
+}): RoleplayFeedback | null {
+  if (typeof data.praise !== "string" || !Array.isArray(data.corrections)) {
+    return null;
+  }
+  const corrections = data.corrections.filter(
+    (item): item is RoleplayCorrection =>
+      typeof item?.said === "string" && typeof item?.better === "string",
+  );
+  return { praise: data.praise, corrections };
 }
 
 export default function RoleplayScreen() {
@@ -65,12 +81,15 @@ function LiveRoleplayScreen() {
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle");
   const [completedIds, setCompletedIds] = useState<string[]>([]);
+  const [feedback, setFeedback] = useState<RoleplayFeedback | null>(null);
+  const [reviewing, setReviewing] = useState(false);
 
   const callRef = useRef<Call | null>(null);
   const clientRef = useRef<StreamVideoClient | null>(null);
   const agentSessionRef = useRef<string | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const rewardedRef = useRef(false);
+  const studentSpokeRef = useRef(false);
 
   const missionComplete =
     !!scenario && completedIds.length === scenario.objectives.length;
@@ -80,7 +99,10 @@ function LiveRoleplayScreen() {
 
     startTimeRef.current = Date.now();
     rewardedRef.current = false;
+    studentSpokeRef.current = false;
     setCompletedIds([]);
+    setFeedback(null);
+    setReviewing(false);
     posthog.capture("roleplay_started", {
       scenario_id: scenario.id,
       tutor_voice: tutorVoice,
@@ -170,12 +192,9 @@ function LiveRoleplayScreen() {
         console.warn("[roleplay] call.update failed:", updateErr);
       }
 
-      try {
-        await streamCall.startClosedCaptions();
-      } catch (e) {
-        console.warn("[roleplay] startClosedCaptions failed:", e);
-      }
-
+      // No Stream closed captions here: the transcript comes from the AI
+      // model itself (what it heard and said), which is more accurate for
+      // Indonesian than a generic caption service.
       callRef.current = streamCall;
       clientRef.current = streamClient;
       setClient(streamClient);
@@ -243,6 +262,10 @@ function LiveRoleplayScreen() {
     [scenario?.id],
   );
 
+  const handleStudentTurn = useCallback(() => {
+    studentSpokeRef.current = true;
+  }, []);
+
   async function handleLeave() {
     posthog.capture("roleplay_left", {
       scenario_id: scenario?.id ?? id,
@@ -261,7 +284,17 @@ function LiveRoleplayScreen() {
     clientRef.current = null;
     agentSessionRef.current = null;
     stopAgentSession(callId, sessionId);
-    router.back();
+
+    if (!studentSpokeRef.current) {
+      router.back();
+      return;
+    }
+    posthog.capture("roleplay_review_shown", {
+      scenario_id: scenario?.id ?? id,
+      has_feedback: feedback !== null,
+      corrections: feedback?.corrections.length ?? 0,
+    });
+    setReviewing(true);
   }
 
   if (!scenario) {
@@ -271,6 +304,17 @@ function LiveRoleplayScreen() {
           <Text className="body-md text-text-secondary">找不到這個情境</Text>
         </View>
       </SafeAreaView>
+    );
+  }
+
+  if (reviewing) {
+    return (
+      <RoleplayReview
+        scenario={scenario}
+        completedIds={completedIds}
+        feedback={feedback}
+        onDone={() => router.back()}
+      />
     );
   }
 
@@ -315,6 +359,8 @@ function LiveRoleplayScreen() {
               call={call}
               missionComplete={missionComplete}
               onObjectiveDone={handleObjectiveDone}
+              onStudentTurn={handleStudentTurn}
+              onFeedback={setFeedback}
               onRetry={() => startAgentSession(call.id)}
               onFinish={handleLeave}
             />
@@ -391,14 +437,17 @@ function MissionCard({
   );
 }
 
-type PartialCaption = { speaker: "agent" | "user"; text: string };
+type Speaker = "agent" | "user";
+type TranscriptMessage = { id: number; speaker: Speaker; text: string };
 
 interface RoleplayCustomEvent {
   custom?: {
     type?: string;
-    speaker?: "agent" | "user";
+    speaker?: Speaker;
     text?: string;
     objectiveId?: string;
+    praise?: unknown;
+    corrections?: unknown;
   };
 }
 
@@ -408,6 +457,8 @@ function ActiveRoleplayContent({
   call,
   missionComplete,
   onObjectiveDone,
+  onStudentTurn,
+  onFeedback,
   onRetry,
   onFinish,
 }: {
@@ -416,17 +467,19 @@ function ActiveRoleplayContent({
   call: Call;
   missionComplete: boolean;
   onObjectiveDone: (objectiveId: string) => void;
+  onStudentTurn: () => void;
+  onFeedback: (feedback: RoleplayFeedback) => void;
   onRetry: () => void;
   onFinish: () => void;
 }) {
-  const { useMicrophoneState, useCallClosedCaptions } = useCallStateHooks();
+  const { useMicrophoneState } = useCallStateHooks();
   const { microphone, optimisticIsMute } = useMicrophoneState({
     optimisticUpdates: true,
   });
-  const captions = useCallClosedCaptions();
-  const [partial, setPartial] = useState<PartialCaption | null>(null);
+  const [messages, setMessages] = useState<TranscriptMessage[]>([]);
+  const [partials, setPartials] = useState<Partial<Record<Speaker, string>>>({});
   const [showHints, setShowHints] = useState(false);
-  const partialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nextMessageIdRef = useRef(0);
   const micAutoStartedRef = useRef(false);
   const scrollRef = useRef<ScrollView | null>(null);
 
@@ -449,25 +502,38 @@ function ActiveRoleplayContent({
         return;
       }
 
+      if (data.type === "roleplay_feedback") {
+        const parsed = parseFeedback(data);
+        if (parsed) onFeedback(parsed);
+        return;
+      }
+
+      const speaker: Speaker = data.speaker === "user" ? "user" : "agent";
+
       if (data.type === "transcript_partial" && data.text) {
-        setPartial({ speaker: data.speaker ?? "agent", text: data.text });
-        if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
-        partialTimerRef.current = setTimeout(() => setPartial(null), 3000);
+        const text = data.text;
+        setPartials((prev) => ({ ...prev, [speaker]: text }));
+        return;
+      }
+
+      if (data.type === "transcript_final" && data.text) {
+        const text = data.text;
+        setPartials((prev) => ({ ...prev, [speaker]: undefined }));
+        // A pause splits one turn into several finals; keep it as one bubble.
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.speaker === speaker) {
+            return [...prev.slice(0, -1), { ...last, text: `${last.text} ${text}` }];
+          }
+          nextMessageIdRef.current += 1;
+          return [...prev, { id: nextMessageIdRef.current, speaker, text }];
+        });
+        if (speaker === "user") onStudentTurn();
       }
     });
 
-    return () => {
-      unsubscribe();
-      if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
-    };
-  }, [call, onObjectiveDone]);
-
-  useEffect(() => {
-    if (captions.length > 0) {
-      setPartial(null);
-      if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
-    }
-  }, [captions]);
+    return unsubscribe;
+  }, [call, onObjectiveDone, onStudentTurn, onFeedback]);
 
   function handleToggleMic() {
     if (!isReady) return;
@@ -481,7 +547,8 @@ function ActiveRoleplayContent({
     setShowHints((prev) => !prev);
   }
 
-  const hasTranscript = captions.length > 0 || partial !== null;
+  const hasTranscript =
+    messages.length > 0 || Boolean(partials.agent) || Boolean(partials.user);
 
   return (
     <View className="flex-1">
@@ -515,24 +582,25 @@ function ActiveRoleplayContent({
 
         {hasTranscript ? (
           <>
-            {captions.map((caption: CallClosedCaption, i: number) => (
+            {messages.map((message) => (
               <CaptionBubble
-                key={`${caption.start_time}-${i}`}
-                isAgent={caption.user?.id === AGENT_USER_ID}
-                speakerName={
-                  caption.user?.id === AGENT_USER_ID ? scenario.aiName : "你"
-                }
-                text={caption.text}
+                key={message.id}
+                isAgent={message.speaker === "agent"}
+                speakerName={message.speaker === "agent" ? scenario.aiName : "你"}
+                text={message.text}
               />
             ))}
-            {partial ? (
-              <CaptionBubble
-                isAgent={partial.speaker === "agent"}
-                speakerName={partial.speaker === "agent" ? scenario.aiName : "你"}
-                text={partial.text}
-                isPartial
-              />
-            ) : null}
+            {(["user", "agent"] as const).map((speaker) =>
+              partials[speaker] ? (
+                <CaptionBubble
+                  key={`partial-${speaker}`}
+                  isAgent={speaker === "agent"}
+                  speakerName={speaker === "agent" ? scenario.aiName : "你"}
+                  text={partials[speaker] ?? ""}
+                  isPartial
+                />
+              ) : null,
+            )}
           </>
         ) : (
           <View className="flex-1 items-center justify-center py-10">
@@ -656,6 +724,108 @@ function CaptionBubble({
   );
 }
 
+function RoleplayReview({
+  scenario,
+  completedIds,
+  feedback,
+  onDone,
+}: {
+  scenario: RoleplayScenario;
+  completedIds: string[];
+  feedback: RoleplayFeedback | null;
+  onDone: () => void;
+}) {
+  const missionComplete = completedIds.length === scenario.objectives.length;
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View className="flex-row items-center px-5 pt-2 pb-3">
+        <View className="w-9" />
+        <Text className="flex-1 text-center font-poppins-semibold text-base text-text-primary">
+          對話回顧
+        </Text>
+        <TouchableOpacity onPress={onDone} hitSlop={8} className="w-9 items-end">
+          <Ionicons name="close" size={24} color={colors.neutral.textPrimary} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={styles.reviewContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <MissionCard scenario={scenario} completedIds={completedIds} />
+
+        <View className="mx-4 mb-4 flex-row items-center rounded-2xl bg-surface p-3">
+          <Text className="text-2xl mr-2">{missionComplete ? "🏆" : "💪"}</Text>
+          <Text className="flex-1 font-poppins-medium text-[13px] text-text-primary">
+            {missionComplete
+              ? `任務全部完成，獲得 +${scenario.xpReward} XP！`
+              : "還有任務沒完成，下次再試試看！"}
+          </Text>
+        </View>
+
+        {feedback ? (
+          <View className="mx-4">
+            {feedback.praise ? (
+              <View className="rounded-2xl bg-[#FFF7E0] p-4 mb-4">
+                <Text className="font-poppins-semibold text-sm text-text-primary">
+                  🌟 {feedback.praise}
+                </Text>
+              </View>
+            ) : null}
+
+            <Text className="font-poppins-semibold text-[15px] text-text-primary mb-2">
+              可以說得更好
+            </Text>
+            {feedback.corrections.length === 0 ? (
+              <Text className="font-poppins text-[13px] text-text-secondary">
+                這次沒有需要修正的句子 👍
+              </Text>
+            ) : (
+              feedback.corrections.map((correction) => (
+                <View
+                  key={correction.said}
+                  className="rounded-2xl border border-border bg-white p-4 mb-3"
+                >
+                  <Text className="font-poppins text-xs text-text-secondary">你說</Text>
+                  <Text className="font-poppins text-sm text-text-secondary mb-2">
+                    {correction.said}
+                  </Text>
+                  <Text className="font-poppins text-xs text-lingua-green">更好的說法</Text>
+                  <Text className="font-poppins-semibold text-[15px] text-text-primary mb-2">
+                    {correction.better}
+                  </Text>
+                  {correction.tip ? (
+                    <Text className="font-poppins text-[13px] leading-5 text-text-secondary">
+                      💡 {correction.tip}
+                    </Text>
+                  ) : null}
+                </View>
+              ))
+            )}
+          </View>
+        ) : (
+          <Text className="mx-4 font-poppins text-[13px] text-text-secondary">
+            這次對話太短，AI 還來不及整理回饋。下次多說幾句試試看！
+          </Text>
+        )}
+      </ScrollView>
+
+      <View className="px-5 pt-2 pb-5">
+        <TouchableOpacity
+          className="bg-lingua-purple rounded-2xl py-3.5 items-center"
+          activeOpacity={0.85}
+          onPress={onDone}
+          testID="roleplay-review-done"
+        >
+          <Text className="font-poppins-semibold text-[15px] text-white">完成</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
+
 function getDisplayStatus(
   callStatus: CallStatus,
   agentStatus: AgentStatus,
@@ -682,6 +852,9 @@ const styles = StyleSheet.create({
   transcriptContent: {
     flexGrow: 1,
     padding: 14,
+  },
+  reviewContent: {
+    paddingBottom: 16,
   },
   micButton: {
     width: 80,

@@ -28,8 +28,10 @@ LIVE_URL = "wss://api.openai.com/v1/live/sessions"
 LIVE_SAMPLE_RATE = 24000
 CONNECT_TIMEOUT_SECONDS = 15
 # Live transcript fragments follow audio cadence, not turn boundaries. A turn
-# counts as finished once no new fragment has arrived for this long.
-TURN_SETTLE_SECONDS = 0.9
+# counts as finished once no new fragment has arrived for this long. Learners
+# pause mid-sentence while thinking, so their turns get a longer window.
+USER_TURN_SETTLE_SECONDS = 1.6
+AGENT_TURN_SETTLE_SECONDS = 0.9
 
 
 class GptLive(realtime.Realtime):
@@ -105,6 +107,14 @@ class GptLive(realtime.Realtime):
             "content": text,
         })
         yield LLMResponseFinal()
+
+    async def append_instructions(self, content: str) -> None:
+        """Add trusted instructions mid-session (the startup prompt is immutable)."""
+        await self._send({
+            "type": "session.instructions.append",
+            "delegation_id": None,
+            "content": content,
+        })
 
     async def simple_audio_response(self, pcm: PcmData, participant: Participant) -> None:
         self._current_participant = participant
@@ -226,7 +236,10 @@ class GptLive(realtime.Realtime):
         if not self._user_parts:
             self._emit_user_speech_started()
         self._user_parts.append(text)
-        self._user_timer = self._restart_timer(self._user_timer, self._finish_user_turn)
+        self._emit_user_speech_transcription(text, mode="delta")
+        self._user_timer = self._restart_timer(
+            self._user_timer, self._finish_user_turn, USER_TURN_SETTLE_SECONDS
+        )
 
     def _on_agent_fragment(self, text: str) -> None:
         if not text:
@@ -235,7 +248,9 @@ class GptLive(realtime.Realtime):
             self._emit_agent_speech_started()
         self._agent_parts.append(text)
         self._emit_agent_speech_transcription(text, mode="delta")
-        self._agent_timer = self._restart_timer(self._agent_timer, self._finish_agent_turn)
+        self._agent_timer = self._restart_timer(
+            self._agent_timer, self._finish_agent_turn, AGENT_TURN_SETTLE_SECONDS
+        )
 
     async def _finish_user_turn(self) -> None:
         text = "".join(self._user_parts).strip()
@@ -254,12 +269,13 @@ class GptLive(realtime.Realtime):
     def _restart_timer(
         current: Optional[asyncio.Task],
         callback: Callable[[], Awaitable[None]],
+        delay: float,
     ) -> asyncio.Task:
         if current is not None:
             current.cancel()
 
         async def fire() -> None:
-            await asyncio.sleep(TURN_SETTLE_SECONDS)
+            await asyncio.sleep(delay)
             await callback()
 
         return asyncio.create_task(fire())
