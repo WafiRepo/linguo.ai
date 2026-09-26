@@ -1,0 +1,712 @@
+import { useAuth, useUser } from "@clerk/expo";
+import { Ionicons } from "@expo/vector-icons";
+import {
+  Call,
+  CallClosedCaption,
+  StreamCall,
+  StreamVideo,
+  StreamVideoClient,
+  useCallStateHooks,
+} from "@stream-io/video-react-native-sdk";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { AIPilotNotice } from "@/components/AIPilotNotice";
+import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
+import { colors } from "@/constants/theme";
+import { LESSONS } from "@/data/lessons";
+import { getRoleplayScenario } from "@/data/roleplays";
+import { apiUrl } from "@/lib/api";
+import { getInstructionLanguages } from "@/lib/instructionLanguage";
+import { posthog } from "@/lib/posthog";
+import { useLanguageStore } from "@/store/languageStore";
+import { useLearningStore } from "@/store/learningStore";
+import { RoleplayScenario } from "@/types/roleplay";
+
+type CallStatus = "idle" | "connecting" | "joined" | "error";
+type AgentStatus = "idle" | "connecting" | "connected" | "failed";
+
+const AGENT_USER_ID = "ai-teacher";
+const MAX_KNOWN_WORDS = 40;
+
+// Words from lessons the student finished, so the AI can stay at their level.
+function getKnownWords(completedLessonIds: string[]): string[] {
+  return LESSONS.filter((lesson) => completedLessonIds.includes(lesson.id))
+    .flatMap((lesson) => lesson.vocabulary.map((item) => item.word))
+    .slice(0, MAX_KNOWN_WORDS);
+}
+
+export default function RoleplayScreen() {
+  return CHILD_AI_RELEASE_READY ? <LiveRoleplayScreen /> : <AIPilotNotice />;
+}
+
+function LiveRoleplayScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { user, isLoaded } = useUser();
+  const { getToken } = useAuth();
+  const { tutorVoice, tutorEmotion } = useLanguageStore();
+  const completeRoleplay = useLearningStore((s) => s.completeRoleplay);
+
+  const scenario = getRoleplayScenario(id ?? "");
+
+  const [client, setClient] = useState<StreamVideoClient | null>(null);
+  const [call, setCall] = useState<Call | null>(null);
+  const [callStatus, setCallStatus] = useState<CallStatus>("idle");
+  const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle");
+  const [completedIds, setCompletedIds] = useState<string[]>([]);
+
+  const callRef = useRef<Call | null>(null);
+  const clientRef = useRef<StreamVideoClient | null>(null);
+  const agentSessionRef = useRef<string | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const rewardedRef = useRef(false);
+
+  const missionComplete =
+    !!scenario && completedIds.length === scenario.objectives.length;
+
+  useEffect(() => {
+    if (!isLoaded || !user || !scenario) return;
+
+    startTimeRef.current = Date.now();
+    rewardedRef.current = false;
+    setCompletedIds([]);
+    posthog.capture("roleplay_started", {
+      scenario_id: scenario.id,
+      tutor_voice: tutorVoice,
+    });
+
+    startCall();
+
+    return () => {
+      callRef.current?.leave().catch(console.error);
+      clientRef.current?.disconnectUser().catch(console.error);
+      stopAgentSession(callRef.current?.id ?? null, agentSessionRef.current);
+    };
+  }, [isLoaded, user, scenario, tutorVoice, tutorEmotion]);
+
+  useEffect(() => {
+    if (!missionComplete || !scenario || rewardedRef.current) return;
+    rewardedRef.current = true;
+    completeRoleplay(scenario.id, scenario.xpReward);
+    posthog.capture("roleplay_completed", {
+      scenario_id: scenario.id,
+      duration_seconds: startTimeRef.current
+        ? Math.floor((Date.now() - startTimeRef.current) / 1000)
+        : 0,
+    });
+  }, [missionComplete, scenario, completeRoleplay]);
+
+  async function startCall() {
+    if (!user || !scenario) return;
+    setCallStatus("connecting");
+
+    try {
+      const clerkToken = await getToken();
+      if (!clerkToken) throw new Error("Not authenticated");
+
+      const res = await fetch(apiUrl("/api/stream-token"), {
+        headers: { Authorization: `Bearer ${clerkToken}` },
+      });
+      if (!res.ok) throw new Error("Token fetch failed");
+      const { token, apiKey } = await res.json();
+
+      const streamClient = StreamVideoClient.getOrCreateInstance({
+        apiKey,
+        token,
+        user: {
+          id: user.id,
+          name: user.fullName ?? user.id,
+          image: user.imageUrl || undefined,
+        },
+      });
+
+      const callId = `roleplay-${scenario.id}-${user.id}`;
+      const streamCall = streamClient.call("default", callId);
+      await streamCall.join({ create: true });
+
+      // Stays off until the AI has joined, then opens for the whole conversation.
+      try {
+        await streamCall.microphone.disable();
+      } catch {}
+
+      // The server builds the prompt itself from these fields — no system_prompt is sent.
+      try {
+        await streamCall.update({
+          custom: {
+            mode: "roleplay",
+            scenario_id: scenario.id,
+            language: "id",
+            language_code: "id",
+            instruction_languages: getInstructionLanguages("id", tutorVoice),
+            tutor_emotion: tutorEmotion,
+            ai_name: scenario.aiName,
+            ai_role: scenario.aiRole,
+            setting: scenario.setting,
+            opening_line: scenario.openingLine,
+            known_words: JSON.stringify(
+              getKnownWords(useLearningStore.getState().completedLessonIds),
+            ),
+            objectives: JSON.stringify(
+              scenario.objectives.map(({ id: objectiveId, goal, targets }) => ({
+                id: objectiveId,
+                goal,
+                targets,
+              })),
+            ),
+          },
+        });
+      } catch (updateErr) {
+        console.warn("[roleplay] call.update failed:", updateErr);
+      }
+
+      try {
+        await streamCall.startClosedCaptions();
+      } catch (e) {
+        console.warn("[roleplay] startClosedCaptions failed:", e);
+      }
+
+      callRef.current = streamCall;
+      clientRef.current = streamClient;
+      setClient(streamClient);
+      setCall(streamCall);
+      setCallStatus("joined");
+      startAgentSession(callId);
+    } catch (err) {
+      console.error("[roleplay] Stream call error:", err);
+      setCallStatus("error");
+    }
+  }
+
+  async function startAgentSession(callId: string) {
+    setAgentStatus("connecting");
+    try {
+      const clerkToken = await getToken();
+      if (!clerkToken) throw new Error("Not authenticated");
+      const res = await fetch(apiUrl("/api/agent-session"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${clerkToken}`,
+        },
+        body: JSON.stringify({ callId, callType: "default" }),
+      });
+      if (res.ok) {
+        const { session_id } = await res.json();
+        agentSessionRef.current = session_id ?? null;
+        setAgentStatus("connected");
+      } else {
+        console.error("[roleplay] agent-session failed:", res.status);
+        setAgentStatus("failed");
+      }
+    } catch (err) {
+      console.error("[roleplay] agent-session network error:", err);
+      setAgentStatus("failed");
+    }
+  }
+
+  function stopAgentSession(callId: string | null, sessionId: string | null) {
+    if (!callId || !sessionId) return;
+    getToken()
+      .then((clerkToken) => {
+        if (!clerkToken) return;
+        return fetch(
+          apiUrl(
+            `/api/agent-session?callId=${encodeURIComponent(callId)}&sessionId=${encodeURIComponent(sessionId)}`,
+          ),
+          { method: "DELETE", headers: { Authorization: `Bearer ${clerkToken}` } },
+        );
+      })
+      .catch(() => {});
+  }
+
+  const handleObjectiveDone = useCallback(
+    (objectiveId: string) => {
+      setCompletedIds((prev) =>
+        prev.includes(objectiveId) ? prev : [...prev, objectiveId],
+      );
+      posthog.capture("roleplay_objective_completed", {
+        scenario_id: scenario?.id ?? null,
+        objective_id: objectiveId,
+      });
+    },
+    [scenario?.id],
+  );
+
+  async function handleLeave() {
+    posthog.capture("roleplay_left", {
+      scenario_id: scenario?.id ?? id,
+      objectives_done: completedIds.length,
+      duration_seconds: startTimeRef.current
+        ? Math.floor((Date.now() - startTimeRef.current) / 1000)
+        : 0,
+    });
+    const callId = callRef.current?.id ?? null;
+    const sessionId = agentSessionRef.current;
+    try {
+      await callRef.current?.leave();
+      clientRef.current?.disconnectUser();
+    } catch {}
+    callRef.current = null;
+    clientRef.current = null;
+    agentSessionRef.current = null;
+    stopAgentSession(callId, sessionId);
+    router.back();
+  }
+
+  if (!scenario) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View className="flex-1 items-center justify-center">
+          <Text className="body-md text-text-secondary">找不到這個情境</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const displayStatus = getDisplayStatus(callStatus, agentStatus, scenario.aiName);
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View className="flex-row items-center px-5 pt-2 pb-1.5">
+        <TouchableOpacity onPress={handleLeave} hitSlop={8}>
+          <Ionicons name="chevron-back" size={24} color={colors.neutral.textPrimary} />
+        </TouchableOpacity>
+        <Text
+          className="flex-1 text-center font-poppins-semibold text-base text-text-primary"
+          numberOfLines={1}
+        >
+          {scenario.title}
+        </Text>
+        <TouchableOpacity
+          className="w-9 h-9 rounded-full bg-[#E8453C] items-center justify-center"
+          onPress={handleLeave}
+          hitSlop={8}
+        >
+          <Ionicons name="call" size={18} color="#fff" style={styles.hangUpIcon} />
+        </TouchableOpacity>
+      </View>
+
+      <View className="flex-row items-center gap-1.5 px-5 pb-2">
+        <View className="w-2 h-2 rounded-full" style={{ backgroundColor: displayStatus.color }} />
+        <Text className="font-poppins-medium text-xs" style={{ color: displayStatus.color }}>
+          {displayStatus.label}
+        </Text>
+      </View>
+
+      <MissionCard scenario={scenario} completedIds={completedIds} />
+
+      {callStatus === "joined" && client && call ? (
+        <StreamVideo client={client}>
+          <StreamCall call={call}>
+            <ActiveRoleplayContent
+              scenario={scenario}
+              agentStatus={agentStatus}
+              call={call}
+              missionComplete={missionComplete}
+              onObjectiveDone={handleObjectiveDone}
+              onRetry={() => startAgentSession(call.id)}
+              onFinish={handleLeave}
+            />
+          </StreamCall>
+        </StreamVideo>
+      ) : (
+        <View className="flex-1 items-center justify-center px-8">
+          {callStatus === "error" ? (
+            <TouchableOpacity onPress={startCall} className="items-center">
+              <Text className="font-poppins-semibold text-sm text-text-primary">連線失敗</Text>
+              <Text className="font-poppins text-[13px] text-text-secondary mt-1">點這裡重試</Text>
+            </TouchableOpacity>
+          ) : (
+            <ActivityIndicator size="large" color={colors.primary.purple} />
+          )}
+        </View>
+      )}
+    </SafeAreaView>
+  );
+}
+
+function MissionCard({
+  scenario,
+  completedIds,
+}: {
+  scenario: RoleplayScenario;
+  completedIds: string[];
+}) {
+  return (
+    <View
+      className="mx-4 mb-3 rounded-[20px] p-4"
+      style={{ backgroundColor: scenario.accentColor }}
+    >
+      <View className="flex-row items-center mb-3">
+        <View className="w-11 h-11 rounded-full bg-white items-center justify-center mr-3">
+          <Text className="text-xl">{scenario.emoji}</Text>
+        </View>
+        <View className="flex-1">
+          <Text className="font-poppins-semibold text-sm text-text-primary">
+            你的任務
+          </Text>
+          <Text className="font-poppins text-xs text-text-secondary" numberOfLines={1}>
+            和 {scenario.aiName} 用印尼語完成對話
+          </Text>
+        </View>
+        <Text className="font-poppins-semibold text-[13px] text-lingua-purple">
+          {completedIds.length}/{scenario.objectives.length}
+        </Text>
+      </View>
+
+      <View className="flex-row flex-wrap gap-2">
+        {scenario.objectives.map((objective) => {
+          const done = completedIds.includes(objective.id);
+          return (
+            <View
+              key={objective.id}
+              className={`flex-row items-center rounded-full px-3 py-1.5 ${done ? "bg-lingua-green" : "bg-white"}`}
+            >
+              <Ionicons
+                name={done ? "checkmark-circle" : "ellipse-outline"}
+                size={14}
+                color={done ? "#fff" : colors.neutral.textSecondary}
+              />
+              <Text
+                className={`font-poppins-medium text-xs ml-1 ${done ? "text-white" : "text-text-primary"}`}
+              >
+                {objective.label}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+type PartialCaption = { speaker: "agent" | "user"; text: string };
+
+interface RoleplayCustomEvent {
+  custom?: {
+    type?: string;
+    speaker?: "agent" | "user";
+    text?: string;
+    objectiveId?: string;
+  };
+}
+
+function ActiveRoleplayContent({
+  scenario,
+  agentStatus,
+  call,
+  missionComplete,
+  onObjectiveDone,
+  onRetry,
+  onFinish,
+}: {
+  scenario: RoleplayScenario;
+  agentStatus: AgentStatus;
+  call: Call;
+  missionComplete: boolean;
+  onObjectiveDone: (objectiveId: string) => void;
+  onRetry: () => void;
+  onFinish: () => void;
+}) {
+  const { useMicrophoneState, useCallClosedCaptions } = useCallStateHooks();
+  const { microphone, optimisticIsMute } = useMicrophoneState({
+    optimisticUpdates: true,
+  });
+  const captions = useCallClosedCaptions();
+  const [partial, setPartial] = useState<PartialCaption | null>(null);
+  const [showHints, setShowHints] = useState(false);
+  const partialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const micAutoStartedRef = useRef(false);
+  const scrollRef = useRef<ScrollView | null>(null);
+
+  const isReady = agentStatus === "connected";
+  const micOn = isReady && !optimisticIsMute;
+
+  // Open mic like a real conversation — no push-to-talk.
+  useEffect(() => {
+    if (!isReady || micAutoStartedRef.current) return;
+    micAutoStartedRef.current = true;
+    microphone.enable().catch((e) => console.warn("[roleplay] mic enable failed:", e));
+  }, [isReady, microphone]);
+
+  useEffect(() => {
+    const unsubscribe = call.on("custom", (event: RoleplayCustomEvent) => {
+      const data = event?.custom ?? {};
+
+      if (data.type === "roleplay_objective" && data.objectiveId) {
+        onObjectiveDone(data.objectiveId);
+        return;
+      }
+
+      if (data.type === "transcript_partial" && data.text) {
+        setPartial({ speaker: data.speaker ?? "agent", text: data.text });
+        if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
+        partialTimerRef.current = setTimeout(() => setPartial(null), 3000);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
+    };
+  }, [call, onObjectiveDone]);
+
+  useEffect(() => {
+    if (captions.length > 0) {
+      setPartial(null);
+      if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
+    }
+  }, [captions]);
+
+  function handleToggleMic() {
+    if (!isReady) return;
+    microphone.toggle().catch((e) => console.warn("[roleplay] mic toggle failed:", e));
+  }
+
+  function handleToggleHints() {
+    if (!showHints) {
+      posthog.capture("roleplay_hints_opened", { scenario_id: scenario.id });
+    }
+    setShowHints((prev) => !prev);
+  }
+
+  const hasTranscript = captions.length > 0 || partial !== null;
+
+  return (
+    <View className="flex-1">
+      <ScrollView
+        ref={scrollRef}
+        className="flex-1 mx-4 rounded-3xl bg-[#F4F2FF]"
+        contentContainerStyle={styles.transcriptContent}
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+      >
+        {missionComplete ? (
+          <View className="flex-row items-center bg-white rounded-2xl p-3 mb-2 border border-lingua-green">
+            <Text className="text-2xl mr-2">🎉</Text>
+            <View className="flex-1">
+              <Text className="font-poppins-semibold text-sm text-text-primary">
+                任務完成！+{scenario.xpReward} XP
+              </Text>
+              <Text className="font-poppins text-xs text-text-secondary">
+                可以繼續聊，或結束對話
+              </Text>
+            </View>
+            <TouchableOpacity
+              className="bg-lingua-green rounded-xl px-3 py-2"
+              activeOpacity={0.85}
+              onPress={onFinish}
+            >
+              <Text className="font-poppins-semibold text-xs text-white">結束</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {hasTranscript ? (
+          <>
+            {captions.map((caption: CallClosedCaption, i: number) => (
+              <CaptionBubble
+                key={`${caption.start_time}-${i}`}
+                isAgent={caption.user?.id === AGENT_USER_ID}
+                speakerName={
+                  caption.user?.id === AGENT_USER_ID ? scenario.aiName : "你"
+                }
+                text={caption.text}
+              />
+            ))}
+            {partial ? (
+              <CaptionBubble
+                isAgent={partial.speaker === "agent"}
+                speakerName={partial.speaker === "agent" ? scenario.aiName : "你"}
+                text={partial.text}
+                isPartial
+              />
+            ) : null}
+          </>
+        ) : (
+          <View className="flex-1 items-center justify-center py-10">
+            <Text className="text-5xl mb-3">{scenario.emoji}</Text>
+            {agentStatus === "failed" ? (
+              <TouchableOpacity onPress={onRetry} className="items-center">
+                <Text className="font-poppins-semibold text-sm text-text-primary">
+                  {scenario.aiName} 暫時無法加入
+                </Text>
+                <Text className="font-poppins text-[13px] text-lingua-purple mt-1">
+                  點這裡重試
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <Text className="font-poppins-semibold text-sm text-text-primary">
+                  {isReady ? `${scenario.aiName} 馬上開口` : `${scenario.aiName} 正在加入…`}
+                </Text>
+                <Text className="font-poppins text-[13px] text-text-secondary mt-1 text-center">
+                  不用按住按鈕，直接說話就可以了
+                </Text>
+              </>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {showHints ? (
+        <View className="mx-4 mt-3 rounded-2xl bg-white border border-border p-3">
+          <Text className="font-poppins-semibold text-xs text-text-secondary mb-2">
+            可以這樣說
+          </Text>
+          {scenario.hints.map((hint) => (
+            <View key={hint.text} className="mb-1.5">
+              <Text className="font-poppins-semibold text-sm text-text-primary">
+                {hint.text}
+              </Text>
+              <Text className="font-poppins text-xs text-text-secondary">
+                {hint.translation}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <View className="flex-row items-center justify-between px-8 pt-4 pb-6">
+        <TouchableOpacity
+          className={`w-14 h-14 rounded-full items-center justify-center ${showHints ? "bg-lingua-purple" : "bg-surface"}`}
+          activeOpacity={0.8}
+          onPress={handleToggleHints}
+          testID="roleplay-hints-button"
+        >
+          <Ionicons
+            name="bulb-outline"
+            size={24}
+            color={showHints ? "#fff" : colors.neutral.textPrimary}
+          />
+        </TouchableOpacity>
+
+        <View className="items-center">
+          <Pressable
+            onPress={handleToggleMic}
+            disabled={!isReady}
+            testID="roleplay-mic-button"
+            style={({ pressed }) => [
+              styles.micButton,
+              micOn ? styles.micButtonOn : styles.micButtonOff,
+              !isReady && styles.micButtonDisabled,
+              pressed && styles.micButtonPressed,
+            ]}
+          >
+            {agentStatus === "connecting" ? (
+              <ActivityIndicator size="small" color={colors.primary.purple} />
+            ) : (
+              <Ionicons
+                name={micOn ? "mic" : "mic-off"}
+                size={32}
+                color={micOn ? "#fff" : colors.neutral.textPrimary}
+              />
+            )}
+          </Pressable>
+          <Text
+            className={`font-poppins-medium text-[13px] mt-2 ${micOn ? "text-lingua-purple" : "text-text-secondary"}`}
+          >
+            {!isReady ? "請稍候…" : micOn ? "正在聆聽，直接說" : "麥克風已關閉"}
+          </Text>
+        </View>
+
+        <View className="w-14 h-14" />
+      </View>
+    </View>
+  );
+}
+
+function CaptionBubble({
+  isAgent,
+  speakerName,
+  text,
+  isPartial = false,
+}: {
+  isAgent: boolean;
+  speakerName: string;
+  text: string;
+  isPartial?: boolean;
+}) {
+  return (
+    <View
+      className={`rounded-2xl px-3.5 py-2.5 mb-2 max-w-[88%] ${isAgent ? "bg-lingua-purple self-start" : "bg-white self-end"} ${isPartial ? "opacity-85" : ""}`}
+    >
+      <Text
+        className={`font-poppins-semibold text-[11px] mb-0.5 ${isAgent ? "text-white/75" : "text-text-secondary"}`}
+      >
+        {speakerName}
+      </Text>
+      <Text
+        className={`font-poppins text-sm leading-5 ${isAgent ? "text-white" : "text-text-primary"}`}
+      >
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+function getDisplayStatus(
+  callStatus: CallStatus,
+  agentStatus: AgentStatus,
+  aiName: string,
+): { color: string; label: string } {
+  if (callStatus === "error") {
+    return { color: colors.semantic.error, label: "連線失敗" };
+  }
+  if (callStatus !== "joined") {
+    return { color: colors.semantic.warning, label: "連線中…" };
+  }
+  const map: Record<AgentStatus, { color: string; label: string }> = {
+    idle: { color: colors.neutral.textSecondary, label: "準備中…" },
+    connecting: { color: colors.semantic.warning, label: `${aiName} 加入中…` },
+    connected: { color: colors.semantic.success, label: "對話中" },
+    failed: { color: colors.semantic.error, label: `${aiName} 無法加入` },
+  };
+  return map[agentStatus];
+}
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: "#fff" },
+  hangUpIcon: { transform: [{ rotate: "135deg" }] },
+  transcriptContent: {
+    flexGrow: 1,
+    padding: 14,
+  },
+  micButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  micButtonOn: {
+    backgroundColor: colors.primary.purple,
+    shadowColor: colors.primary.purple,
+    shadowOpacity: 0.4,
+  },
+  micButtonOff: {
+    backgroundColor: colors.neutral.surface,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+  },
+  micButtonDisabled: {
+    opacity: 0.5,
+  },
+  micButtonPressed: {
+    transform: [{ scale: 0.96 }],
+  },
+});

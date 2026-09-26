@@ -1,5 +1,6 @@
 import asyncio
 import os
+from contextvars import ContextVar
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -10,7 +11,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
 from getstream.models import MemberRequest  # noqa: E402
-from openai.types.realtime.realtime_transcription_session_audio_input_turn_detection_param import ServerVad  # noqa: E402
+from openai.types.realtime.realtime_transcription_session_audio_input_turn_detection_param import SemanticVad, ServerVad  # noqa: E402
 from vision_agents.core import Agent, AgentLauncher, User, Runner  # noqa: E402
 from vision_agents.core.instructions import Instructions  # noqa: E402
 from vision_agents.plugins import getstream, openai  # noqa: E402
@@ -30,7 +31,16 @@ from instruction_language import (  # noqa: E402
     move_on_after_repeats_hint,
     normalize_instruction_languages,
 )
+from gpt_live import GptLive  # noqa: E402
 from pronunciation import append_pronunciation_guide  # noqa: E402
+from roleplay import (  # noqa: E402
+    RoleplayTracker,
+    build_roleplay_system_prompt,
+    help_language_name,
+    parse_objectives,
+    roleplay_kickoff_hint,
+    roleplay_opening_line,
+)
 from tutor_emotion import (  # noqa: E402
     append_emotion_to_prompt,
     log_emotion_voice,
@@ -136,6 +146,23 @@ def _configure_realtime_for_class_management(agent: Agent, language_code: str) -
     )
 
 
+def _configure_realtime_for_roleplay(agent: Agent, language_code: str) -> None:
+    """Open mic, no push-to-talk. Semantic VAD waits until the student sounds
+    finished instead of replying after a fixed 400 ms pause — beginners pause
+    mid-sentence a lot, and the fixed timer kept cutting them off."""
+    _apply_realtime_audio_config(
+        agent, language_code, create_response=True, interrupt_response=True
+    )
+    realtime_session = getattr(agent.llm, "realtime_session", None)
+    if isinstance(realtime_session, dict):
+        realtime_session["audio"]["input"]["turn_detection"] = SemanticVad(
+            type="semantic_vad",
+            eagerness="medium",
+            create_response=True,
+            interrupt_response=True,
+        )
+
+
 def _apply_realtime_audio_config(
     agent: Agent,
     language_code: str,
@@ -168,7 +195,34 @@ def _apply_realtime_audio_config(
     )
 
 
+# AgentLauncher calls create_agent() without telling it which call it is for,
+# but roleplay calls need a different model. ModeAwareLauncher records the
+# call id here for the duration of start_session so create_agent can read it.
+_starting_call_id: ContextVar[str] = ContextVar("starting_call_id", default="")
+
+
+class ModeAwareLauncher(AgentLauncher):
+    async def start_session(self, call_id: str, *args, **kwargs):
+        token = _starting_call_id.set(call_id)
+        try:
+            return await super().start_session(call_id, *args, **kwargs)
+        finally:
+            _starting_call_id.reset(token)
+
+
+def _uses_gpt_live(call_id: str) -> bool:
+    # ROLEPLAY_LLM=realtime is the kill switch back to gpt-realtime-2.
+    return call_id.startswith("roleplay-") and os.getenv("ROLEPLAY_LLM", "gpt-live") == "gpt-live"
+
+
 async def create_agent(**kwargs) -> Agent:
+    if _uses_gpt_live(_starting_call_id.get()):
+        return Agent(
+            edge=getstream.Edge(),
+            llm=GptLive(backend_model=os.getenv("GPT_LIVE_BACKEND_MODEL") or None),
+            agent_user=User(name="AI Teacher", id=AGENT_USER_ID),
+            instructions=DEFAULT_SYSTEM_PROMPT,
+        )
     return Agent(
         edge=getstream.Edge(),
         llm=openai.Realtime(
@@ -209,8 +263,14 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
     except Exception as e:
         print(f"[agent] Warning: could not fetch call custom data: {e}")
 
+    session_mode = str(custom.get("mode") or "lesson")
+    is_class_management = session_mode == "class_management"
+    # Roleplay builds its prompt server-side from the scenario fields and
+    # ignores any client-sent system_prompt, since the AI talks freely here.
+    is_roleplay = session_mode == "roleplay"
+
     system_prompt  = custom.get("system_prompt") or DEFAULT_SYSTEM_PROMPT
-    if not custom.get("system_prompt"):
+    if not custom.get("system_prompt") and not is_roleplay:
         print(
             f"[agent] WARNING: no system_prompt in call custom data for {call_id!r} — "
             "falling back to the English-only DEFAULT_SYSTEM_PROMPT. This means the "
@@ -232,8 +292,6 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         ["zh-TW"] if "id" in instruction_languages else instruction_languages
     )
     tutor_emotion = normalize_tutor_emotion(custom.get("tutor_emotion"))
-    session_mode = str(custom.get("mode") or "lesson")
-    is_class_management = session_mode == "class_management"
     practice_mode = str(custom.get("practice_mode") or "teach")
     comic_scope = str(custom.get("comic_scope") or "")
     allowed_phrases = parse_allowed_phrases(custom.get("allowed_phrases"))
@@ -247,6 +305,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         f"lesson_title={lesson_title!r}, "
         f"lesson_description={lesson_description!r}"
     )
+
+    roleplay_tracker: RoleplayTracker | None = None
 
     if is_class_management:
         system_prompt = build_class_management_system_prompt(
@@ -262,6 +322,19 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             tutor_emotion,
             language_code,
             instruction_languages,
+        )
+    elif is_roleplay:
+        roleplay_tracker = RoleplayTracker(parse_objectives(custom.get("objectives")))
+        system_prompt = build_roleplay_system_prompt(
+            custom,
+            roleplay_tracker.objectives,
+            help_language_name(language_code, lesson_instruction_languages),
+        )
+        system_prompt = append_emotion_to_prompt(
+            system_prompt,
+            tutor_emotion,
+            language_code,
+            lesson_instruction_languages,
         )
     else:
         # The client always appends its own trailing emotion block. Strip it
@@ -303,6 +376,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
 
     if is_class_management:
         _configure_realtime_for_class_management(agent, language_code)
+    elif is_roleplay:
+        _configure_realtime_for_roleplay(agent, language_code)
     else:
         _configure_realtime_for_lesson(agent, language_code)
 
@@ -391,6 +466,17 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         nonlocal pending_move_on_hint
         if class_mgmt is not None:
             await class_mgmt.on_student_speech(final_text)
+            return
+        if roleplay_tracker is not None:
+            for objective in roleplay_tracker.record(final_text):
+                _safe_log(f"[roleplay] objective done: {objective.id} ({final_text!r})")
+                try:
+                    await agent.send_custom_event({
+                        "type": "roleplay_objective",
+                        "objectiveId": objective.id,
+                    })
+                except Exception as e:
+                    print(f"[roleplay] objective event error: {e}")
             return
         turn_scores = assess_user_turn(
             final_text,
@@ -482,6 +568,13 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
 
             if is_class_management and class_mgmt is not None:
                 await class_mgmt.start()
+            elif is_roleplay:
+                # GPT-Live voices commentary as-is, so it gets the bare line;
+                # the Realtime fallback needs the instruction wrapper.
+                if isinstance(agent.llm, GptLive):
+                    await agent.simple_response(roleplay_opening_line(custom))
+                else:
+                    await agent.simple_response(roleplay_kickoff_hint(custom))
             elif intro_message:
                 context = join_lesson_context_hint(
                     language_name,
@@ -510,4 +603,4 @@ if __name__ == "__main__":
     _require_env("STREAM_API_SECRET")
     _require_env("OPENAI_API_KEY")
 
-    Runner(AgentLauncher(create_agent=create_agent, join_call=join_call)).cli()
+    Runner(ModeAwareLauncher(create_agent=create_agent, join_call=join_call)).cli()

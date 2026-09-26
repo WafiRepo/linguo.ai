@@ -50,6 +50,7 @@ export default function RootLayout() {
           <Stack.Screen name="lesson/[id]" />
           <Stack.Screen name="practice/[id]" />
           <Stack.Screen name="class-management/[id]" />
+          <Stack.Screen name="roleplay/[id]" />
           <Stack.Screen name="learning-material/[id]" />
           <Stack.Screen name="today-plan" />
         </Stack>

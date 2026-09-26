@@ -23,6 +23,7 @@ interface LearningState {
   completedLessonIds: string[];
   completedClassTopicIds: string[];
   startedClassTopicIds: string[];
+  completedRoleplayIds: string[];
   todayPlanProgress: TodayPlanProgress | null;
   activeLessonIdsByLanguage: Partial<Record<LanguageCode, string>>;
   syncDailyProgress: () => void;
@@ -30,6 +31,7 @@ interface LearningState {
   completeLesson: (lessonId: string, xpReward?: number) => void;
   completeClassTopic: (topicId: string, xpReward?: number) => void;
   markClassTopicStarted: (topicId: string) => void;
+  completeRoleplay: (scenarioId: string, xpReward?: number) => void;
   markTodayPlanItem: (lessonId: string, itemId: TodayPlanItemId) => void;
   getTodayPlanProgress: (lessonId: string) => TodayPlanProgress;
   setActiveLesson: (languageCode: LanguageCode, lessonId: string) => void;
@@ -76,6 +78,7 @@ export const useLearningStore = create<LearningState>()(
       completedLessonIds: [],
       completedClassTopicIds: [],
       startedClassTopicIds: [],
+      completedRoleplayIds: [],
       todayPlanProgress: null,
       activeLessonIdsByLanguage: {},
 
@@ -144,6 +147,16 @@ export const useLearningStore = create<LearningState>()(
           set((state) => ({
             startedClassTopicIds: [...state.startedClassTopicIds, topicId],
           }));
+        }
+      },
+
+      completeRoleplay: (scenarioId, xpReward = 15) => {
+        get().syncDailyProgress();
+        if (!get().completedRoleplayIds.includes(scenarioId)) {
+          set((state) => ({
+            completedRoleplayIds: [...state.completedRoleplayIds, scenarioId],
+          }));
+          get().addXP(xpReward);
         }
       },
 

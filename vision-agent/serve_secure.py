@@ -28,13 +28,13 @@ def require_start(request: Request) -> None:
 
 def create_runner():
     # main loads the existing server environment; no credentials are embedded here.
-    from main import create_agent, join_call
-    from vision_agents.core import AgentLauncher, Runner
+    from main import ModeAwareLauncher, create_agent, join_call
+    from vision_agents.core import Runner
     from vision_agents.core.runner import ServeOptions
 
     if len(os.environ.get("AGENT_SERVICE_KEY", "")) < 32:
         raise RuntimeError("Configure AGENT_SERVICE_KEY with at least 32 characters")
-    launcher = AgentLauncher(
+    launcher = ModeAwareLauncher(
         create_agent=create_agent,
         join_call=join_call,
         max_concurrent_sessions=2,
