@@ -1,4 +1,5 @@
 import { useAuth } from "@clerk/expo";
+import { useNetInfo } from "@react-native-community/netinfo";
 import { type ReactNode, useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { setAccountStorageWritable } from "@/lib/accountStorage";
@@ -9,6 +10,8 @@ let switching = Promise.resolve();
 
 export function AccountStorageGate({ children }: { children: ReactNode }) {
   const { isLoaded, userId } = useAuth();
+  // Login (Clerk) can't load offline, which otherwise looks like an endless spinner.
+  const offline = useNetInfo().isConnected === false;
   const account = userId ?? "signed-out";
   const [readyAccount, setReadyAccount] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -36,7 +39,10 @@ export function AccountStorageGate({ children }: { children: ReactNode }) {
 
   if (!isLoaded || readyAccount !== account || failed) {
     return <View className="flex-1 items-center justify-center gap-4 bg-white p-6">
-      {failed ? <>
+      {offline ? <>
+        <Text accessibilityRole="alert" className="text-lg font-poppins-semibold text-text-primary">沒有網路連線</Text>
+        <Text className="text-center text-base text-text-secondary">請確認 Wi-Fi 或行動網路已開啟。連線恢復後，如果畫面沒有自動繼續，請重新開啟 App。</Text>
+      </> : failed ? <>
         <Text accessibilityRole="alert" className="text-base text-text-primary">無法讀取學習紀錄。請再試一次。</Text>
         <TouchableOpacity accessibilityRole="button" onPress={() => setAttempt((value) => value + 1)} className="min-h-14 justify-center rounded-2xl bg-lingua-purple px-6 py-4"><Text className="text-base text-white">再試一次</Text></TouchableOpacity>
       </> : <><ActivityIndicator size="large" color="#6c4ef5" /><Text className="text-base text-text-primary">正在準備學習紀錄…</Text></>}
