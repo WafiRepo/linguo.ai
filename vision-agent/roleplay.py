@@ -85,13 +85,30 @@ def objective_matched(text: str, targets: list[str]) -> bool:
 class RoleplayTracker:
     objectives: list[RoleplayObjective]
     completed: set[str] = field(default_factory=set)
+    # Comic dialogues must happen in order, so only the current line counts.
+    sequential: bool = False
 
     def record(self, text: str) -> list[RoleplayObjective]:
+        if self.sequential:
+            return self._record_in_order(text)
         newly_done = [
             objective
             for objective in self.objectives
             if objective.id not in self.completed and objective_matched(text, objective.targets)
         ]
+        self.completed.update(objective.id for objective in newly_done)
+        return newly_done
+
+    def _record_in_order(self, text: str) -> list[RoleplayObjective]:
+        remaining = self.remaining
+        if remaining and objective_matched(text, remaining[0].targets):
+            newly_done = remaining[:1]
+        # The AI moves on after a student is stuck twice; when they answer the
+        # next line, count the skipped one too so the comic panel catches up.
+        elif len(remaining) > 1 and objective_matched(text, remaining[1].targets):
+            newly_done = remaining[:2]
+        else:
+            return []
         self.completed.update(objective.id for objective in newly_done)
         return newly_done
 
@@ -172,14 +189,98 @@ def build_roleplay_system_prompt(
         "opening line, don't state a price before they ask, don't thank them before they thank "
         "you. Instead, leave a natural opening with a short question so they can do it.\n"
         f"{closing_rule}\n"
-        "SAFETY (always, overrides everything above):\n"
-        "- You are talking with a child. Keep everything kind, age-appropriate and inside this scene.\n"
-        "- Never ask for or repeat personal details such as full name, address, school name, phone "
-        "number, photos or location. A first name is fine.\n"
-        "- If the student brings up anything unsafe, scary, rude or off-topic, answer kindly in one "
-        "short sentence and steer back to the scene.\n"
-        "- Never claim to be a real person outside the scene, and never arrange to meet or contact "
-        "the student."
+        f"{SAFETY_RULES}"
+    )
+
+
+SAFETY_RULES = (
+    "SAFETY (always, overrides everything above):\n"
+    "- You are talking with a child. Keep everything kind, age-appropriate and inside this scene.\n"
+    "- Never ask for or repeat personal details such as full name, address, school name, phone "
+    "number, photos or location. A first name is fine.\n"
+    "- If the student brings up anything unsafe, scary, rude or off-topic, answer kindly in one "
+    "short sentence and steer back to the scene.\n"
+    "- Never claim to be a real person outside the scene, and never arrange to meet or contact "
+    "the student."
+)
+
+MAX_COMIC_TURNS = 15
+
+
+def comic_turns(raw_turns: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Normalize the class_turns sent by the app (clipped, capped)."""
+    turns = []
+    for turn in raw_turns[:MAX_COMIC_TURNS]:
+        guru, student = _clip(turn.get("guruLine")), _clip(turn.get("studentLine"))
+        if not guru or not student:
+            continue
+        answers = [_clip(a) for a in (turn.get("expectedAnswers") or [])[:MAX_TARGETS] if a]
+        turns.append({
+            "guru": guru,
+            "guru_zh": _clip(turn.get("guruLineZh")),
+            "student": student,
+            "answers": answers or [student],
+        })
+    return turns
+
+
+def comic_objectives(turns: list[dict[str, Any]]) -> list[RoleplayObjective]:
+    return [
+        RoleplayObjective(
+            id=f"turn-{index}",
+            goal=f'answer as the student: "{turn["student"]}"',
+            targets=turn["answers"],
+        )
+        for index, turn in enumerate(turns)
+    ]
+
+
+def build_comic_roleplay_prompt(
+    turns: list[dict[str, Any]],
+    help_language: str,
+    topic_title: str = "",
+) -> str:
+    script = "\n".join(
+        f'{index + 1}. TEACHER: "{turn["guru"]}"'
+        + (f" (中文: {turn['guru_zh']})" if turn["guru_zh"] else "")
+        + f' → STUDENT answers: "{turn["student"]}"'
+        for index, turn in enumerate(turns)
+    )
+    title = f' ("{_clip(topic_title)}")' if topic_title else ""
+    return (
+        "You are Bu Guru, a warm Indonesian primary-school teacher. You and a child who is a "
+        f"beginner (A1) learner of Bahasa Indonesia are acting out a short classroom comic{title} "
+        "as a LIVE SPOKEN ROLEPLAY. You play the TEACHER; the child plays the STUDENT.\n\n"
+        f"COMIC SCRIPT, in order:\n{script}\n\n"
+        "RULES:\n"
+        "- Say each TEACHER line exactly as written, in a natural classroom voice, one line at a "
+        "time — then stop and wait for the student.\n"
+        "- Never say the student's line before they have tried. Go to the next TEACHER line only "
+        "after the student has said their line or something very close to it.\n"
+        "- If the answer is wrong or unclear, kindly model the correct student line once "
+        "(\"Coba bilang: ...\") and let them try again. After two tries, say it together with them "
+        "and move on.\n"
+        f"- If the student is stuck or speaks {help_language}: give ONE short help sentence in "
+        f"{help_language} that includes the Indonesian student line, then continue in Indonesian.\n"
+        "- Keep reactions tiny (like \"Bagus!\"). This is acting out the comic, not a lesson: no "
+        "explanations, no other topics, no new vocabulary.\n"
+        "- You will receive TURN STATUS updates saying which line comes next — follow them.\n"
+        "- After the last dialogue, close warmly in one short sentence.\n\n"
+        f"{SAFETY_RULES}"
+    )
+
+
+def comic_status_text(tracker: RoleplayTracker, turns: list[dict[str, Any]]) -> str:
+    remaining = tracker.remaining
+    if not remaining:
+        return (
+            "TURN STATUS: the student has finished every dialogue in the comic. Close warmly in "
+            "one short sentence."
+        )
+    next_index = tracker.objectives.index(remaining[0])
+    return (
+        f"TURN STATUS: dialogue {next_index} of {len(turns)} is done. Next, say exactly this "
+        f'TEACHER line and then wait for the student: "{turns[next_index]["guru"]}"'
     )
 
 
@@ -273,6 +374,7 @@ class RoleplayController:
     tracker: RoleplayTracker
     append_instructions: Optional[Callable[[str], Awaitable[None]]] = None
     generate_feedback: Optional[Callable[[list[dict[str, str]]], Awaitable[Optional[dict[str, Any]]]]] = None
+    status_text: Callable[[RoleplayTracker], str] = mission_status_text
     turns: list[dict[str, str]] = field(default_factory=list)
     _user_partial: list[str] = field(default_factory=list)
     _recent_user: list[tuple[float, str]] = field(default_factory=list)
@@ -300,7 +402,7 @@ class RoleplayController:
             logger.info("[roleplay] objective done: %s", objective.id)
             await self.send_event({"type": "roleplay_objective", "objectiveId": objective.id})
         if newly_done and self.append_instructions is not None:
-            await self.append_instructions(mission_status_text(self.tracker))
+            await self.append_instructions(self.status_text(self.tracker))
 
         self._schedule_feedback()
 

@@ -3,7 +3,7 @@ import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { AIPilotNotice } from "@/components/AIPilotNotice";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { Href, useRouter } from "expo-router";
 
 import { ClassTopicCard } from "@/components/ClassTopicCard";
 import { colors } from "@/constants/theme";
@@ -44,6 +44,11 @@ function AITeacherTopics() {
     completedClassTopicIds.includes(topicId) || startedClassTopicIds.includes(topicId);
   const startTopic = (topicId: string, mode: "teach" | "roleplay") => {
     markClassTopicStarted(topicId);
+    // Role Play is the live, Speak-style conversation; Latihan stays scripted.
+    if (mode === "roleplay") {
+      router.push(`/roleplay/${topicId}?kind=comic` as Href);
+      return;
+    }
     router.push({
       pathname: "/class-management/[id]",
       params: { id: topicId, mode },

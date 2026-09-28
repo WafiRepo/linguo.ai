@@ -37,8 +37,13 @@ from pronunciation import append_pronunciation_guide  # noqa: E402
 from roleplay import (  # noqa: E402
     RoleplayController,
     RoleplayTracker,
+    build_comic_roleplay_prompt,
     build_roleplay_system_prompt,
+    comic_objectives,
+    comic_status_text,
+    comic_turns,
     generate_roleplay_feedback,
+    mission_status_text,
     help_language_name,
     parse_objectives,
     roleplay_kickoff_hint,
@@ -270,7 +275,10 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
     is_class_management = session_mode == "class_management"
     # Roleplay builds its prompt server-side from the scenario fields and
     # ignores any client-sent system_prompt, since the AI talks freely here.
-    is_roleplay = session_mode == "roleplay"
+    # comic_roleplay is AI Teacher's Role Play: the same live engine, but the
+    # conversation follows a class-management comic script in order.
+    is_comic_roleplay = session_mode == "comic_roleplay"
+    is_roleplay = session_mode == "roleplay" or is_comic_roleplay
 
     system_prompt  = custom.get("system_prompt") or DEFAULT_SYSTEM_PROMPT
     if not custom.get("system_prompt") and not is_roleplay:
@@ -329,7 +337,24 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         )
     elif is_roleplay:
         help_language = help_language_name(language_code, lesson_instruction_languages)
-        tracker = RoleplayTracker(parse_objectives(custom.get("objectives")))
+        if is_comic_roleplay:
+            turns = comic_turns(
+                parse_class_turns(custom.get("class_turns") or custom.get("class_turns_json"))
+            )
+            tracker = RoleplayTracker(comic_objectives(turns), sequential=True)
+            status_text = lambda t: comic_status_text(t, turns)  # noqa: E731
+            system_prompt = build_comic_roleplay_prompt(
+                turns, help_language, str(custom.get("topic_title") or "")
+            )
+        else:
+            tracker = RoleplayTracker(parse_objectives(custom.get("objectives")))
+            status_text = mission_status_text
+            system_prompt = build_roleplay_system_prompt(
+                custom,
+                tracker.objectives,
+                help_language,
+                live_mission_updates=is_gpt_live,
+            )
         feedback_client = AsyncOpenAI()
         feedback_model = os.getenv("ROLEPLAY_FEEDBACK_MODEL", "gpt-5.4-mini")
 
@@ -343,15 +368,10 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             send_event=send_roleplay_event,
             tracker=tracker,
             append_instructions=agent.llm.append_instructions if is_gpt_live else None,
-            generate_feedback=lambda turns: generate_roleplay_feedback(
-                feedback_client, feedback_model, turns, help_language
+            generate_feedback=lambda history: generate_roleplay_feedback(
+                feedback_client, feedback_model, history, help_language
             ),
-        )
-        system_prompt = build_roleplay_system_prompt(
-            custom,
-            tracker.objectives,
-            help_language,
-            live_mission_updates=is_gpt_live,
+            status_text=status_text,
         )
         system_prompt = append_emotion_to_prompt(
             system_prompt,

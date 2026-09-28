@@ -136,6 +136,42 @@ class FeedbackTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("in English", captured["messages"][0]["content"])
 
 
+COMIC_RAW = [
+    {"guruLine": "Masukkan ke stopkontak.", "guruLineZh": "把插頭插入插座。",
+     "studentLine": "Baik, Bu Guru.", "expectedAnswers": ["Baik, Bu Guru", "Baik"]},
+    {"guruLine": "Tekan tombolnya.", "studentLine": "Sudah.", "expectedAnswers": ["Sudah"]},
+    {"guruLine": "Besarkan suaranya sedikit.", "studentLine": "Oke, Bu.", "expectedAnswers": ["Oke"]},
+    {"guruLine": "", "studentLine": "dropped"},
+]
+
+
+class ComicTest(unittest.TestCase):
+    def setUp(self):
+        self.turns = roleplay.comic_turns(COMIC_RAW)
+        self.tracker = RoleplayTracker(roleplay.comic_objectives(self.turns), sequential=True)
+
+    def test_turns_are_normalized(self):
+        self.assertEqual(len(self.turns), 3)
+        self.assertEqual(self.turns[0]["guru_zh"], "把插頭插入插座。")
+
+    def test_dialogues_complete_only_in_order(self):
+        self.assertEqual(self.tracker.record("Oke!"), [])  # turn 3 is two ahead
+        self.assertEqual([o.id for o in self.tracker.record("Baik, Bu Guru")], ["turn-0"])
+        self.assertIn('"Tekan tombolnya."', roleplay.comic_status_text(self.tracker, self.turns))
+
+    def test_answering_next_line_catches_up_skipped_one(self):
+        self.tracker.record("Baik")
+        done = [o.id for o in self.tracker.record("Oke, Bu")]
+        self.assertEqual(done, ["turn-1", "turn-2"])
+        self.assertIn("finished every dialogue", roleplay.comic_status_text(self.tracker, self.turns))
+
+    def test_prompt_contains_script_in_order(self):
+        prompt = roleplay.build_comic_roleplay_prompt(self.turns, "English", "Topik 1")
+        self.assertLess(prompt.index("Masukkan ke stopkontak"), prompt.index("Tekan tombolnya"))
+        self.assertIn("SAFETY", prompt)
+        self.assertIn("TURN STATUS", prompt)
+
+
 class PromptTest(unittest.TestCase):
     def test_closing_rule_depends_on_live_updates(self):
         live = build_roleplay_system_prompt({}, OBJECTIVES, "English", live_mission_updates=True)

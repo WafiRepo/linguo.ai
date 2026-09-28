@@ -7,10 +7,12 @@ import {
   StreamVideoClient,
   useCallStateHooks,
 } from "@stream-io/video-react-native-sdk";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,14 +24,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AIPilotNotice } from "@/components/AIPilotNotice";
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
+import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
+import { getClassTopic } from "@/data/classManagement";
 import { LESSONS } from "@/data/lessons";
 import { getRoleplayScenario } from "@/data/roleplays";
 import { apiUrl } from "@/lib/api";
+import { comicCallCustomData, comicTopicToScenario } from "@/lib/comicRoleplay";
 import { getInstructionLanguages } from "@/lib/instructionLanguage";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
+import { ClassManagementTopic } from "@/types/classManagement";
 import {
   RoleplayCorrection,
   RoleplayFeedback,
@@ -38,8 +44,10 @@ import {
 
 type CallStatus = "idle" | "connecting" | "joined" | "error";
 type AgentStatus = "idle" | "connecting" | "connected" | "failed";
+type ComicPhase = "guru" | "student";
 
 const MAX_KNOWN_WORDS = 40;
+const COMIC_HEIGHT = Math.min(Dimensions.get("window").height * 0.3, 280);
 
 // Words from lessons the student finished, so the AI can stay at their level.
 function getKnownWords(completedLessonIds: string[]): string[] {
@@ -67,14 +75,21 @@ export default function RoleplayScreen() {
 }
 
 function LiveRoleplayScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, kind } = useLocalSearchParams<{ id: string; kind?: string }>();
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
   const { tutorVoice, tutorEmotion } = useLanguageStore();
   const completeRoleplay = useLearningStore((s) => s.completeRoleplay);
+  const completeClassTopic = useLearningStore((s) => s.completeClassTopic);
 
-  const scenario = getRoleplayScenario(id ?? "");
+  // kind=comic is AI Teacher's Role Play: a class-management comic acted out live.
+  const comic = kind === "comic" ? getClassTopic(id ?? "") : undefined;
+  const scenario = useMemo(
+    () => (comic ? comicTopicToScenario(comic) : getRoleplayScenario(id ?? "")),
+    [comic, id],
+  );
+  const [comicPhase, setComicPhase] = useState<ComicPhase>("guru");
 
   const [client, setClient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<Call | null>(null);
@@ -103,8 +118,10 @@ function LiveRoleplayScreen() {
     setCompletedIds([]);
     setFeedback(null);
     setReviewing(false);
+    setComicPhase("guru");
     posthog.capture("roleplay_started", {
       scenario_id: scenario.id,
+      kind: comic ? "comic" : "scenario",
       tutor_voice: tutorVoice,
     });
 
@@ -115,19 +132,23 @@ function LiveRoleplayScreen() {
       clientRef.current?.disconnectUser().catch(console.error);
       stopAgentSession(callRef.current?.id ?? null, agentSessionRef.current);
     };
-  }, [isLoaded, user, scenario, tutorVoice, tutorEmotion]);
+  }, [isLoaded, user, scenario, comic, tutorVoice, tutorEmotion]);
 
   useEffect(() => {
     if (!missionComplete || !scenario || rewardedRef.current) return;
     rewardedRef.current = true;
-    completeRoleplay(scenario.id, scenario.xpReward);
+    if (comic) {
+      completeClassTopic(comic.id, comic.xpReward);
+    } else {
+      completeRoleplay(scenario.id, scenario.xpReward);
+    }
     posthog.capture("roleplay_completed", {
       scenario_id: scenario.id,
       duration_seconds: startTimeRef.current
         ? Math.floor((Date.now() - startTimeRef.current) / 1000)
         : 0,
     });
-  }, [missionComplete, scenario, completeRoleplay]);
+  }, [missionComplete, scenario, comic, completeRoleplay, completeClassTopic]);
 
   async function startCall() {
     if (!user || !scenario) return;
@@ -153,7 +174,9 @@ function LiveRoleplayScreen() {
         },
       });
 
-      const callId = `roleplay-${scenario.id}-${user.id}`;
+      const callId = comic
+        ? `roleplay-comic-${comic.id}-${user.id}`
+        : `roleplay-${scenario.id}-${user.id}`;
       const streamCall = streamClient.call("default", callId);
       await streamCall.join({ create: true });
 
@@ -164,29 +187,34 @@ function LiveRoleplayScreen() {
 
       // The server builds the prompt itself from these fields — no system_prompt is sent.
       try {
+        const common = {
+          language: "id",
+          language_code: "id",
+          instruction_languages: getInstructionLanguages("id", tutorVoice),
+          tutor_emotion: tutorEmotion,
+        };
         await streamCall.update({
-          custom: {
-            mode: "roleplay",
-            scenario_id: scenario.id,
-            language: "id",
-            language_code: "id",
-            instruction_languages: getInstructionLanguages("id", tutorVoice),
-            tutor_emotion: tutorEmotion,
-            ai_name: scenario.aiName,
-            ai_role: scenario.aiRole,
-            setting: scenario.setting,
-            opening_line: scenario.openingLine,
-            known_words: JSON.stringify(
-              getKnownWords(useLearningStore.getState().completedLessonIds),
-            ),
-            objectives: JSON.stringify(
-              scenario.objectives.map(({ id: objectiveId, goal, targets }) => ({
-                id: objectiveId,
-                goal,
-                targets,
-              })),
-            ),
-          },
+          custom: comic
+            ? { ...common, ...comicCallCustomData(comic) }
+            : {
+                ...common,
+                mode: "roleplay",
+                scenario_id: scenario.id,
+                ai_name: scenario.aiName,
+                ai_role: scenario.aiRole,
+                setting: scenario.setting,
+                opening_line: scenario.openingLine,
+                known_words: JSON.stringify(
+                  getKnownWords(useLearningStore.getState().completedLessonIds),
+                ),
+                objectives: JSON.stringify(
+                  scenario.objectives.map(({ id: objectiveId, goal, targets }) => ({
+                    id: objectiveId,
+                    goal,
+                    targets,
+                  })),
+                ),
+              },
         });
       } catch (updateErr) {
         console.warn("[roleplay] call.update failed:", updateErr);
@@ -254,6 +282,8 @@ function LiveRoleplayScreen() {
       setCompletedIds((prev) =>
         prev.includes(objectiveId) ? prev : [...prev, objectiveId],
       );
+      // Next comic dialogue: Bu Guru speaks first.
+      setComicPhase("guru");
       posthog.capture("roleplay_objective_completed", {
         scenario_id: scenario?.id ?? null,
         objective_id: objectiveId,
@@ -264,6 +294,10 @@ function LiveRoleplayScreen() {
 
   const handleStudentTurn = useCallback(() => {
     studentSpokeRef.current = true;
+  }, []);
+
+  const handleAgentTurn = useCallback(() => {
+    setComicPhase("student");
   }, []);
 
   async function handleLeave() {
@@ -348,7 +382,15 @@ function LiveRoleplayScreen() {
         </Text>
       </View>
 
-      <MissionCard scenario={scenario} completedIds={completedIds} />
+      {comic ? (
+        <ComicPanel
+          topic={comic}
+          turnIndex={completedIds.length}
+          phase={comicPhase}
+        />
+      ) : (
+        <MissionCard scenario={scenario} completedIds={completedIds} />
+      )}
 
       {callStatus === "joined" && client && call ? (
         <StreamVideo client={client}>
@@ -360,6 +402,7 @@ function LiveRoleplayScreen() {
               missionComplete={missionComplete}
               onObjectiveDone={handleObjectiveDone}
               onStudentTurn={handleStudentTurn}
+              onAgentTurn={handleAgentTurn}
               onFeedback={setFeedback}
               onRetry={() => startAgentSession(call.id)}
               onFinish={handleLeave}
@@ -437,6 +480,46 @@ function MissionCard({
   );
 }
 
+function ComicPanel({
+  topic,
+  turnIndex,
+  phase,
+}: {
+  topic: ClassManagementTopic;
+  turnIndex: number;
+  phase: ComicPhase;
+}) {
+  const total = topic.turns.length;
+  const turn = topic.turns[turnIndex];
+  const image = turn
+    ? images[phase === "guru" ? turn.guruImageKey : turn.studentImageKey]
+    : images[topic.imageKey];
+
+  return (
+    <View className="mx-4 mb-3">
+      <View className="flex-row items-center justify-between mb-2">
+        <Text className="font-poppins-semibold text-[13px] text-lingua-purple">
+          {turn ? `對話 ${turnIndex + 1}/${total}` : `對話 ${total}/${total}`}
+        </Text>
+        <Text className="font-poppins text-xs text-text-secondary">
+          {!turn ? "全部完成！" : phase === "guru" ? "聽 Bu Guru 說" : "輪到你回答"}
+        </Text>
+      </View>
+      <View
+        className="rounded-2xl overflow-hidden bg-surface"
+        style={{ height: COMIC_HEIGHT }}
+      >
+        <Image source={image} contentFit="contain" style={styles.comicImage} />
+      </View>
+      {turn && phase === "student" ? (
+        <Text className="font-poppins-semibold text-sm text-lingua-purple mt-2">
+          學生：{turn.studentLine.id}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 type Speaker = "agent" | "user";
 type TranscriptMessage = { id: number; speaker: Speaker; text: string };
 
@@ -458,6 +541,7 @@ function ActiveRoleplayContent({
   missionComplete,
   onObjectiveDone,
   onStudentTurn,
+  onAgentTurn,
   onFeedback,
   onRetry,
   onFinish,
@@ -468,6 +552,7 @@ function ActiveRoleplayContent({
   missionComplete: boolean;
   onObjectiveDone: (objectiveId: string) => void;
   onStudentTurn: () => void;
+  onAgentTurn: () => void;
   onFeedback: (feedback: RoleplayFeedback) => void;
   onRetry: () => void;
   onFinish: () => void;
@@ -529,11 +614,12 @@ function ActiveRoleplayContent({
           return [...prev, { id: nextMessageIdRef.current, speaker, text }];
         });
         if (speaker === "user") onStudentTurn();
+        else onAgentTurn();
       }
     });
 
     return unsubscribe;
-  }, [call, onObjectiveDone, onStudentTurn, onFeedback]);
+  }, [call, onObjectiveDone, onStudentTurn, onAgentTurn, onFeedback]);
 
   function handleToggleMic() {
     if (!isReady) return;
@@ -855,6 +941,10 @@ const styles = StyleSheet.create({
   },
   reviewContent: {
     paddingBottom: 16,
+  },
+  comicImage: {
+    width: "100%",
+    height: "100%",
   },
   micButton: {
     width: 80,
