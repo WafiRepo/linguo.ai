@@ -28,10 +28,16 @@ export function comicTopicToScenario(
       goal: `answer as the student: "${turn.studentLine.id}"`,
       targets: turn.expectedAnswers,
     })),
-    hints: topic.turns.map((turn) => ({
-      text: turn.studentLine.id,
-      translation: turn.studentLine.zhTW,
-    })),
+    // Several dialogues can share an answer (e.g. "Hadir."); list each once.
+    hints: topic.turns
+      .filter(
+        (turn, index) =>
+          topic.turns.findIndex((other) => other.studentLine.id === turn.studentLine.id) === index,
+      )
+      .map((turn) => ({
+        text: turn.studentLine.id,
+        translation: turn.studentLine.zhTW,
+      })),
   };
 }
 

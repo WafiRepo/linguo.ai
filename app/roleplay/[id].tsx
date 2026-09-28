@@ -1016,8 +1016,8 @@ function ActiveRoleplayContent({
           <Text className="font-poppins-semibold text-xs text-text-secondary mb-2">
             可以這樣說
           </Text>
-          {scenario.hints.map((hint) => (
-            <View key={hint.text} className="mb-1.5">
+          {scenario.hints.map((hint, index) => (
+            <View key={`${index}-${hint.text}`} className="mb-1.5">
               <Text className="font-poppins-semibold text-sm text-text-primary">
                 {hint.text}
               </Text>
@@ -1185,9 +1185,9 @@ function RoleplayReview({
                 這次沒有需要修正的句子 👍
               </Text>
             ) : (
-              feedback.corrections.map((correction) => (
+              feedback.corrections.map((correction, index) => (
                 <View
-                  key={correction.said}
+                  key={`${index}-${correction.said}`}
                   className="rounded-2xl border border-border bg-white p-4 mb-3"
                 >
                   <Text className="font-poppins text-xs text-text-secondary">你說</Text>
