@@ -3,18 +3,16 @@ import NetInfo from "@react-native-community/netinfo";
 import { useState } from "react";
 import { ActivityIndicator, Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { GuardianVerification } from "@/components/GuardianVerification";
 import { colors } from "@/constants/theme";
 import { INDONESIAN_EBOOK_URL } from "@/constants/resources";
 
 // Preserve the route so existing links to the fourth tab continue to work.
 export default function InformationScreen() {
-  const [verify, setVerify] = useState(false);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState("");
 
+  // Opens the official e-book site directly; no guardian step (requirement F04/F19).
   async function openBooks() {
-    setVerify(false);
     setOpening(true);
     setError("");
     try {
@@ -48,7 +46,7 @@ export default function InformationScreen() {
             <Text className="text-base leading-7 text-text-primary">② 點選「線上閱覽」就能看書。</Text>
             <Text className="text-base leading-7 text-text-primary">③ 想下載時，請大人協助點選「離線下載」。</Text>
           </View>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="尋找印尼語電子書" accessibilityHint="請家長驗證帳號後，開啟外部教材網站" accessibilityState={{ disabled: opening, busy: opening }} disabled={opening} testID="information-open-ebooks" onPress={() => setVerify(true)} className="mt-5 min-h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-lingua-purple px-4 py-4">
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="尋找印尼語電子書" accessibilityHint="開啟外部教材網站" accessibilityState={{ disabled: opening, busy: opening }} disabled={opening} testID="information-open-ebooks" onPress={openBooks} className="mt-5 min-h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-lingua-purple px-4 py-4">
             {opening ? <ActivityIndicator color="#fff" /> : <Ionicons name="open-outline" size={20} color="#fff" />}
             <Text className="text-base font-bold text-white">{opening ? "開啟中…" : error ? "再試一次" : "尋找印尼語電子書"}</Text>
           </TouchableOpacity>
@@ -56,7 +54,6 @@ export default function InformationScreen() {
           <Text className="mt-4 text-sm leading-6 text-text-secondary">需要網路連線，並將開啟外部網站。網站有自己的隱私權政策。看完後，可以返回這裡繼續學習。</Text>
         </View>
       </ScrollView>
-      {verify ? <GuardianVerification onCancel={() => setVerify(false)} onVerified={openBooks} /> : null}
     </SafeAreaView>
   );
 }

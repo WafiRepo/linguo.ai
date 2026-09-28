@@ -1,11 +1,9 @@
 import { useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
-import { useState } from "react";
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { GuardianVerification } from "@/components/GuardianVerification";
 import { colors } from "@/constants/theme";
 import { LANGUAGES } from "@/data/languages";
 import { resetCurrentAccountData } from "@/lib/learningAccount";
@@ -20,16 +18,15 @@ import {
 import { CHILD_CLASS_GROUP_LABELS, useChildProfileStore } from "@/store/childProfileStore";
 import { useLanguageStore } from "@/store/languageStore";
 
-type GuardianAction = "edit-profile" | "delete-data";
-
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { selectedLanguage, tutorVoice, tutorEmotion, setTutorVoice, setTutorEmotion } =
     useLanguageStore();
   const { nickname, classGroup } = useChildProfileStore();
-  const [guardianAction, setGuardianAction] = useState<GuardianAction | null>(null);
 
+  // No guardian re-verification (requirement F04); the delete confirmation
+  // dialog below is the remaining guard against an accidental tap.
   function confirmDeleteData() {
     Alert.alert(
       "刪除本機學習紀錄",
@@ -50,16 +47,6 @@ export default function ProfileScreen() {
         },
       ],
     );
-  }
-
-  function handleGuardianVerified() {
-    const action = guardianAction;
-    setGuardianAction(null);
-    if (action === "edit-profile") {
-      router.push("/child-profile-setup?mode=edit" as Href);
-    } else if (action === "delete-data") {
-      confirmDeleteData();
-    }
   }
 
   const language = LANGUAGES.find((l) => l.code === selectedLanguage);
@@ -115,7 +102,7 @@ export default function ProfileScreen() {
         <TouchableOpacity
           activeOpacity={0.8}
           testID="profile-edit-child-profile"
-          onPress={() => setGuardianAction("edit-profile")}
+          onPress={() => router.push("/child-profile-setup?mode=edit" as Href)}
           className="flex-row items-center bg-white rounded-[20px] border border-border px-4 py-4"
           style={styles.cardShadow}
         >
@@ -132,9 +119,6 @@ export default function ProfileScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
         </TouchableOpacity>
-        <Text className="font-poppins text-xs text-text-secondary mt-2 px-1">
-          修改暱稱或年級需要家長重新驗證。
-        </Text>
       </View>
 
       <View className="px-5">
@@ -298,7 +282,7 @@ export default function ProfileScreen() {
         <TouchableOpacity
           activeOpacity={0.8}
           testID="profile-delete-data"
-          onPress={() => setGuardianAction("delete-data")}
+          onPress={confirmDeleteData}
           className="flex-row items-center bg-white rounded-[20px] border border-border px-4 py-4"
           style={styles.cardShadow}
         >
@@ -310,19 +294,12 @@ export default function ProfileScreen() {
               刪除本機學習紀錄
             </Text>
             <Text className="font-poppins text-sm text-text-secondary mt-0.5">
-              需要家長驗證。只刪除這台裝置上的資料。
+              只刪除這台裝置上的資料。
             </Text>
           </View>
         </TouchableOpacity>
       </View>
       </ScrollView>
-
-      {guardianAction ? (
-        <GuardianVerification
-          onCancel={() => setGuardianAction(null)}
-          onVerified={handleGuardianVerified}
-        />
-      ) : null}
     </SafeAreaView>
   );
 }

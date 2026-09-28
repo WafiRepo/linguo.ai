@@ -77,7 +77,7 @@ Untuk pilot tanpa database, administrasi persetujuan dapat menggunakan prosedur 
 | F01 | P0 | Pendamping mengaktifkan penggunaan sebelum pengumpulan data anak; untuk pilot ini, aktivasi dapat dilakukan operator sekolah atas dasar persetujuan institusional yang sudah dikonfirmasi petugas hukum (lihat bagian 9) | Akun baru belum mengirim data anak/AI sebelum alur yang sesuai selesai; penolakan menyediakan jalur materi lokal |
 | F02 | P0 | Akun pendamping memakai Clerk; anak tidak diwajibkan mempunyai email, nomor telepon, atau akun sosial pribadi | Siswa dapat masuk ke pengalaman belajar melalui profil yang diaktifkan pendamping |
 | F03 | P0 | Profil minimal: ID lokal/acak, nama panggilan, kelompok kelas, bahasa | Tidak meminta alamat, NIK, tanggal lahir lengkap, foto wajah, atau lokasi untuk fungsi belajar |
-| F04 | P0 | Pengaturan pendamping terlindungi | Anak tidak dapat mengubah izin, membuka tautan eksternal, atau menghapus profil hanya dari tombol biasa; tindakan sensitif memerlukan autentikasi ulang pendamping |
+| F04 | P0 | Tindakan sensitif tanpa autentikasi ulang pendamping (revisi keputusan pemilik produk, 28 Sep 2026) | Membuka tautan eksternal resmi (F19) dan mengubah profil anak dapat dilakukan langsung tanpa kode email; menghapus data lokal wajib melalui dialog konfirmasi yang menjelaskan akibatnya dan dapat dibatalkan. **Risiko diterima:** App Store kategori Kids (Guideline 1.3) mewajibkan parental gate sebelum tautan keluar, sehingga keputusan ini wajib ditinjau ulang sebelum submission ke kategori anak |
 | F05 | P0 | Pelajaran tersusun per tingkat dan tujuan | Setiap materi memiliki ID stabil, tujuan, prasyarat, urutan, estimasi durasi, versi, dan reviewer guru |
 | F06 | P0 | Alur pelajaran pendek: contoh → latihan → umpan balik → ringkasan | Siswa dapat menyelesaikan satu pelajaran dan mengulang tanpa bantuan teknis; target 5–10 menit |
 | F07 | P0 | Latihan membaca/menyimak memakai jawaban terkurasi | Jawaban benar, opsi, petunjuk, kapitalisasi, spasi, dan variasi jawaban diuji; jawaban salah diberi penjelasan ramah |
@@ -92,7 +92,7 @@ Untuk pilot tanpa database, administrasi persetujuan dapat menggunakan prosedur 
 | F16 | P0 | Bantuan tersedia dalam bahasa sederhana | Ada panduan audio/mikrofon, koneksi, progres hilang, dan kontak sekolah; siswa bisa meminta bantuan tanpa menulis data sensitif |
 | F17 | P1 | Pelaporan sekolah sesuai kebutuhan yang disepakati | Untuk model lokal, laporan dibagikan pendamping secara sadar dengan data minimum; tidak ada sinkronisasi otomatis yang dijanjikan |
 | F18 | P2 | Penugasan dan dashboard guru lintas perangkat | Baru masuk pengembangan setelah persetujuan penyimpanan, otorisasi kelas, dan aturan akses data |
-| F19 | P0 | Ganti tab Chat menjadi Informasi untuk mencari e-book Bahasa Indonesia | Label, ikon informasi, isi halaman, akses sumber resmi, pembatasan tautan eksternal untuk anak, dan kondisi gagal memenuhi rincian bagian 5.1 |
+| F19 | P0 | Ganti tab Chat menjadi Informasi untuk mencari e-book Bahasa Indonesia | Label, ikon informasi, isi halaman, akses sumber resmi dengan URL tetap, dan kondisi gagal memenuhi rincian bagian 5.1 |
 
 ### 5.1. Menu Informasi: e-book Bahasa Indonesia
 
@@ -106,14 +106,14 @@ Revisi atas permintaan pengguna: menu Chat diganti menjadi **Informasi** (Inform
 - **Kartu sumber:** “Buku Bahasa Indonesia — K12 Education Administration, Taiwan”, dengan keterangan singkat “Pilih buku untuk dibaca online atau lihat pilihan unduhan di situs sumber.”
 - **Tombol utama:** “Cari E-book Bahasa Indonesia”, menuju URL tetap https://mkm.k12ea.gov.tw/textbook/material/2?type=1. Pencarian/pemilihan buku dilakukan di situs sumber; versi awal tidak membutuhkan mesin pencarian, database, atau katalog tersinkronisasi di aplikasi.
 - **Petunjuk sederhana:** “Situs ini menggunakan bahasa Mandarin. 線上閱覽 berarti Baca online, dan 離線下載 berarti Unduh. Mintalah bantuan guru atau orang tua untuk memilih buku.”
-- **Perpindahan ke situs:** jelaskan bahwa tautan membuka situs luar dan membutuhkan internet. Ikuti kontrol pendamping F04 sebelum membuka browser; kembali dari browser mengembalikan siswa ke halaman Informasi tanpa kehilangan progres.
+- **Perpindahan ke situs:** jelaskan bahwa tautan membuka situs luar dan membutuhkan internet. Tombol langsung membuka browser ke URL tetap tanpa verifikasi pendamping (lihat F04); hanya URL resmi di atas yang bisa dibuka dari halaman ini. Kembali dari browser mengembalikan siswa ke halaman Informasi tanpa kehilangan progres.
 - **Kondisi gagal:** jika perangkat diketahui offline atau tautan tidak dapat dibuka, tampilkan “Belum bisa membuka e-book. Periksa internet atau minta bantuan guru.” dan tombol “Coba lagi”. Kegagalan halaman setelah terbuka mengikuti tampilan browser; aplikasi tidak mengklaim bisa mendeteksi seluruh gangguan situs luar.
 - **Privasi:** jangan menambahkan nama, ID siswa, email, token, atau progres ke URL. Tampilkan identitas sumber; kunjungan browser mengikuti praktik privasi situs tersebut.
 - **Batas cakupan:** halaman informasi dapat dibaca offline, tetapi katalog luar membutuhkan internet. Unduhan dikelola situs/browser; tidak ada unduhan otomatis, penyalinan buku ke aplikasi, atau janji semua buku tersedia offline. Guru tetap memilih materi sesuai usia; nomor jilid bukan otomatis nomor kelas SD.
 
 Sumber yang diperiksa menampilkan materi Bahasa Indonesia dengan pilihan baca online dan unduhan pada daftar buku. Ketersediaan serta format setiap dokumen perlu diperiksa saat implementasi dan sebelum rilis. [Katalog materi Bahasa Indonesia — situs K12EA](https://mkm.k12ea.gov.tw/textbook/material/2?type=1).
 
-**Uji penerimaan F19:** (1) tab menampilkan ikon dan label Informasi; (2) halaman berisi judul, pengantar, kartu sumber, petunjuk, dan tombol; (3) setelah kontrol pendamping, tombol membuka URL tepat di atas; (4) pembatalan tetap di aplikasi; (5) kegagalan membuka tautan memberi pesan dan bisa dicoba lagi; (6) kembali ke aplikasi mempertahankan progres; (7) URL tidak membawa data siswa. Perubahan ini merupakan requirement, belum implementasi UI.
+**Uji penerimaan F19:** (1) tab menampilkan ikon dan label Informasi; (2) halaman berisi judul, pengantar, kartu sumber, petunjuk, dan tombol; (3) tombol langsung membuka URL tepat di atas di browser, tanpa kode email atau verifikasi pendamping; (4) kegagalan membuka tautan memberi pesan dan bisa dicoba lagi; (5) kembali ke aplikasi mempertahankan progres; (6) URL tidak membawa data siswa.
 
 ## 6. Konten dan pedagogi
 
@@ -185,7 +185,7 @@ Dokumen wali, pemberitahuan data, dan kontak bantuan tersedia dalam Mandarin Tra
 
 Google Play mewajibkan pengungkapan target usia, praktik data, serta kesesuaian API/SDK untuk layanan anak. Data mikrofon dan kamera termasuk data sensitif anak. **P0 toko:** audit SDK, izin manifest, Data safety, rating konten, dan kebijakan privasi terhadap perilaku build sebenarnya. [Google Play Families Policies](https://support.google.com/googleplay/android-developer/answer/9893335?hl=en).
 
-Untuk iOS, periksa ketentuan Kids Category serta privasi anak, parental gate, dan pembatasan analitik pihak ketiga. Jangan menganggap SDK analitik yang sudah terpasang otomatis boleh digunakan. **P0 toko:** keputusan kategori, rating, deklarasi privasi, dan review alur pendamping sebelum submission. [Apple App Review Guidelines, terutama 1.3 dan 5.1](https://developer.apple.com/app-store/review/guidelines/).
+Untuk iOS, periksa ketentuan Kids Category serta privasi anak, parental gate, dan pembatasan analitik pihak ketiga. Jangan menganggap SDK analitik yang sudah terpasang otomatis boleh digunakan. **P0 toko:** keputusan kategori, rating, deklarasi privasi, dan review alur pendamping sebelum submission. Sejak revisi F04 (28 Sep 2026) aplikasi **tidak lagi memiliki parental gate** sebelum tautan eksternal dan perubahan profil; bila aplikasi didaftarkan di kategori Kids, gate ini harus dipasang kembali (misalnya pertanyaan hitungan untuk orang dewasa) sebelum submission. [Apple App Review Guidelines, terutama 1.3 dan 5.1](https://developer.apple.com/app-store/review/guidelines/).
 
 Distribusi APK terbatas tidak menghapus kewajiban melindungi data anak. Jika wilayah sasaran berbeda, lakukan pemetaan hukum setempat sebelum mengumpulkan data. Untuk pilot ini, persetujuan sekolah sebagai dasar pemrosesan sudah dikonfirmasi petugas hukum (lihat bagian 9 di atas); pemetaan ulang tetap diperlukan sebelum perluasan cakupan atau wilayah.
 
