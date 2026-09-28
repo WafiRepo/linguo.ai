@@ -28,8 +28,12 @@ logger = logging.getLogger(__name__)
 
 # After this many misses in one step, Bu Guru models the line and moves on.
 MAX_STEP_ATTEMPTS = 3
-# Longest wait for Bu Guru to finish a scripted line before opening the mic.
-SPEECH_WAIT_SECONDS = 15.0
+# Longest wait for Bu Guru to finish a scripted line before it's the
+# student's turn (the listen line alone runs ~12 s, and she may start late).
+SPEECH_WAIT_SECONDS = 30.0
+# Steps where the model hears the student; otherwise its input is muted so
+# room noise can't interrupt Bu Guru mid-line.
+LISTENING_STEPS = ("repeat", "answer")
 
 
 def build_comic_practice_prompt(
@@ -92,6 +96,8 @@ class ComicPractice:
     say: Callable[[str], Awaitable[None]]
     note: Optional[Callable[[str], Awaitable[None]]]
     help_language: str
+    # Turns the model's hearing of the student on/off (None: always on).
+    set_listening: Optional[Callable[[bool], Awaitable[None]]] = None
     index: int = 0
     step: str = "listen"
     wrong: int = 0
@@ -172,6 +178,8 @@ class ComicPractice:
 
     async def _set_step(self, step: str) -> None:
         self.step = step
+        if self.set_listening is not None:
+            await self.set_listening(step in LISTENING_STEPS)
         await self.send_event({"type": "practice_step", "turnIndex": self.index, "step": step})
 
     async def _speak_and_wait(self, text: str) -> None:

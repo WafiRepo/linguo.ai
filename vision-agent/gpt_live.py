@@ -124,6 +124,13 @@ class GptLive(realtime.Realtime):
             "content": content,
         })
 
+    async def set_listening(self, listening: bool) -> None:
+        """Mute/unmute the student's audio on the model side. The client's mic
+        stays published: toggling it there dropped the audio track."""
+        await self._send({
+            "type": "session.input_audio.unmute" if listening else "session.input_audio.mute"
+        })
+
     async def simple_audio_response(self, pcm: PcmData, participant: Participant) -> None:
         self._current_participant = participant
         if self._ws is None or self._started is None or not self._started.is_set():

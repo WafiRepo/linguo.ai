@@ -821,22 +821,17 @@ function ActiveRoleplayContent({
   const micAutoStartedRef = useRef(false);
   const scrollRef = useRef<ScrollView | null>(null);
 
-  const isReady = agentStatus === "connected" && canSpeak;
+  const isReady = agentStatus === "connected";
   const micOn = isReady && !optimisticIsMute;
 
-  // Role Play: open mic like a real conversation. Latihan: the student taps.
+  // Open mic for the whole session. Toggling it per answer (tap-to-talk)
+  // re-published the audio track and the agent lost the student's audio, so
+  // in Latihan the server decides when the AI listens instead.
   useEffect(() => {
-    if (practice || !isReady || micAutoStartedRef.current) return;
+    if (!isReady || micAutoStartedRef.current) return;
     micAutoStartedRef.current = true;
     microphone.enable().catch((e) => console.warn("[roleplay] mic enable failed:", e));
-  }, [practice, isReady, microphone]);
-
-  // Latihan: close the mic whenever it stops being the student's step.
-  useEffect(() => {
-    if (practice && !canSpeak && !optimisticIsMute) {
-      microphone.disable().catch(() => {});
-    }
-  }, [practice, canSpeak, optimisticIsMute, microphone]);
+  }, [isReady, microphone]);
 
   useEffect(() => {
     const unsubscribe = call.on("custom", (event: RoleplayCustomEvent) => {
@@ -1068,7 +1063,7 @@ function ActiveRoleplayContent({
           <Text
             className={`font-poppins-medium text-[13px] mt-2 ${micOn ? "text-lingua-purple" : "text-text-secondary"}`}
           >
-            {micLabel(practice, isReady, micOn)}
+            {micLabel(practice, canSpeak, isReady, micOn)}
           </Text>
         </View>
 
@@ -1228,10 +1223,16 @@ function RoleplayReview({
   );
 }
 
-function micLabel(practice: boolean, isReady: boolean, micOn: boolean): string {
-  if (!isReady) return practice ? "先聽 Bu Guru 說…" : "請稍候…";
-  if (practice) return micOn ? "說完後再點一下" : "點一下開始說";
-  return micOn ? "正在聆聽，直接說" : "麥克風已關閉";
+function micLabel(
+  practice: boolean,
+  canSpeak: boolean,
+  isReady: boolean,
+  micOn: boolean,
+): string {
+  if (!isReady) return "請稍候…";
+  if (!micOn) return "麥克風已關閉";
+  if (practice) return canSpeak ? "輪到你了，直接說" : "先聽 Bu Guru 說…";
+  return "正在聆聽，直接說";
 }
 
 function getDisplayStatus(

@@ -39,6 +39,11 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
         async def note(text):
             self.notes.append(text)
 
+        self.listening: list[bool] = []
+
+        async def set_listening(on):
+            self.listening.append(on)
+
         self.practice = ComicPractice(
             turns=self.turns,
             controller=self.controller,
@@ -46,6 +51,7 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
             say=say,
             note=note,
             help_language="English",
+            set_listening=set_listening,
         )
         self.controller.on_user_answer = self.practice.on_answer
         patcher = patch.object(practice, "CORRECTION_GRACE_SECONDS", 0.01)
@@ -64,10 +70,13 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
         await self.practice.start()
         self.assertEqual(self.steps(), [(0, "listen"), (0, "repeat")])
         self.assertIn("老師早安", self.spoken[0])
+        # Deaf while Bu Guru models the line, listening once it's the student's turn.
+        self.assertEqual(self.listening, [False, True])
 
         await self.answer("Selamat pagi, Bu Guru")
         self.assertEqual(self.steps()[-2:], [(0, "answer-intro"), (0, "answer")])
         self.assertIn("tanpa melihat teks", self.spoken[-1])
+        self.assertEqual(self.listening[-2:], [False, True])
 
         await self.answer("Selamat pagi Bu Guru")
         results = [e for e in self.events if e["type"] == "practice_result"]

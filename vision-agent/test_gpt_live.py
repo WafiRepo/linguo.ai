@@ -145,7 +145,12 @@ class GptLiveTest(unittest.IsolatedAsyncioTestCase):
             await llm.connect()
             await llm.append_instructions("MISSION STATUS: test")
             await llm.append_thinking("TURN STATUS: quiet")
+            await llm.set_listening(False)
+            await llm.set_listening(True)
             await llm.close()
+        mutes = [e["type"] for e in server.received if e["type"].startswith("session.input_audio.")
+                 and e["type"] != "session.input_audio.append"]
+        self.assertEqual(mutes, ["session.input_audio.mute", "session.input_audio.unmute"])
         thinking = [e for e in server.received if e["type"] == "session.thinking.append"]
         self.assertEqual([e["content"] for e in thinking], ["TURN STATUS: quiet"])
         appended = [e for e in server.received if e["type"] == "session.instructions.append"]

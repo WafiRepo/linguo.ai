@@ -459,6 +459,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 say=say_script,
                 note=agent.llm.append_thinking if is_gpt_live else None,
                 help_language=help_language,
+                set_listening=agent.llm.set_listening if is_gpt_live else None,
             )
             roleplay.on_user_answer = practice.on_answer
 
