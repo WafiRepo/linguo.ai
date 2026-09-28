@@ -21,7 +21,7 @@ from roleplay import (
     ai_accepted_answer,
     comic_correction_note,
     is_answer_attempt,
-    objective_matched,
+    objective_hit,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,8 @@ MAX_STEP_ATTEMPTS = 3
 # Longest wait for Bu Guru to finish a scripted line before it's the
 # student's turn (the listen line alone runs ~12 s, and she may start late).
 SPEECH_WAIT_SECONDS = 30.0
+# If Bu Guru hasn't made a sound this long after a script line, resend it once.
+SILENT_RESEND_SECONDS = 12.0
 # Steps where the model hears the student; otherwise its input is muted so
 # room noise can't interrupt Bu Guru mid-line.
 LISTENING_STEPS = ("repeat", "answer")
@@ -68,16 +70,23 @@ def build_comic_practice_prompt(
     )
 
 
+# No punctuation after the quoted lines: Bu Guru reads them out and the
+# transcript showed doubles like `"…anak-anak.".` and `「…。」。`.
 def listen_line(turn: dict[str, Any]) -> str:
-    meaning = f" 意思是「{turn['student_zh']}」。" if turn["student_zh"] else ""
+    meaning_zh = turn["student_zh"].rstrip("。.")
+    meaning = f" 意思是「{meaning_zh}」" if meaning_zh else ""
     return (
-        f'Dengar ya. Bu Guru bilang: "{turn["guru"]}". Kamu jawab: "{turn["student"]}".'
-        f'{meaning} Sekarang tiru: "{turn["student"]}".'
+        f'Dengar ya. Bu Guru bilang: "{turn["guru"]}" Kamu jawab: "{turn["student"]}"'
+        f'{meaning} Sekarang tiru: "{turn["student"]}"'
     )
 
 
 def answer_prompt_line(turn: dict[str, Any]) -> str:
     return f'Sekarang tanpa melihat teks. {turn["guru"]}'
+
+
+def modeled_line(turn: dict[str, Any]) -> str:
+    return f'Dengar ya: "{turn["student"]}" Tidak apa-apa, kita lanjut.'
 
 
 def stars_for(wrong_attempts: int) -> int:
@@ -129,7 +138,8 @@ class ComicPractice:
             return
         turn = self.turns[index]
         agent_text = self.controller.agent_text_since(started_at) if started_at else ""
-        if objective_matched(said, turn["answers"]) or ai_accepted_answer(agent_text):
+        objective = self.controller.tracker.objectives[index]
+        if objective_hit(objective, said) or ai_accepted_answer(agent_text):
             await self._passed()
             return
 
@@ -143,7 +153,7 @@ class ComicPractice:
             "attempt": self.step_wrong,
         })
         if self.step_wrong >= MAX_STEP_ATTEMPTS:
-            await self._speak_and_wait(f'Dengar ya: "{turn["student"]}". Tidak apa-apa, kita lanjut.')
+            await self._speak_and_wait(modeled_line(turn), confirm=turn["student"])
             await self._passed()
             return
         if self.note is not None:
@@ -156,7 +166,7 @@ class ComicPractice:
         self.step_wrong = 0
         if self.step == "repeat":
             await self._set_step("answer-intro")
-            await self._speak_and_wait(answer_prompt_line(turn))
+            await self._speak_and_wait(answer_prompt_line(turn), confirm=turn["guru"])
             await self._set_step("answer")
             return
 
@@ -173,7 +183,7 @@ class ComicPractice:
     async def _begin_dialogue(self, index: int) -> None:
         self.index, self.wrong, self.step_wrong = index, 0, 0
         await self._set_step("listen")
-        await self._speak_and_wait(listen_line(self.turns[index]))
+        await self._speak_and_wait(listen_line(self.turns[index]), confirm=self.turns[index]["student"])
         await self._set_step("repeat")
 
     async def _set_step(self, step: str) -> None:
@@ -182,25 +192,34 @@ class ComicPractice:
             await self.set_listening(step in LISTENING_STEPS)
         await self.send_event({"type": "practice_step", "turnIndex": self.index, "step": step})
 
-    async def _speak_and_wait(self, text: str) -> None:
-        """Voice a script line, then wait until Bu Guru has finished saying it
-        so the mic only opens when it's the student's turn. A short reaction
-        ("Bagus!") finishing meanwhile must not count, so wait for speech that
-        contains the line's last words."""
+    async def _speak_and_wait(self, text: str, confirm: str) -> None:
+        """Voice a script line, then wait until Bu Guru has said `confirm` (its
+        Indonesian key line) so it's only the student's turn once she's done.
+        She often voices the framing words in Chinese, so only the Indonesian
+        line is checked. If she stays completely silent, send it once more."""
         # Compared without spaces: streamed fragments can split words ("melanjut" + "kan").
-        tail = "".join(_normalize(text).split()[-2:])
+        tail = "".join(_normalize(confirm).split()[-2:])
         started = time.monotonic()
         deadline = started + SPEECH_WAIT_SECONDS
+        resent = False
         await self.say(text)
         while time.monotonic() < deadline:
             self.controller.agent_spoke.clear()
-            spoken = _normalize(self.controller.agent_text_since(started)).replace(" ", "")
-            if tail and tail in spoken:
+            spoken_raw = self.controller.agent_text_since(started)
+            if tail and tail in _normalize(spoken_raw).replace(" ", ""):
                 return
+            now = time.monotonic()
+            if not resent and not spoken_raw.strip() and now - started >= SILENT_RESEND_SECONDS:
+                logger.warning("[practice] silent after %r; sending it again", text[:40])
+                resent = True
+                await self.say(text)
+                continue
+            resend_at = started + SILENT_RESEND_SECONDS
+            wake_at = resend_at if (not resent and now < resend_at) else deadline
             try:
                 await asyncio.wait_for(
-                    self.controller.agent_spoke.wait(), max(0.1, deadline - time.monotonic())
+                    self.controller.agent_spoke.wait(), max(0.1, wake_at - now)
                 )
             except asyncio.TimeoutError:
-                break
+                continue
         logger.warning("[practice] line not confirmed as spoken: %r", text[:40])

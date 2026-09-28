@@ -266,6 +266,15 @@ class ComicTest(unittest.TestCase):
         self.assertIn('"Oke, Bu."', last)
         self.assertIn("Terima kasih", last)
 
+    def test_echoing_teacher_line_does_not_count(self):
+        turns = roleplay.comic_turns([
+            {"guruLine": "Selamat pagi, anak-anak.", "studentLine": "Selamat pagi, Bu Guru.",
+             "expectedAnswers": ["Selamat pagi, Bu Guru", "Selamat pagi"]},
+        ])
+        tracker = RoleplayTracker(roleplay.comic_objectives(turns), sequential=True)
+        self.assertEqual(tracker.record("Selamat pagi, anak-anak"), [])
+        self.assertEqual([o.id for o in tracker.record("Selamat pagi, Bu Guru")], ["turn-0"])
+
     def test_syllable_split_answer_counts(self):
         self.tracker.record("Baik, Bu Guru")
         self.assertEqual([o.id for o in self.tracker.record("Su- dah")], ["turn-1"])

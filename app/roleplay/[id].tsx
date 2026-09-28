@@ -818,6 +818,10 @@ function ActiveRoleplayContent({
   const [partials, setPartials] = useState<Partial<Record<Speaker, string>>>({});
   const [showHints, setShowHints] = useState(false);
   const nextMessageIdRef = useRef(0);
+  // Latest in-progress student words, and the bubble they were placed in
+  // when Bu Guru replied before they were final.
+  const userPartialRef = useRef("");
+  const userDraftIdRef = useRef<number | null>(null);
   const micAutoStartedRef = useRef(false);
   const scrollRef = useRef<ScrollView | null>(null);
 
@@ -880,6 +884,7 @@ function ActiveRoleplayContent({
 
       if (data.type === "transcript_partial" && data.text) {
         const text = data.text;
+        if (speaker === "user") userPartialRef.current = text;
         setPartials((prev) => ({ ...prev, [speaker]: text }));
         return;
       }
@@ -887,6 +892,31 @@ function ActiveRoleplayContent({
       if (data.type === "transcript_final" && data.text) {
         const text = data.text;
         setPartials((prev) => ({ ...prev, [speaker]: undefined }));
+
+        if (speaker === "user") {
+          userPartialRef.current = "";
+          const draftId = userDraftIdRef.current;
+          userDraftIdRef.current = null;
+          if (draftId !== null) {
+            // Already shown ahead of Bu Guru's reply; swap in the final words.
+            setMessages((prev) =>
+              prev.map((message) => (message.id === draftId ? { ...message, text } : message)),
+            );
+            onStudentTurn();
+            return;
+          }
+        } else if (userPartialRef.current) {
+          // Bu Guru often replies before the student's words are final (they
+          // settle ~1.6 s after they stop), so place the student's bubble first.
+          const draft = userPartialRef.current;
+          userPartialRef.current = "";
+          setPartials((prev) => ({ ...prev, user: undefined }));
+          nextMessageIdRef.current += 1;
+          const draftId = nextMessageIdRef.current;
+          userDraftIdRef.current = draftId;
+          setMessages((prev) => [...prev, { id: draftId, speaker: "user", text: draft }]);
+        }
+
         // A pause splits one turn into several finals; keep it as one bubble.
         setMessages((prev) => {
           const last = prev[prev.length - 1];

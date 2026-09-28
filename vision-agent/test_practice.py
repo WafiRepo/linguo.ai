@@ -101,6 +101,36 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.steps()[-1], (1, "repeat"))
         self.practice.close()
 
+    async def test_echoing_the_teacher_line_is_not_a_correct_answer(self):
+        # From the log: "Selamat pagi, anak-anak" contains the accepted "Selamat pagi".
+        await self.practice.start()
+        await self.answer("Selamat pagi, Bu Guru")  # repeat ok
+        await self.answer("Selamat pagi, anak-anak")
+        correction = [e for e in self.events if e["type"] == "roleplay_correction"]
+        self.assertEqual(len(correction), 1)
+        self.assertFalse([e for e in self.events if e["type"] == "practice_result"])
+        await self.answer("Selamat pagi, Bu Guru")
+        results = [e for e in self.events if e["type"] == "practice_result"]
+        self.assertEqual(results[0]["stars"], 2)
+        self.practice.close()
+
+    async def test_silent_bu_guru_gets_the_line_resent_once(self):
+        calls: list[str] = []
+
+        async def silent_then_speaks(text):
+            calls.append(text)
+            if len(calls) > 1:  # speaks only when sent a second time
+                self.controller.on_agent_partial(text)
+                await self.controller.on_agent_final(text)
+
+        self.practice.say = silent_then_speaks
+        with patch.object(practice, "SILENT_RESEND_SECONDS", 0.05), \
+                patch.object(practice, "SPEECH_WAIT_SECONDS", 1.0):
+            await self.practice.start()
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(self.steps(), [(0, "listen"), (0, "repeat")])
+        self.practice.close()
+
     async def test_fillers_ignored_and_session_completes(self):
         await self.practice.start()
         await self.answer("em")
@@ -116,11 +146,13 @@ class PracticeHelpersTest(unittest.TestCase):
     def test_stars(self):
         self.assertEqual([stars_for(n) for n in (0, 1, 2, 3, 5)], [3, 2, 2, 1, 1])
 
-    def test_listen_line_includes_meaning(self):
+    def test_listen_line_includes_meaning_without_double_punctuation(self):
         line = listen_line(roleplay.comic_turns(TURNS_RAW)[1])
         self.assertIn('"Siapa yang tidak hadir?"', line)
-        self.assertIn("大家都到了", line)
-        self.assertTrue(line.endswith('tiru: "Semua hadir.".'))
+        self.assertIn("意思是「大家都到了」", line)
+        self.assertTrue(line.endswith('tiru: "Semua hadir."'))
+        self.assertNotIn('".', line)
+        self.assertNotIn("」。", line)
 
 
 if __name__ == "__main__":

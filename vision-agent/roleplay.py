@@ -42,6 +42,9 @@ class RoleplayObjective:
     id: str
     goal: str
     targets: list[str]
+    # Phrases that must not count as doing the objective — for comics, the
+    # teacher's own line ("Selamat pagi, anak-anak" contains "Selamat pagi").
+    exclude: list[str] = field(default_factory=list)
 
 
 def parse_objectives(raw: object) -> list[RoleplayObjective]:
@@ -93,6 +96,16 @@ def objective_matched(text: str, targets: list[str]) -> bool:
     return False
 
 
+def objective_hit(objective: RoleplayObjective, text: str) -> bool:
+    """Matches a target, unless it's really an excluded phrase (the student
+    echoing the teacher) — the full first target still counts."""
+    if not objective_matched(text, objective.targets):
+        return False
+    if objective.exclude and objective_matched(text, objective.exclude):
+        return objective_matched(text, objective.targets[:1])
+    return True
+
+
 @dataclass
 class RoleplayTracker:
     objectives: list[RoleplayObjective]
@@ -106,18 +119,18 @@ class RoleplayTracker:
         newly_done = [
             objective
             for objective in self.objectives
-            if objective.id not in self.completed and objective_matched(text, objective.targets)
+            if objective.id not in self.completed and objective_hit(objective, text)
         ]
         self.completed.update(objective.id for objective in newly_done)
         return newly_done
 
     def _record_in_order(self, text: str) -> list[RoleplayObjective]:
         remaining = self.remaining
-        if remaining and objective_matched(text, remaining[0].targets):
+        if remaining and objective_hit(remaining[0], text):
             newly_done = remaining[:1]
         # The AI moves on after a student is stuck twice; when they answer the
         # next line, count the skipped one too so the comic panel catches up.
-        elif len(remaining) > 1 and objective_matched(text, remaining[1].targets):
+        elif len(remaining) > 1 and objective_hit(remaining[1], text):
             newly_done = remaining[:2]
         else:
             return []
@@ -242,7 +255,10 @@ def comic_objectives(turns: list[dict[str, Any]]) -> list[RoleplayObjective]:
         RoleplayObjective(
             id=f"turn-{index}",
             goal=f'answer as the student: "{turn["student"]}"',
-            targets=turn["answers"],
+            # The full comic line first: it always counts, even if it happens
+            # to contain words of the teacher's line.
+            targets=[turn["student"], *turn["answers"]],
+            exclude=[turn["guru"]],
         )
         for index, turn in enumerate(turns)
     ]
