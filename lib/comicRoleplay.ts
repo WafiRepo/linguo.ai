@@ -3,9 +3,13 @@ import { RoleplayScenario } from "@/types/roleplay";
 
 // AI Teacher's Role Play reuses the live roleplay screen: each comic dialogue
 // becomes a mission the student completes, in order.
-// Topics whose Latihan runs the live Listen → Repeat → Answer practice
-// (pilot); the rest keep the scripted Latihan.
-export const LIVE_PRACTICE_TOPIC_IDS = ["topik-3"];
+export type ComicTeacherName = "Bu Guru" | "Pak Guru";
+
+// Some comics have a male teacher (the student answers "Baik, Pak Guru");
+// the AI takes that role, with a male voice on the server.
+export function comicTeacherName(topic: ClassManagementTopic): ComicTeacherName {
+  return topic.turns.some((turn) => /\bPak\b/.test(turn.studentLine.id)) ? "Pak Guru" : "Bu Guru";
+}
 
 export function comicTopicToScenario(
   topic: ClassManagementTopic,
@@ -17,7 +21,7 @@ export function comicTopicToScenario(
     subtitle: topic.title,
     emoji: "📖",
     accentColor: "#F5F3FF",
-    aiName: "Bu Guru",
+    aiName: comicTeacherName(topic),
     aiRole: "an Indonesian primary-school teacher",
     setting: topic.comicScope,
     openingLine: topic.turns[0]?.guruLine.id ?? "",
@@ -46,7 +50,7 @@ export function comicCallCustomData(topic: ClassManagementTopic, practice = fals
     mode: practice ? "comic_practice" : "comic_roleplay",
     topic_id: topic.id,
     topic_title: topic.subtitle,
-    ai_name: "Bu Guru",
+    ai_name: comicTeacherName(topic),
     opening_line: topic.turns[0]?.guruLine.id ?? "",
     class_turns: JSON.stringify(
       topic.turns.map((turn) => ({

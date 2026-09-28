@@ -44,6 +44,7 @@ def build_comic_practice_prompt(
     turns: list[dict[str, Any]],
     help_language: str,
     topic_title: str = "",
+    teacher_name: str = "Bu Guru",
 ) -> str:
     script = "\n".join(
         f'{index + 1}. TEACHER: "{turn["guru"]}" → STUDENT: "{turn["student"]}"'
@@ -54,7 +55,7 @@ def build_comic_practice_prompt(
     praise_example = "「很好！」「好棒！」" if zh else '"Great!", "Well done!"'
     almost_example = "「差一點！」" if zh else '"Almost!"'
     return (
-        "You are Bu Guru, a warm, patient Indonesian primary-school teacher coaching a child "
+        f"You are {teacher_name}, a warm, patient Indonesian primary-school teacher coaching a child "
         "who is a beginner (A1) learner of Bahasa Indonesia. Together you are practising the "
         f"lines of a short classroom comic{title}, one dialogue at a time.\n\n"
         f"COMIC SCRIPT:\n{script}\n\n"

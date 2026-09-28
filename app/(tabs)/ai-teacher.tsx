@@ -8,7 +8,6 @@ import { Href, useRouter } from "expo-router";
 import { ClassTopicCard } from "@/components/ClassTopicCard";
 import { colors } from "@/constants/theme";
 import { BAGIAN_B_TOPICS, BAGIAN_C_TOPICS, CLASS_MANAGEMENT_TOPICS } from "@/data/classManagement";
-import { LIVE_PRACTICE_TOPIC_IDS } from "@/lib/comicRoleplay";
 import { posthog } from "@/lib/posthog";
 import { useLearningStore } from "@/store/learningStore";
 
@@ -45,20 +44,13 @@ function AITeacherTopics() {
     completedClassTopicIds.includes(topicId) || startedClassTopicIds.includes(topicId);
   const startTopic = (topicId: string, mode: "teach" | "roleplay") => {
     markClassTopicStarted(topicId);
-    // Role Play is the live, Speak-style conversation. Latihan is live only for
-    // the pilot topics; the others keep the scripted version.
-    if (mode === "roleplay") {
-      router.push(`/roleplay/${topicId}?kind=comic` as Href);
-      return;
-    }
-    if (LIVE_PRACTICE_TOPIC_IDS.includes(topicId)) {
-      router.push(`/roleplay/${topicId}?kind=comic&mode=practice` as Href);
-      return;
-    }
-    router.push({
-      pathname: "/class-management/[id]",
-      params: { id: topicId, mode },
-    });
+    // Both modes run live on the same screen: Role Play is the Speak-style
+    // conversation, Latihan the listen → repeat → answer practice.
+    router.push(
+      (mode === "roleplay"
+        ? `/roleplay/${topicId}?kind=comic`
+        : `/roleplay/${topicId}?kind=comic&mode=practice`) as Href,
+    );
   };
 
   useEffect(() => {

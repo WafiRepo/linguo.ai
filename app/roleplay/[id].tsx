@@ -30,7 +30,11 @@ import { getClassTopic } from "@/data/classManagement";
 import { LESSONS } from "@/data/lessons";
 import { getRoleplayScenario } from "@/data/roleplays";
 import { apiUrl } from "@/lib/api";
-import { comicCallCustomData, comicTopicToScenario } from "@/lib/comicRoleplay";
+import {
+  comicCallCustomData,
+  comicTeacherName,
+  comicTopicToScenario,
+} from "@/lib/comicRoleplay";
 import { getInstructionLanguages } from "@/lib/instructionLanguage";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
@@ -579,7 +583,7 @@ function ComicPanel({
           {turn ? `對話 ${turnIndex + 1}/${total}` : `對話 ${total}/${total}`}
         </Text>
         <Text className="font-poppins text-xs text-text-secondary">
-          {!turn ? "全部完成！" : phase === "guru" ? "聽 Bu Guru 說" : "輪到你回答"}
+          {!turn ? "全部完成！" : phase === "guru" ? `聽 ${comicTeacherName(topic)} 說` : "輪到你回答"}
         </Text>
       </View>
       <View
@@ -1093,7 +1097,7 @@ function ActiveRoleplayContent({
           <Text
             className={`font-poppins-medium text-[13px] mt-2 ${micOn ? "text-lingua-purple" : "text-text-secondary"}`}
           >
-            {micLabel(practice, canSpeak, isReady, micOn)}
+            {micLabel(practice, canSpeak, isReady, micOn, scenario.aiName)}
           </Text>
         </View>
 
@@ -1258,10 +1262,11 @@ function micLabel(
   canSpeak: boolean,
   isReady: boolean,
   micOn: boolean,
+  teacherName: string,
 ): string {
   if (!isReady) return "請稍候…";
   if (!micOn) return "麥克風已關閉";
-  if (practice) return canSpeak ? "輪到你了，直接說" : "先聽 Bu Guru 說…";
+  if (practice) return canSpeak ? "輪到你了，直接說" : `先聽 ${teacherName} 說…`;
   return "正在聆聽，直接說";
 }
 

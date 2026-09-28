@@ -65,6 +65,8 @@ from tutor_emotion import (  # noqa: E402
 )
 
 AGENT_USER_ID = "ai-teacher"
+# gpt-live-1 voice for comics whose teacher is "Pak Guru" (default voice is female).
+MALE_TEACHER_VOICE = "cedar"
 
 LANGUAGE_NAMES: dict[str, str] = {
     "es": "Spanish",
@@ -355,13 +357,21 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             )
             tracker = RoleplayTracker(comic_objectives(turns), sequential=True)
             topic_title = str(custom.get("topic_title") or "")
+            # Some comics have a male teacher; only these two roles exist.
+            teacher = "Pak Guru" if custom.get("ai_name") == "Pak Guru" else "Bu Guru"
+            if teacher == "Pak Guru" and is_gpt_live:
+                agent.llm.voice = MALE_TEACHER_VOICE  # read when the session connects
             if is_comic_practice:
                 # The practice flow voices every next line itself; no status notes.
                 status_text = lambda t, recent: None  # noqa: E731
-                system_prompt = build_comic_practice_prompt(turns, help_language, topic_title)
+                system_prompt = build_comic_practice_prompt(
+                    turns, help_language, topic_title, teacher
+                )
             else:
                 status_text = lambda t, recent: comic_status_text(t, turns, recent)  # noqa: E731
-                system_prompt = build_comic_roleplay_prompt(turns, help_language, topic_title)
+                system_prompt = build_comic_roleplay_prompt(
+                    turns, help_language, topic_title, teacher
+                )
         else:
             tracker = RoleplayTracker(parse_objectives(custom.get("objectives")))
             status_text = mission_status_text

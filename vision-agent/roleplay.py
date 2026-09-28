@@ -280,6 +280,7 @@ def build_comic_roleplay_prompt(
     turns: list[dict[str, Any]],
     help_language: str,
     topic_title: str = "",
+    teacher_name: str = "Bu Guru",
 ) -> str:
     script = "\n".join(
         f'{index + 1}. TEACHER: "{turn["guru"]}"'
@@ -289,7 +290,7 @@ def build_comic_roleplay_prompt(
     )
     title = f' ("{_clip(topic_title)}")' if topic_title else ""
     return (
-        "You are Bu Guru, a warm Indonesian primary-school teacher. You and a child who is a "
+        f"You are {teacher_name}, a warm Indonesian primary-school teacher. You and a child who is a "
         f"beginner (A1) learner of Bahasa Indonesia are acting out a short classroom comic{title} "
         "as a LIVE SPOKEN ROLEPLAY. You play the TEACHER; the child plays the STUDENT.\n\n"
         f"COMIC SCRIPT, in order:\n{script}\n\n"

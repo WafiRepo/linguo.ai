@@ -31,6 +31,17 @@ class SyllableTest(unittest.TestCase):
         self.assertIn('NOT "hai-dir"', rules)
 
 
+class TeacherNameTest(unittest.TestCase):
+    def test_comic_prompts_use_teacher_name(self):
+        turns = roleplay.comic_turns([{"guruLine": "Ini apa?", "studentLine": "Baik, Pak Guru."}])
+        self.assertTrue(
+            build_comic_practice_prompt(turns, "English", "", "Pak Guru").startswith("You are Pak Guru")
+        )
+        self.assertTrue(
+            roleplay.build_comic_roleplay_prompt(turns, "English").startswith("You are Bu Guru")
+        )
+
+
 class PromptIncludesPronunciationTest(unittest.TestCase):
     def test_comic_prompts(self):
         turns = roleplay.comic_turns([
