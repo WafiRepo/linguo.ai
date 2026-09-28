@@ -124,6 +124,42 @@ class ComicControllerTest(unittest.IsolatedAsyncioTestCase):
         controller.close()
 
 
+class CorrectionTest(unittest.IsolatedAsyncioTestCase):
+    def test_answer_attempt_filter(self):
+        self.assertFalse(roleplay.is_answer_attempt("Em... eh"))
+        self.assertFalse(roleplay.is_answer_attempt("我不知道怎麼說"))
+        self.assertTrue(roleplay.is_answer_attempt("Bagus"))
+
+    def test_correction_note_skipped_when_ai_already_modeled_line(self):
+        note = roleplay.comic_correction_note("Bagus", "Sudah.", "English")
+        self.assertIn('"Bagus"', note)
+        self.assertIn("Coba bilang: Sudah.", note)
+        self.assertIsNone(
+            roleplay.comic_correction_note("Bagus", "Sudah.", "English", "Hampir! Coba bilang: Sudah.")
+        )
+
+    async def test_unmatched_answer_is_reported(self):
+        turns = roleplay.comic_turns(COMIC_RAW)
+        misses: list[tuple[str, str]] = []
+
+        async def send(payload):
+            pass
+
+        async def on_unmatched(said, recent):
+            misses.append((said, recent))
+
+        controller = RoleplayController(
+            send_event=send,
+            tracker=RoleplayTracker(roleplay.comic_objectives(turns), sequential=True),
+            on_unmatched=on_unmatched,
+        )
+        controller.on_agent_partial(" Masukkan ke stopkontak.")
+        await controller.on_user_final("Bagus")
+        await controller.on_user_final("Baik, Bu Guru")
+        self.assertEqual(misses, [("Bagus", " Masukkan ke stopkontak.")])
+        controller.close()
+
+
 class FeedbackTest(unittest.IsolatedAsyncioTestCase):
     def test_parse_feedback_clips_and_validates(self):
         raw = json.dumps({

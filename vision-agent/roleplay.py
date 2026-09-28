@@ -260,9 +260,17 @@ def build_comic_roleplay_prompt(
         "time — then stop and wait for the student.\n"
         "- Never say the student's line before they have tried. Go to the next TEACHER line only "
         "after the student has said their line or something very close to it.\n"
-        "- If the answer is wrong or unclear, kindly model the correct student line once "
-        "(\"Coba bilang: ...\") and let them try again. After two tries, say it together with them "
-        "and move on.\n"
+        "- WRONG SENTENCE (wrong or missing words): say one short encouraging word, then the "
+        "correct student line (\"Coba bilang: ...\"), plus ONE short tip in "
+        f"{help_language} about what was different. Let them try again. After two tries, say it "
+        "together with them and move on.\n"
+        "- WRONG PRONUNCIATION (right words, clearly mispronounced — you can hear it): say that "
+        "word slowly, syllable by syllable (e.g. \"Gu-ru\"), give ONE short tip in "
+        f"{help_language} on how to say it, and ask them to say the line once more. Only correct "
+        "clear mistakes — never nitpick an accent.\n"
+        "- You may receive quiet CORRECTION notes when the student's answer did not match the "
+        "comic. If you have not corrected them yet, do it then; never correct the same mistake "
+        "twice in a row.\n"
         f"- If the student is stuck or speaks {help_language}: give ONE short help sentence in "
         f"{help_language} that includes the Indonesian student line, then continue in Indonesian.\n"
         "- Keep reactions tiny (like \"Bagus!\"). This is acting out the comic, not a lesson: no "
@@ -271,6 +279,34 @@ def build_comic_roleplay_prompt(
         "track, but never repeat a line you have already said.\n"
         "- After the last dialogue, close warmly in one short sentence.\n\n"
         f"{SAFETY_RULES}"
+    )
+
+
+FILLER_WORDS = {"em", "emm", "eh", "ehm", "hmm", "uh", "um", "ah", "oh", "hm"}
+
+
+def is_answer_attempt(text: str) -> bool:
+    """Fillers ("em", "eh") and help requests in Chinese are not answer attempts."""
+    if any("一" <= ch <= "鿿" for ch in text):
+        return False
+    return any(word not in FILLER_WORDS for word in _normalize(text).split())
+
+
+def comic_correction_note(
+    said: str,
+    expected: str,
+    help_language: str,
+    recent_agent_text: str = "",
+) -> Optional[str]:
+    """Quiet note so a wrong answer always gets corrected, or None if the AI
+    already modeled the right line on its own."""
+    if _normalize(expected) in _normalize(recent_agent_text):
+        return None
+    return (
+        "CORRECTION (for your information, do not read aloud): the student said "
+        f'"{said}" but their comic line is "{expected}". If you have not corrected them yet, '
+        f'kindly do it now: model the line once ("Coba bilang: {expected}") with one short tip in '
+        f"{help_language}, then wait. Do not move to the next TEACHER line yet."
     )
 
 
@@ -396,6 +432,8 @@ class RoleplayController:
     append_instructions: Optional[Callable[[str], Awaitable[None]]] = None
     generate_feedback: Optional[Callable[[list[dict[str, str]]], Awaitable[Optional[dict[str, Any]]]]] = None
     status_text: Callable[[RoleplayTracker, str], Optional[str]] = mission_status_text
+    # Called when a student answer completes nothing: (answer, recent AI speech).
+    on_unmatched: Optional[Callable[[str, str], Awaitable[None]]] = None
     turns: list[dict[str, str]] = field(default_factory=list)
     _user_partial: list[str] = field(default_factory=list)
     _recent_user: list[tuple[float, str]] = field(default_factory=list)
@@ -423,13 +461,13 @@ class RoleplayController:
         for objective in newly_done:
             logger.info("[roleplay] objective done: %s", objective.id)
             await self.send_event({"type": "roleplay_objective", "objectiveId": objective.id})
+        recent = " ".join(s for t, s in self._recent_agent if now - t <= AGENT_RECENT_SECONDS)
         if newly_done and self.append_instructions is not None:
-            recent = " ".join(
-                s for t, s in self._recent_agent if now - t <= AGENT_RECENT_SECONDS
-            )
             status = self.status_text(self.tracker, recent)
             if status:
                 await self.append_instructions(status)
+        if not newly_done and self.on_unmatched is not None and self.tracker.remaining:
+            await self.on_unmatched(text, recent)
 
         self._schedule_feedback()
 

@@ -45,6 +45,7 @@ import {
 type CallStatus = "idle" | "connecting" | "joined" | "error";
 type AgentStatus = "idle" | "connecting" | "connected" | "failed";
 type ComicPhase = "guru" | "student";
+type ComicCorrection = { turnIndex: number; said: string };
 
 const MAX_KNOWN_WORDS = 40;
 const COMIC_HEIGHT = Math.min(Dimensions.get("window").height * 0.3, 280);
@@ -90,6 +91,7 @@ function LiveRoleplayScreen() {
     [comic, id],
   );
   const [comicPhase, setComicPhase] = useState<ComicPhase>("guru");
+  const [correction, setCorrection] = useState<ComicCorrection | null>(null);
 
   const [client, setClient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<Call | null>(null);
@@ -119,6 +121,7 @@ function LiveRoleplayScreen() {
     setFeedback(null);
     setReviewing(false);
     setComicPhase("guru");
+    setCorrection(null);
     posthog.capture("roleplay_started", {
       scenario_id: scenario.id,
       kind: comic ? "comic" : "scenario",
@@ -284,6 +287,7 @@ function LiveRoleplayScreen() {
       );
       // Next comic dialogue: Bu Guru speaks first.
       setComicPhase("guru");
+      setCorrection(null);
       posthog.capture("roleplay_objective_completed", {
         scenario_id: scenario?.id ?? null,
         objective_id: objectiveId,
@@ -299,6 +303,17 @@ function LiveRoleplayScreen() {
   const handleAgentTurn = useCallback(() => {
     setComicPhase("student");
   }, []);
+
+  const handleCorrection = useCallback(
+    (next: ComicCorrection) => {
+      setCorrection(next);
+      posthog.capture("roleplay_correction_shown", {
+        scenario_id: scenario?.id ?? null,
+        turn_index: next.turnIndex,
+      });
+    },
+    [scenario?.id],
+  );
 
   async function handleLeave() {
     posthog.capture("roleplay_left", {
@@ -383,11 +398,20 @@ function LiveRoleplayScreen() {
       </View>
 
       {comic ? (
-        <ComicPanel
-          topic={comic}
-          turnIndex={completedIds.length}
-          phase={comicPhase}
-        />
+        <>
+          <ComicPanel
+            topic={comic}
+            turnIndex={completedIds.length}
+            phase={comicPhase}
+          />
+          {correction && correction.turnIndex === completedIds.length ? (
+            <CorrectionCard
+              said={correction.said}
+              expected={comic.turns[correction.turnIndex]?.studentLine.id ?? ""}
+              translation={comic.turns[correction.turnIndex]?.studentLine.zhTW ?? ""}
+            />
+          ) : null}
+        </>
       ) : (
         <MissionCard scenario={scenario} completedIds={completedIds} />
       )}
@@ -403,6 +427,7 @@ function LiveRoleplayScreen() {
               onObjectiveDone={handleObjectiveDone}
               onStudentTurn={handleStudentTurn}
               onAgentTurn={handleAgentTurn}
+              onCorrection={handleCorrection}
               onFeedback={setFeedback}
               onRetry={() => startAgentSession(call.id)}
               onFinish={handleLeave}
@@ -520,6 +545,53 @@ function ComicPanel({
   );
 }
 
+function normalizeWord(word: string): string {
+  return word.toLowerCase().replace(/[.,!?;:"'()]/g, "");
+}
+
+// Highlights the words of the comic line the student left out or got wrong.
+function CorrectionCard({
+  said,
+  expected,
+  translation,
+}: {
+  said: string;
+  expected: string;
+  translation: string;
+}) {
+  const saidWords = new Set(said.split(/\s+/).map(normalizeWord));
+  const parts = expected.split(/(\s+)/);
+
+  return (
+    <View className="mx-4 mb-3 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-3">
+      <Text className="font-poppins-semibold text-[13px] text-text-primary mb-1">
+        ✏️ 再試一次
+      </Text>
+      <Text className="font-poppins text-xs text-text-secondary">
+        你說：<Text className="text-text-primary">{said}</Text>
+      </Text>
+      <Text className="font-poppins text-xs text-text-secondary mt-1">正確說法：</Text>
+      <Text className="font-poppins-semibold text-[15px] text-text-primary">
+        {parts.map((part, index) => {
+          const word = normalizeWord(part);
+          const missed = word.length > 0 && !saidWords.has(word);
+          return (
+            <Text
+              key={index}
+              className={missed ? "bg-[#FDE68A] text-[#92400E]" : undefined}
+            >
+              {part}
+            </Text>
+          );
+        })}
+      </Text>
+      {translation ? (
+        <Text className="font-poppins text-xs text-text-secondary mt-1">{translation}</Text>
+      ) : null}
+    </View>
+  );
+}
+
 type Speaker = "agent" | "user";
 type TranscriptMessage = { id: number; speaker: Speaker; text: string };
 
@@ -529,6 +601,8 @@ interface RoleplayCustomEvent {
     speaker?: Speaker;
     text?: string;
     objectiveId?: string;
+    turnIndex?: number;
+    said?: string;
     praise?: unknown;
     corrections?: unknown;
   };
@@ -542,6 +616,7 @@ function ActiveRoleplayContent({
   onObjectiveDone,
   onStudentTurn,
   onAgentTurn,
+  onCorrection,
   onFeedback,
   onRetry,
   onFinish,
@@ -553,6 +628,7 @@ function ActiveRoleplayContent({
   onObjectiveDone: (objectiveId: string) => void;
   onStudentTurn: () => void;
   onAgentTurn: () => void;
+  onCorrection: (correction: ComicCorrection) => void;
   onFeedback: (feedback: RoleplayFeedback) => void;
   onRetry: () => void;
   onFinish: () => void;
@@ -584,6 +660,15 @@ function ActiveRoleplayContent({
 
       if (data.type === "roleplay_objective" && data.objectiveId) {
         onObjectiveDone(data.objectiveId);
+        return;
+      }
+
+      if (
+        data.type === "roleplay_correction" &&
+        typeof data.turnIndex === "number" &&
+        data.said
+      ) {
+        onCorrection({ turnIndex: data.turnIndex, said: data.said });
         return;
       }
 
@@ -619,7 +704,7 @@ function ActiveRoleplayContent({
     });
 
     return unsubscribe;
-  }, [call, onObjectiveDone, onStudentTurn, onAgentTurn, onFeedback]);
+  }, [call, onObjectiveDone, onStudentTurn, onAgentTurn, onCorrection, onFeedback]);
 
   function handleToggleMic() {
     if (!isReady) return;

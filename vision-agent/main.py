@@ -39,10 +39,12 @@ from roleplay import (  # noqa: E402
     RoleplayTracker,
     build_comic_roleplay_prompt,
     build_roleplay_system_prompt,
+    comic_correction_note,
     comic_objectives,
     comic_status_text,
     comic_turns,
     generate_roleplay_feedback,
+    is_answer_attempt,
     mission_status_text,
     help_language_name,
     parse_objectives,
@@ -375,6 +377,27 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             ),
             status_text=status_text,
         )
+
+        if is_comic_roleplay:
+            async def on_comic_miss(said: str, recent_agent_text: str) -> None:
+                if not is_answer_attempt(said):
+                    return
+                index = tracker.objectives.index(tracker.remaining[0])
+                # The app shows a correction card; the quiet note makes sure
+                # Bu Guru corrects it out loud even if she missed the mistake.
+                await send_roleplay_event({
+                    "type": "roleplay_correction",
+                    "turnIndex": index,
+                    "said": said[:120],
+                })
+                note = comic_correction_note(
+                    said, turns[index]["student"], help_language, recent_agent_text
+                )
+                if note and is_gpt_live:
+                    await agent.llm.append_thinking(note)
+
+            roleplay.on_unmatched = on_comic_miss
+
         system_prompt = append_emotion_to_prompt(
             system_prompt,
             tutor_emotion,
