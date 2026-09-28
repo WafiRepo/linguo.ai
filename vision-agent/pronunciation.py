@@ -5,6 +5,81 @@ from __future__ import annotations
 from instruction_language import uses_indonesian_teacher, uses_zh_tw_teacher
 
 
+VOWELS = set("aeiou")
+# Letter pairs that are one Indonesian sound.
+DIGRAPHS = ("ng", "ny", "kh", "sy")
+# Written diphthongs, only treated as one sound at the end of a word (pan-tai, pu-lau).
+FINAL_DIPHTHONGS = ("ai", "au", "oi")
+MAX_GUIDE_WORDS = 60
+
+
+def indonesian_syllables(word: str) -> str:
+    """Rough phonetic syllable split: ha-dir, si-ap, se-la-mat, stop-kon-tak.
+
+    Mixed into Chinese or English sentences, the voice model tends to read
+    Indonesian words with that language's sounds ("Hadir" → "Haidir");
+    spelling out the syllables keeps it on Indonesian vowels.
+    """
+    letters = "".join(ch for ch in word.lower() if ch.isalpha())
+    units: list[str] = []
+    i = 0
+    while i < len(letters):
+        if letters[i:i + 2] in DIGRAPHS:
+            units.append(letters[i:i + 2])
+            i += 2
+        else:
+            units.append(letters[i])
+            i += 1
+    if len(units) >= 2 and units[-2] + units[-1] in FINAL_DIPHTHONGS and (
+        len(units) == 2 or units[-3] not in VOWELS
+    ):
+        units[-2:] = [units[-2] + units[-1]]
+
+    vowel_positions = [k for k, unit in enumerate(units) if unit[0] in VOWELS]
+    if len(vowel_positions) <= 1:
+        return "".join(units)
+    # Between two vowels: split directly when they touch (si-ap, ma-in), before
+    # the last consonant for one or two (pa-gi, tom-bol), and after the first
+    # for three or more, since clusters like "str" start a syllable (in-struk-si).
+    def cut_between(prev: int, nxt: int) -> int:
+        consonants = nxt - prev - 1
+        if consonants == 0:
+            return nxt
+        if consonants <= 2:
+            return nxt - 1
+        return prev + 2
+
+    cuts = [cut_between(prev, nxt) for prev, nxt in zip(vowel_positions, vowel_positions[1:])]
+    parts, start = [], 0
+    for cut in cuts:
+        parts.append("".join(units[start:cut]))
+        start = cut
+    parts.append("".join(units[start:]))
+    return "-".join(parts)
+
+
+def indonesian_pronunciation_rules(phrases: list[str], help_language: str) -> str:
+    """Prompt block that keeps Indonesian words on Indonesian sounds, with a
+    syllable guide for every word in `phrases`."""
+    words: list[str] = []
+    for phrase in phrases:
+        for raw in phrase.replace("-", " ").split():
+            word = "".join(ch for ch in raw.lower() if ch.isalpha())
+            if len(word) > 1 and word not in words:
+                words.append(word)
+    guide = ", ".join(f"{w} = {indonesian_syllables(w)}" for w in words[:MAX_GUIDE_WORDS])
+    return (
+        f"INDONESIAN PRONUNCIATION (critical — also inside {help_language} sentences):\n"
+        "- Read every Indonesian word with standard Indonesian sounds, never with English or "
+        "Chinese (pinyin) readings: a = \"ah\" (never \"ay\" or \"ai\"), i = \"ee\", u = \"oo\", "
+        "e = \"eh\" or a short \"uh\", o = \"oh\". Pronounce every letter; never turn a single "
+        "vowel into a diphthong. Example: hadir = ha-dir, NOT \"hai-dir\".\n"
+        "- Leave a tiny pause before and after each Indonesian phrase and switch fully to an "
+        "Indonesian accent for it.\n"
+        f"- Syllables: {guide}."
+    )
+
+
 def _parse_vocab_entry(item: str) -> tuple[str, str, str]:
     """Parse 'word: translation | say: HAH-loh' or legacy 'word: translation'."""
     text = str(item).strip()

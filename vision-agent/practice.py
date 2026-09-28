@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Optional
 
 from feedback import _normalize
+from pronunciation import indonesian_pronunciation_rules
 from roleplay import (
     CORRECTION_GRACE_SECONDS,
     SAFETY_RULES,
@@ -20,6 +21,7 @@ from roleplay import (
     _clip,
     ai_accepted_answer,
     comic_correction_note,
+    comic_phrases,
     is_answer_attempt,
     objective_hit,
 )
@@ -72,6 +74,7 @@ def build_comic_practice_prompt(
         "- Never praise and correct in the same reply. Only correct clear mistakes, never an accent.\n"
         f"- If the student asks something in {help_language}, answer in one short sentence.\n"
         "- You may get quiet CORRECTION notes; correct at most once per attempt.\n\n"
+        f"{indonesian_pronunciation_rules(comic_phrases(turns), help_language)}\n\n"
         f"{SAFETY_RULES}"
     )
 

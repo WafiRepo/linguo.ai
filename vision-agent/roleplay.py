@@ -11,6 +11,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 from feedback import _normalize
 from instruction_language import uses_english_teacher
+from pronunciation import indonesian_pronunciation_rules
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +181,11 @@ def build_roleplay_system_prompt(
         if known_words
         else ""
     )
+    scenario_phrases = [
+        roleplay_opening_line(custom),
+        *(target for objective in objectives for target in objective.targets),
+        *known_words,
+    ]
     # Only GPT-Live receives MISSION STATUS updates mid-session; the Realtime
     # fallback has to judge completion on its own.
     closing_rule = (
@@ -214,6 +220,7 @@ def build_roleplay_system_prompt(
         "opening line, don't state a price before they ask, don't thank them before they thank "
         "you. Instead, leave a natural opening with a short question so they can do it.\n"
         f"{closing_rule}\n"
+        f"{indonesian_pronunciation_rules(scenario_phrases, help_language)}\n\n"
         f"{SAFETY_RULES}"
     )
 
@@ -248,6 +255,11 @@ def comic_turns(raw_turns: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "answers": answers or [student],
         })
     return turns
+
+
+def comic_phrases(turns: list[dict[str, Any]]) -> list[str]:
+    """Every Indonesian line of a comic, for the pronunciation guide."""
+    return [line for turn in turns for line in (turn["guru"], turn["student"])]
 
 
 def comic_objectives(turns: list[dict[str, Any]]) -> list[RoleplayObjective]:
@@ -308,6 +320,7 @@ def build_comic_roleplay_prompt(
         "- Quiet TURN STATUS notes tell you where you are in the script. Use them to stay on "
         "track, but never repeat a line you have already said.\n"
         "- After the last dialogue, close warmly in one short sentence.\n\n"
+        f"{indonesian_pronunciation_rules(comic_phrases(turns), help_language)}\n\n"
         f"{SAFETY_RULES}"
     )
 
