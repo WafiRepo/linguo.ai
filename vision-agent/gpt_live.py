@@ -30,7 +30,7 @@ CONNECT_TIMEOUT_SECONDS = 15
 # Live transcript fragments follow audio cadence, not turn boundaries. A turn
 # counts as finished once no new fragment has arrived for this long. Learners
 # pause mid-sentence while thinking, so their turns get a longer window.
-USER_TURN_SETTLE_SECONDS = 1.6
+USER_TURN_SETTLE_SECONDS = 1.2
 AGENT_TURN_SETTLE_SECONDS = 0.9
 
 

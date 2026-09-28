@@ -56,9 +56,14 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
             set_listening=set_listening,
         )
         self.controller.on_user_answer = self.practice.on_answer
-        patcher = patch.object(practice, "CORRECTION_GRACE_SECONDS", 0.01)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        for name, value in (
+            ("CORRECTION_GRACE_SECONDS", 0.01),
+            ("MATCH_OBJECTION_SECONDS", 0.0),
+            ("VERDICT_POLL_SECONDS", 0.005),
+        ):
+            patcher = patch.object(practice, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def steps(self):
         return [(e["turnIndex"], e["step"]) for e in self.events if e["type"] == "practice_step"]
@@ -114,6 +119,28 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
         await self.answer("Selamat pagi, Bu Guru")
         results = [e for e in self.events if e["type"] == "practice_result"]
         self.assertEqual(results[0]["stars"], 2)
+        self.practice.close()
+
+    async def test_ai_correction_beats_a_text_match(self):
+        # Transcript matched, but Bu Guru heard it wrong (e.g. pronunciation).
+        await self.practice.start()
+        await self.controller.on_user_partial("Selamat pagi, Bu Guru")
+        self.controller.on_agent_partial("差一點！再說一次：Selamat pagi, Bu Guru")
+        await self.controller.on_user_final("Selamat pagi, Bu Guru")
+        await asyncio.sleep(0.05)
+        self.assertEqual(self.steps()[-1], (0, "repeat"))
+        self.assertTrue([e for e in self.events if e["type"] == "roleplay_correction"])
+        self.practice.close()
+
+    async def test_praise_moves_on_without_the_grace_wait(self):
+        with patch.object(practice, "CORRECTION_GRACE_SECONDS", 5.0), \
+                patch.object(practice, "MATCH_OBJECTION_SECONDS", 5.0):
+            await self.practice.start()
+            await self.controller.on_user_partial("Selamat pagi Bu Guru")
+            self.controller.on_agent_partial("很好！")
+            await self.controller.on_user_final("Selamat pagi Bu Guru")
+            await asyncio.sleep(0.1)  # far less than the 5 s waits
+        self.assertEqual(self.steps()[-1], (0, "answer"))
         self.practice.close()
 
     async def test_answer_split_by_a_pause_is_judged_as_one(self):

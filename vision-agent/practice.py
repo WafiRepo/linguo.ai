@@ -20,6 +20,7 @@ from roleplay import (
     RoleplayController,
     _clip,
     ai_accepted_answer,
+    ai_corrected_answer,
     comic_correction_note,
     comic_phrases,
     is_answer_attempt,
@@ -35,6 +36,10 @@ MAX_STEP_ATTEMPTS = 3
 SPEECH_WAIT_SECONDS = 30.0
 # If Bu Guru hasn't made a sound this long after a script line, resend it once.
 SILENT_RESEND_SECONDS = 12.0
+# When the transcript already matches, give the AI this long to object
+# (she hears pronunciation we can't) before moving on.
+MATCH_OBJECTION_SECONDS = 0.8
+VERDICT_POLL_SECONDS = 0.2
 # Steps where the model hears the student; otherwise its input is muted so
 # room noise can't interrupt Bu Guru mid-line.
 LISTENING_STEPS = ("repeat", "answer")
@@ -167,14 +172,15 @@ class ComicPractice:
         )
 
     async def _resolve(self, said: str, index: int, step: str, started_at: Optional[float]) -> None:
-        # Let the AI react first: it hears the audio, the transcript may mishear.
-        await asyncio.sleep(CORRECTION_GRACE_SECONDS)
+        turn = self.turns[index]
+        objective = self.controller.tracker.objectives[index]
+        matched = objective_hit(objective, said)
+        agent_text = await self._await_ai_verdict(matched, started_at)
         if (self.index, self.step) != (index, step):
             return
-        turn = self.turns[index]
-        agent_text = self.controller.agent_text_since(started_at) if started_at else ""
-        objective = self.controller.tracker.objectives[index]
-        if objective_hit(objective, said) or ai_accepted_answer(agent_text):
+        # The AI hears the audio while we only have a transcript: a correction
+        # from it wins over a text match, and its praise wins over a mismatch.
+        if (matched and not ai_corrected_answer(agent_text)) or ai_accepted_answer(agent_text):
             await self._passed()
             return
 
@@ -197,6 +203,23 @@ class ComicPractice:
             note = comic_correction_note(said, turn["student"], self.help_language, agent_text)
             if note:
                 await self.note(note)
+
+    async def _await_ai_verdict(self, matched: bool, started_at: Optional[float]) -> str:
+        """Wait (at most the grace period) for the AI's reaction to the answer
+        and return what it said. Stops early once the outcome is clear, so a
+        right answer moves on right after the praise instead of after a fixed
+        pause: the AI praised or corrected, or the transcript already matched
+        and the AI had a brief moment to object."""
+        started = time.monotonic()
+        deadline = started + CORRECTION_GRACE_SECONDS
+        while True:
+            agent_text = self.controller.agent_text_since(started_at) if started_at else ""
+            if ai_accepted_answer(agent_text) or ai_corrected_answer(agent_text):
+                return agent_text
+            now = time.monotonic()
+            if (matched and now - started >= MATCH_OBJECTION_SECONDS) or now >= deadline:
+                return agent_text
+            await asyncio.sleep(VERDICT_POLL_SECONDS)
 
     async def _passed(self) -> None:
         turn = self.turns[self.index]

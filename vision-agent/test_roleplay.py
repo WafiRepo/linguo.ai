@@ -279,6 +279,16 @@ class ComicTest(unittest.TestCase):
         self.assertEqual(tracker.record("Selamat pagi, anak-anak"), [])
         self.assertEqual([o.id for o in tracker.record("Selamat pagi, Bu Guru")], ["turn-0"])
 
+    def test_comic_answers_need_every_word(self):
+        # From the log: "Saya tahu" was counted for "Saya tidak tahu, Pak Guru".
+        turns = roleplay.comic_turns([
+            {"guruLine": "Ini apa?", "studentLine": "Saya tidak tahu, Pak Guru.",
+             "expectedAnswers": ["Saya tidak tahu, Pak Guru", "Saya tidak tahu"]},
+        ])
+        tracker = RoleplayTracker(roleplay.comic_objectives(turns), sequential=True)
+        self.assertEqual(tracker.record("Saya tahu, Pak Guru"), [])
+        self.assertEqual([o.id for o in tracker.record("Saya tidak tahu, Pak")], ["turn-0"])
+
     def test_syllable_split_answer_counts(self):
         self.tracker.record("Baik, Bu Guru")
         self.assertEqual([o.id for o in self.tracker.record("Su- dah")], ["turn-1"])

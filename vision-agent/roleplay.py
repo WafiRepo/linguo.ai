@@ -46,6 +46,9 @@ class RoleplayObjective:
     # Phrases that must not count as doing the objective — for comics, the
     # teacher's own line ("Selamat pagi, anak-anak" contains "Selamat pagi").
     exclude: list[str] = field(default_factory=list)
+    # Share of a target's words that must be said. Comics need every word:
+    # "Saya tahu" is 4/5 of "Saya tidak tahu, Pak Guru" but means the opposite.
+    min_overlap: float = OBJECTIVE_MATCH_SCORE
 
 
 def parse_objectives(raw: object) -> list[RoleplayObjective]:
@@ -73,7 +76,11 @@ def parse_objectives(raw: object) -> list[RoleplayObjective]:
 MIN_COMPACT_MATCH_CHARS = 4
 
 
-def objective_matched(text: str, targets: list[str]) -> bool:
+def objective_matched(
+    text: str,
+    targets: list[str],
+    min_overlap: float = OBJECTIVE_MATCH_SCORE,
+) -> bool:
     """Whole-phrase match, so a stray "ini" can't tick off "berapa harganya ini"."""
     normalized = f" {_normalize(text)} "
     tokens = set(normalized.split())
@@ -91,7 +98,7 @@ def objective_matched(text: str, targets: list[str]) -> bool:
             return True
         target_tokens = set(normalized_target.split())
         if len(target_tokens) >= 2 and (
-            len(tokens & target_tokens) / len(target_tokens) >= OBJECTIVE_MATCH_SCORE
+            len(tokens & target_tokens) / len(target_tokens) >= min_overlap
         ):
             return True
     return False
@@ -100,10 +107,10 @@ def objective_matched(text: str, targets: list[str]) -> bool:
 def objective_hit(objective: RoleplayObjective, text: str) -> bool:
     """Matches a target, unless it's really an excluded phrase (the student
     echoing the teacher) — the full first target still counts."""
-    if not objective_matched(text, objective.targets):
+    if not objective_matched(text, objective.targets, objective.min_overlap):
         return False
     if objective.exclude and objective_matched(text, objective.exclude):
-        return objective_matched(text, objective.targets[:1])
+        return objective_matched(text, objective.targets[:1], objective.min_overlap)
     return True
 
 
@@ -271,6 +278,7 @@ def comic_objectives(turns: list[dict[str, Any]]) -> list[RoleplayObjective]:
             # to contain words of the teacher's line.
             targets=[turn["student"], *turn["answers"]],
             exclude=[turn["guru"]],
+            min_overlap=1.0,
         )
         for index, turn in enumerate(turns)
     ]
@@ -340,20 +348,24 @@ PRAISE_WORDS_ZH = ("很好", "很棒", "好棒", "太棒", "答對", "正確", "
 CORRECTION_WORDS_ZH = ("差一點", "再試", "再說一次", "應該", "不是", "跟著我說")
 
 
+def ai_corrected_answer(agent_text: str) -> bool:
+    """True when the AI's reaction contains a correction ("差一點", "Hampir")."""
+    text = _normalize(agent_text)
+    return any(f" {w} " in f" {text} " for w in CORRECTION_WORDS) or any(
+        w in text for w in CORRECTION_WORDS_ZH
+    )
+
+
 def ai_accepted_answer(agent_text: str, next_teacher_line: str = "") -> bool:
     """True when the AI's reaction shows it judged the answer right: it moved
     on to the next teacher line, or praised without correcting."""
     text = _normalize(agent_text)
     if next_teacher_line and _normalize(next_teacher_line) in text:
         return True
-    spaced = f" {text} "
-    corrected = any(f" {w} " in spaced for w in CORRECTION_WORDS) or any(
-        w in text for w in CORRECTION_WORDS_ZH
-    )
-    praised = any(f" {w} " in spaced for w in PRAISE_WORDS) or any(
+    praised = any(f" {w} " in f" {text} " for w in PRAISE_WORDS) or any(
         w in text for w in PRAISE_WORDS_ZH
     )
-    return praised and not corrected
+    return praised and not ai_corrected_answer(agent_text)
 
 
 def is_answer_attempt(text: str) -> bool:
