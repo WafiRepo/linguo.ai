@@ -4,6 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Tts from "react-native-tts";
 
 import { colors } from "@/constants/theme";
+import { resetPhoneAudioToMedia } from "@/lib/audioMode";
 import { VocabularyItem } from "@/types/learningMaterial";
 
 let ttsInitPromise: Promise<void> | null = null;
@@ -58,6 +59,8 @@ export function VocabularyRow({ item }: VocabularyRowProps) {
   }, []);
 
   async function handlePlay() {
+    // In case a finished AI call left the phone in call-audio mode.
+    resetPhoneAudioToMedia();
     await ensureTtsReady();
 
     try {

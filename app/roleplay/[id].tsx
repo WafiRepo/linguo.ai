@@ -29,6 +29,7 @@ import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
 import { getClassTopic } from "@/data/classManagement";
 import { apiUrl } from "@/lib/api";
+import { resetPhoneAudioToMedia } from "@/lib/audioMode";
 import {
   comicCallCustomData,
   comicTeacherName,
@@ -146,9 +147,9 @@ function LiveRoleplayScreen() {
     startCall();
 
     return () => {
-      callRef.current?.leave().catch(console.error);
+      const leaving = callRef.current?.leave() ?? Promise.resolve();
+      leaving.catch(console.error).finally(resetPhoneAudioToMedia);
       clientRef.current?.disconnectUser().catch(console.error);
-      callManager.stop();
       stopAgentSession(callRef.current?.id ?? null, agentSessionRef.current);
     };
   }, [isLoaded, user, scenario, comic, isPractice, tutorVoice, tutorEmotion]);
@@ -191,9 +192,7 @@ function LiveRoleplayScreen() {
 
       const callId = `roleplay-${isPractice ? "practice" : "comic"}-${comic.id}-${user.id}`;
       const streamCall = streamClient.call("default", callId);
-      // The call switches the phone to call-audio mode; stop() in the
-      // cleanup puts it back, or later sounds (e.g. vocabulary TTS) come
-      // out of the earpiece instead of the speaker.
+      // Play the teacher through the speaker, not the earpiece.
       callManager.start({ audioRole: "communicator", deviceEndpointType: "speaker" });
       await streamCall.join({ create: true });
 
@@ -337,7 +336,7 @@ function LiveRoleplayScreen() {
       await callRef.current?.leave();
       clientRef.current?.disconnectUser();
     } catch {}
-    callManager.stop();
+    resetPhoneAudioToMedia();
     callRef.current = null;
     clientRef.current = null;
     agentSessionRef.current = null;
