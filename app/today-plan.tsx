@@ -13,7 +13,7 @@ import {
   countCompletedPlanItems,
   TodayPlanItem,
 } from "@/lib/todayPlan";
-import { getNextClassTopic } from "@/lib/topicProgress";
+import { getNextClassTopic, getWorkedOnTopicIds } from "@/lib/topicProgress";
 import { posthog } from "@/lib/posthog";
 import { useLearningStore } from "@/store/learningStore";
 
@@ -23,6 +23,7 @@ export default function TodayPlanScreen() {
   const syncDailyProgress = useLearningStore((s) => s.syncDailyProgress);
   const completedClassTopicIds = useLearningStore((s) => s.completedClassTopicIds);
   const completedClassModes = useLearningStore((s) => s.completedClassModes);
+  const startedClassTopicIds = useLearningStore((s) => s.startedClassTopicIds);
   const markClassTopicStarted = useLearningStore((s) => s.markClassTopicStarted);
   const dailyGoal = useLearningStore((s) => s.dailyGoal);
   const xpToday = useLearningStore((s) => s.xpToday);
@@ -31,7 +32,9 @@ export default function TodayPlanScreen() {
     syncDailyProgress();
   }, [syncDailyProgress]);
 
-  const nextTopic = getNextClassTopic(completedClassTopicIds);
+  const nextTopic = getNextClassTopic(
+    getWorkedOnTopicIds({ completedClassTopicIds, startedClassTopicIds, completedClassModes }),
+  );
 
   // `t` is rebuilt each render; `locale` is what it depends on.
   const planItems = useMemo(

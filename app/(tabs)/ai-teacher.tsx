@@ -8,7 +8,7 @@ import { Href, useRouter } from "expo-router";
 import { ClassTopicCard } from "@/components/ClassTopicCard";
 import { colors } from "@/constants/theme";
 import { BAGIAN_B_TOPICS, BAGIAN_C_TOPICS, CLASS_MANAGEMENT_TOPICS } from "@/data/classManagement";
-import { classTopicRoute, ClassTopicMode } from "@/lib/topicProgress";
+import { classTopicRoute, ClassTopicMode, getWorkedOnTopicIds } from "@/lib/topicProgress";
 import { posthog } from "@/lib/posthog";
 import { useLearningStore } from "@/store/learningStore";
 import { useT } from "@/lib/i18n";
@@ -42,9 +42,14 @@ function AITeacherTopics() {
   const { t } = useT();
   const completedClassTopicIds = useLearningStore((s) => s.completedClassTopicIds);
   const startedClassTopicIds = useLearningStore((s) => s.startedClassTopicIds);
+  const completedClassModes = useLearningStore((s) => s.completedClassModes);
   const markClassTopicStarted = useLearningStore((s) => s.markClassTopicStarted);
-  const isTopicMarked = (topicId: string) =>
-    completedClassTopicIds.includes(topicId) || startedClassTopicIds.includes(topicId);
+  const workedOnTopicIds = getWorkedOnTopicIds({
+    completedClassTopicIds,
+    startedClassTopicIds,
+    completedClassModes,
+  });
+  const isTopicMarked = (topicId: string) => workedOnTopicIds.includes(topicId);
   const startTopic = (topicId: string, mode: ClassTopicMode) => {
     markClassTopicStarted(topicId);
     // Both modes run live on the same screen: Role Play is the Speak-style

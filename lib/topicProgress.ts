@@ -20,7 +20,24 @@ export function classTopicRoute(topicId: string, mode: ClassTopicMode): string {
     : `/roleplay/${topicId}?kind=comic&mode=practice`;
 }
 
-/** First topic (in AI Teacher order) the student hasn't finished yet. */
-export function getNextClassTopic(completedTopicIds: string[]): ClassManagementTopic | undefined {
-  return ALL_CLASS_TOPICS.find((topic) => !completedTopicIds.includes(topic.id));
+/**
+ * Topics the student has worked on: opened, or finished Latihan or Role Play.
+ * These are the ones with a check mark on the AI Teacher tab.
+ */
+export function getWorkedOnTopicIds(progress: {
+  completedClassTopicIds: string[];
+  startedClassTopicIds: string[];
+  completedClassModes: string[];
+}): string[] {
+  return ALL_CLASS_TOPICS.filter(
+    (topic) =>
+      progress.completedClassTopicIds.includes(topic.id) ||
+      progress.startedClassTopicIds.includes(topic.id) ||
+      progress.completedClassModes.some((key) => key.startsWith(`${topic.id}:`)),
+  ).map((topic) => topic.id);
+}
+
+/** First topic (in AI Teacher order) the student hasn't worked on at all. */
+export function getNextClassTopic(workedOnTopicIds: string[]): ClassManagementTopic | undefined {
+  return ALL_CLASS_TOPICS.find((topic) => !workedOnTopicIds.includes(topic.id));
 }

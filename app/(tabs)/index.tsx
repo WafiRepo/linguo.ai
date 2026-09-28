@@ -29,6 +29,7 @@ import {
   classModeKey,
   classTopicRoute,
   getNextClassTopic,
+  getWorkedOnTopicIds,
 } from "@/lib/topicProgress";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
@@ -65,6 +66,7 @@ export default function HomeScreen() {
   const dailyGoal = useLearningStore((s) => s.dailyGoal);
   const completedClassTopicIds = useLearningStore((s) => s.completedClassTopicIds);
   const completedClassModes = useLearningStore((s) => s.completedClassModes);
+  const startedClassTopicIds = useLearningStore((s) => s.startedClassTopicIds);
   const markClassTopicStarted = useLearningStore((s) => s.markClassTopicStarted);
 
   useEffect(() => {
@@ -75,11 +77,15 @@ export default function HomeScreen() {
   const currentLocaleOption =
     APP_LOCALE_OPTIONS.find((option) => option.code === locale) ??
     APP_LOCALE_OPTIONS[0];
-  // Continue learning follows the AI Teacher topics, in the same order.
-  const nextTopic = getNextClassTopic(completedClassTopicIds);
-  const doneTopicCount = ALL_CLASS_TOPICS.filter((topic) =>
-    completedClassTopicIds.includes(topic.id),
-  ).length;
+  // Continue learning follows the AI Teacher topics, in the same order: the
+  // first one without a check mark there.
+  const workedOnTopicIds = getWorkedOnTopicIds({
+    completedClassTopicIds,
+    startedClassTopicIds,
+    completedClassModes,
+  });
+  const nextTopic = getNextClassTopic(workedOnTopicIds);
+  const doneTopicCount = workedOnTopicIds.length;
   const firstName = user?.firstName ?? t("home.studentFallback");
   const greeting = getGreeting(selectedLanguage);
   const xpProgress =
