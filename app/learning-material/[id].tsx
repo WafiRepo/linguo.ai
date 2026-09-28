@@ -8,17 +8,19 @@ import { VocabularyRow } from "@/components/VocabularyRow";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
 import { getLearningMaterial } from "@/data/learningMaterials";
+import { useT } from "@/lib/i18n";
 
 export default function LearningMaterialScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t } = useT();
   const material = getLearningMaterial(id ?? "");
 
   if (!material) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View className="flex-1 items-center justify-center">
-          <Text className="body-md text-text-secondary">Materi tidak ditemukan</Text>
+          <Text className="body-md text-text-secondary">{t("material.notFound")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -53,7 +55,7 @@ export default function LearningMaterialScreen() {
           style={[styles.image, { aspectRatio: material.aspectRatio }]}
         />
 
-        <Text style={styles.sectionTitle}>Dengarkan Kosakata</Text>
+        <Text style={styles.sectionTitle}>{t("material.listenVocab")}</Text>
         <View style={styles.vocabList}>
           {material.vocabulary.map((item) => (
             <VocabularyRow key={item.word} item={item} />

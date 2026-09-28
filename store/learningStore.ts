@@ -2,67 +2,28 @@ import { accountStorage } from "@/lib/accountStorage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import {
-  DEFAULT_DAILY_GOAL,
-  getLocalDateKey,
-  getYesterdayDateKey,
-} from "@/lib/dailyProgress";
-import {
-  createEmptyTodayPlanProgress,
-  TodayPlanItemId,
-  TodayPlanProgress,
-} from "@/lib/todayPlan";
+import { DEFAULT_DAILY_GOAL, getLocalDateKey } from "@/lib/dailyProgress";
+import { classModeKey, ClassTopicMode } from "@/lib/topicProgress";
 import { LanguageCode } from "@/types/learning";
 
 interface LearningState {
   xpToday: number;
   dailyGoal: number;
-  streak: number;
   progressDate: string | null;
-  lastStreakDate: string | null;
   completedLessonIds: string[];
+  /** AI Teacher topics where both Latihan and Role Play are done. */
   completedClassTopicIds: string[];
+  /** Finished AI Teacher sessions, as `${topicId}:${mode}`. */
+  completedClassModes: string[];
   startedClassTopicIds: string[];
-  todayPlanProgress: TodayPlanProgress | null;
   activeLessonIdsByLanguage: Partial<Record<LanguageCode, string>>;
   syncDailyProgress: () => void;
   addXP: (amount: number) => void;
   completeLesson: (lessonId: string, xpReward?: number) => void;
-  completeClassTopic: (topicId: string, xpReward?: number) => void;
+  completeClassTopic: (topicId: string, mode: ClassTopicMode, xpReward?: number) => void;
   markClassTopicStarted: (topicId: string) => void;
-  markTodayPlanItem: (lessonId: string, itemId: TodayPlanItemId) => void;
-  getTodayPlanProgress: (lessonId: string) => TodayPlanProgress;
   setActiveLesson: (languageCode: LanguageCode, lessonId: string) => void;
   getActiveLessonId: (languageCode: LanguageCode) => string | undefined;
-}
-
-function ensureTodayPlanProgress(
-  current: TodayPlanProgress | null,
-  lessonId: string,
-  date: string,
-): TodayPlanProgress {
-  if (current && current.date === date && current.lessonId === lessonId) {
-    return current;
-  }
-
-  return createEmptyTodayPlanProgress(lessonId, date);
-}
-
-function updateStreak(state: LearningState): Partial<LearningState> {
-  const today = getLocalDateKey();
-
-  if (state.lastStreakDate === today) {
-    return {};
-  }
-
-  const yesterday = getYesterdayDateKey();
-  const nextStreak =
-    state.lastStreakDate === yesterday ? state.streak + 1 : 1;
-
-  return {
-    lastStreakDate: today,
-    streak: nextStreak,
-  };
 }
 
 export const useLearningStore = create<LearningState>()(
@@ -70,46 +31,26 @@ export const useLearningStore = create<LearningState>()(
     (set, get) => ({
       xpToday: 0,
       dailyGoal: DEFAULT_DAILY_GOAL,
-      streak: 0,
       progressDate: null,
-      lastStreakDate: null,
       completedLessonIds: [],
       completedClassTopicIds: [],
+      completedClassModes: [],
       startedClassTopicIds: [],
-      todayPlanProgress: null,
       activeLessonIdsByLanguage: {},
 
       syncDailyProgress: () => {
         const today = getLocalDateKey();
-        const state = get();
-
-        if (state.progressDate === today) {
+        if (get().progressDate === today) {
           return;
         }
-
-        const yesterday = getYesterdayDateKey();
-        let nextStreak = state.streak;
-
-        if (state.progressDate && state.lastStreakDate !== yesterday) {
-          nextStreak = 0;
-        }
-
-        set({
-          progressDate: today,
-          xpToday: 0,
-          streak: nextStreak,
-          todayPlanProgress: null,
-        });
+        set({ progressDate: today, xpToday: 0 });
       },
 
       addXP: (amount) => {
         if (amount <= 0) return;
 
         get().syncDailyProgress();
-        set((state) => ({
-          ...updateStreak(state),
-          xpToday: state.xpToday + amount,
-        }));
+        set((state) => ({ xpToday: state.xpToday + amount }));
       },
 
       completeLesson: (lessonId, xpReward = 10) => {
@@ -122,20 +63,26 @@ export const useLearningStore = create<LearningState>()(
           }));
           get().addXP(xpReward);
         }
-
-        get().markTodayPlanItem(lessonId, "lesson");
       },
 
-      completeClassTopic: (topicId, xpReward = 10) => {
+      completeClassTopic: (topicId, mode, xpReward = 10) => {
         get().syncDailyProgress();
-        const alreadyCompleted = get().completedClassTopicIds.includes(topicId);
+        const key = classModeKey(topicId, mode);
+        if (get().completedClassModes.includes(key)) return;
 
-        if (!alreadyCompleted) {
-          set((state) => ({
-            completedClassTopicIds: [...state.completedClassTopicIds, topicId],
-          }));
-          get().addXP(xpReward);
-        }
+        const completedClassModes = [...get().completedClassModes, key];
+        const otherMode: ClassTopicMode = mode === "practice" ? "roleplay" : "practice";
+        const topicDone =
+          completedClassModes.includes(classModeKey(topicId, otherMode)) &&
+          !get().completedClassTopicIds.includes(topicId);
+
+        set((state) => ({
+          completedClassModes,
+          completedClassTopicIds: topicDone
+            ? [...state.completedClassTopicIds, topicId]
+            : state.completedClassTopicIds,
+        }));
+        get().addXP(xpReward);
       },
 
       markClassTopicStarted: (topicId) => {
@@ -145,39 +92,6 @@ export const useLearningStore = create<LearningState>()(
             startedClassTopicIds: [...state.startedClassTopicIds, topicId],
           }));
         }
-      },
-
-      markTodayPlanItem: (lessonId, itemId) => {
-        get().syncDailyProgress();
-
-        const today = getLocalDateKey();
-        const progress = ensureTodayPlanProgress(
-          get().todayPlanProgress,
-          lessonId,
-          today,
-        );
-
-        const nextProgress: TodayPlanProgress = {
-          ...progress,
-          date: today,
-          lessonId,
-          lesson: itemId === "lesson" ? true : progress.lesson,
-          aiConversation:
-            itemId === "ai-conversation" ? true : progress.aiConversation,
-          newWords: itemId === "new-words" ? true : progress.newWords,
-        };
-
-        if (itemId === "ai-conversation") {
-          nextProgress.lesson = true;
-        }
-
-        set({ todayPlanProgress: nextProgress });
-      },
-
-      getTodayPlanProgress: (lessonId) => {
-        get().syncDailyProgress();
-        const today = getLocalDateKey();
-        return ensureTodayPlanProgress(get().todayPlanProgress, lessonId, today);
       },
 
       setActiveLesson: (languageCode, lessonId) =>

@@ -10,6 +10,8 @@ import {
   View,
 } from "react-native";
 
+import { useT } from "@/lib/i18n";
+
 export type AppNotification = {
   id: string;
   title: string;
@@ -32,6 +34,7 @@ export function NotificationsModal({
   onClose,
   onMarkAllRead,
 }: NotificationsModalProps) {
+  const { t } = useT();
   return (
     <Modal
       visible={visible}
@@ -42,14 +45,14 @@ export function NotificationsModal({
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.header}>
-            <Text style={styles.title}>Notifications</Text>
+            <Text style={styles.title}>{t("notifications.title")}</Text>
             <View style={styles.headerActions}>
               {notifications.length > 0 ? (
                 <TouchableOpacity
                   onPress={onMarkAllRead}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text style={styles.markReadText}>Mark all read</Text>
+                  <Text style={styles.markReadText}>{t("notifications.markAllRead")}</Text>
                 </TouchableOpacity>
               ) : null}
               <TouchableOpacity
@@ -80,9 +83,9 @@ export function NotificationsModal({
                     color={colors.neutral.textSecondary}
                   />
                 </View>
-                <Text style={styles.emptyTitle}>All caught up</Text>
+                <Text style={styles.emptyTitle}>{t("notifications.empty.title")}</Text>
                 <Text style={styles.emptyMessage}>
-                  New reminders about your streak and lessons will show up here.
+                  {t("notifications.empty.message")}
                 </Text>
               </View>
             ) : (

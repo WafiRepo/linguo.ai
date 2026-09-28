@@ -4,8 +4,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useT } from "@/lib/i18n";
 
 export default function OnboardingScreen() {
+  const { t } = useT();
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       <View className="flex-1 px-6">
@@ -19,13 +21,13 @@ export default function OnboardingScreen() {
 
         {/* Hero heading */}
         <Text className="h1 mt-8">
-          {"一起開心學\n"}
-          <Text className="text-lingua-purple">印尼語</Text>
+          {t("onboarding.heading")}
+          <Text className="text-lingua-purple">{t("home.indonesian")}</Text>
         </Text>
 
         {/* Subtitle */}
         <Text className="body-md text-text-secondary mt-3">
-          和老師、家長一起，用圖片、聲音和小練習慢慢進步。
+          {t("onboarding.subtitle")}
         </Text>
 
         {/* Mascot illustration with speech bubbles */}
@@ -59,7 +61,7 @@ export default function OnboardingScreen() {
             style={styles.shadow}
           >
             <Text className="font-poppins-medium text-sm text-error">
-              你好!
+              {t("onboarding.hello")}
             </Text>
           </View>
         </View>
@@ -75,7 +77,7 @@ export default function OnboardingScreen() {
           }}
         >
           <Text className="font-poppins-semibold text-base text-white">
-            請家長協助開始
+            {t("onboarding.start")}
           </Text>
           <Ionicons
             name="chevron-forward"

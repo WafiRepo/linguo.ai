@@ -6,7 +6,7 @@ const AGENT_URL =
   process.env.VISION_AGENT_URL?.replace(/\/$/, "") ?? PRODUCTION_AGENT_URL;
 
 // Every callId is minted client-side as `<kind>-<lessonOrTopicId>-<clerkUserId>`
-// (see app/lesson/[id].tsx and app/class-management/[id].tsx). With no
+// (see app/lesson/[id].tsx). With no
 // database to look up call membership, that suffix is the only ownership
 // signal available: reject any call id that doesn't belong to the caller
 // whose Clerk token was just verified.

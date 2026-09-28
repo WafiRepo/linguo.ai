@@ -20,6 +20,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useT } from "@/lib/i18n";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -27,6 +28,7 @@ type SSOStrategy = "oauth_google" | "oauth_facebook" | "oauth_apple";
 
 export default function SignInScreen() {
   const { signIn, errors, fetchStatus } = useSignIn();
+  const { t } = useT();
   const { startSSOFlow } = useSSO();
 
   const [email, setEmail] = useState("");
@@ -49,7 +51,7 @@ export default function SignInScreen() {
         ],
         $exception_source: "sign-in-create",
       });
-      setAuthError("We couldn't start sign in. Please try again.");
+      setAuthError(t("signIn.errorStart"));
       return;
     }
 
@@ -64,7 +66,7 @@ export default function SignInScreen() {
         ],
         $exception_source: "sign-in",
       });
-      setAuthError("We couldn't send your code. Please try again.");
+      setAuthError(t("signIn.errorCode"));
       return;
     }
     setShowVerification(true);
@@ -119,7 +121,7 @@ export default function SignInScreen() {
         strategy,
         error: message,
       });
-      setAuthError("Couldn't continue with social sign in. Please try again.");
+      setAuthError(t("signIn.errorSocial"));
     }
   };
 
@@ -144,9 +146,9 @@ export default function SignInScreen() {
             </TouchableOpacity>
 
             {/* Header */}
-            <Text className="h1 mt-4">Welcome back!</Text>
+            <Text className="h1 mt-4">{t("signIn.title")}</Text>
             <Text className="body-md text-text-secondary mt-2">
-              Continue your language journey ✨
+              {t("signIn.subtitle")}
             </Text>
 
             {/* Mascot */}
@@ -160,7 +162,7 @@ export default function SignInScreen() {
 
             {/* Email */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Email</Text>
+              <Text style={styles.inputLabel}>{t("auth.email")}</Text>
               <TextInput
                 value={email}
                 onChangeText={setEmail}
@@ -195,7 +197,7 @@ export default function SignInScreen() {
               testID="sign-in-button"
             >
               <Text className="font-poppins-semibold text-base text-white">
-                {isLoading ? "Sending code..." : "Sign In"}
+                {isLoading ? t("signIn.sending") : t("signIn.button")}
               </Text>
             </TouchableOpacity>
 
@@ -203,7 +205,7 @@ export default function SignInScreen() {
             <View className="flex-row items-center my-6 gap-3">
               <View className="flex-1 h-px bg-border" />
               <Text className="body-sm text-text-secondary">
-                or continue with
+                {t("auth.orContinueWith")}
               </Text>
               <View className="flex-1 h-px bg-border" />
             </View>
@@ -211,30 +213,30 @@ export default function SignInScreen() {
             {/* Social */}
             <SocialButton
               icon={<AntDesign name="google" size={20} color="#DB4437" />}
-              label="Continue with Google"
+              label={t("auth.google")}
               onPress={() => handleSSO("oauth_google")}
             />
             <SocialButton
               icon={<FontAwesome name="facebook" size={20} color="#1877F2" />}
-              label="Continue with Facebook"
+              label={t("auth.facebook")}
               onPress={() => handleSSO("oauth_facebook")}
             />
             <SocialButton
               icon={<AntDesign name="apple" size={20} color="#000" />}
-              label="Continue with Apple"
+              label={t("auth.apple")}
               onPress={() => handleSSO("oauth_apple")}
             />
 
             {/* Sign Up link */}
             <View className="flex-row justify-center mt-4 mb-8">
               <Text className="body-md text-text-secondary">
-                {"Don't have an account? "}
+                {t("signIn.noAccount")}
               </Text>
               <TouchableOpacity
                 onPress={() => router.replace("/(auth)/sign-up")}
               >
                 <Text className="body-md text-lingua-purple font-poppins-semibold">
-                  Sign Up
+                  {t("signUp.button")}
                 </Text>
               </TouchableOpacity>
             </View>

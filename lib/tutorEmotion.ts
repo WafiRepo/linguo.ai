@@ -7,46 +7,20 @@ export type TutorEmotionCode =
   | "encouraging"
   | "strict";
 
+// Names and descriptions are UI text and live in the i18n dictionaries.
 export interface TutorEmotionOption {
   code: TutorEmotionCode;
-  name: string;
-  description: string;
   emoji: string;
 }
 
 export const DEFAULT_TUTOR_EMOTION: TutorEmotionCode = "warm";
 
 export const TUTOR_EMOTION_OPTIONS: TutorEmotionOption[] = [
-  {
-    code: "warm",
-    name: "Ramah",
-    description: "Hangat dan sabar, seperti guru privat",
-    emoji: "😊",
-  },
-  {
-    code: "calm",
-    name: "Tenang",
-    description: "Suara lembut, tempo pelan",
-    emoji: "🧘",
-  },
-  {
-    code: "energetic",
-    name: "Antusias",
-    description: "Energik dan ceria, suka merayakan progress",
-    emoji: "⚡",
-  },
-  {
-    code: "encouraging",
-    name: "Motivator",
-    description: "Banyak pujian, koreksi lembut",
-    emoji: "💪",
-  },
-  {
-    code: "strict",
-    name: "Tegas",
-    description: "Langsung dan jelas, fokus akurasi",
-    emoji: "📚",
-  },
+  { code: "warm", emoji: "😊" },
+  { code: "calm", emoji: "🧘" },
+  { code: "energetic", emoji: "⚡" },
+  { code: "encouraging", emoji: "💪" },
+  { code: "strict", emoji: "📚" },
 ];
 
 const EMOTION_PROMPT_RULES_EN: Record<TutorEmotionCode, string> = {
@@ -60,19 +34,6 @@ const EMOTION_PROMPT_RULES_EN: Record<TutorEmotionCode, string> = {
     "Focus on praise and motivation in English only. Lead with what went well before any correction. Keep corrections brief and kind.",
   strict:
     "Be clear, direct, and structured in English only. Correct mistakes promptly but respectfully. Stay professional and concise.",
-};
-
-const EMOTION_PROMPT_RULES_ID: Record<TutorEmotionCode, string> = {
-  warm:
-    "Bicara dengan hangat dan sabar dalam Bahasa Indonesia saja. Beri dorongan lembut. Tetap ramah.",
-  calm:
-    "Bicara dengan lembut dan tempo santai dalam Bahasa Indonesia saja. Tetap tenang meski siswa kesulitan.",
-  energetic:
-    "Bicara dengan semangat dan ceria dalam Bahasa Indonesia saja. Beri apresiasi saat siswa mencoba.",
-  encouraging:
-    "Fokus pada pujian dan motivasi dalam Bahasa Indonesia saja. Puji dulu, baru koreksi singkat.",
-  strict:
-    "Bicara dengan jelas, langsung, dan terstruktur dalam Bahasa Indonesia saja. Koreksi dengan sopan.",
 };
 
 const EMOTION_PROMPT_RULES_ZH: Record<TutorEmotionCode, string> = {
@@ -105,9 +66,6 @@ function emotionRuleForLanguage(
   if (tutorVoice === "zh-TW") {
     return EMOTION_PROMPT_RULES_ZH[emotion];
   }
-  if (tutorVoice === "id") {
-    return EMOTION_PROMPT_RULES_ID[emotion];
-  }
   return EMOTION_PROMPT_RULES_EN[emotion];
 }
 
@@ -116,7 +74,7 @@ function emotionRuleForLanguage(
  * Deliberately language-neutral (no English sentence) — this text sits at
  * the very end of the prompt, right before the model starts generating, so
  * an English wrapper sentence here measurably biases non-English sessions
- * (zh-TW/id) toward slipping into English.
+ * (zh-TW) toward slipping into English.
  */
 export const EMOTION_MARKER = "===EMOTION===";
 

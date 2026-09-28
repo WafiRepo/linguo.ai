@@ -20,18 +20,20 @@ import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { LANGUAGES } from "@/data/languages";
-import { getActiveUnit, getCefrLevelForUnit, getLessonNumber, getLessonsForLanguage, getNextLesson, getUnitForLesson } from "@/lib/curriculum";
-import { getLocalDateKey } from "@/lib/dailyProgress";
-import { TUTOR_VOICE_OPTIONS, TutorVoiceCode } from "@/lib/instructionLanguage";
+import { comicTeacherName } from "@/lib/comicRoleplay";
+import { APP_LOCALE_OPTIONS, useT } from "@/lib/i18n";
 import { buildHomeNotifications } from "@/lib/notifications";
+import { buildTodayPlanItems, TodayPlanItem } from "@/lib/todayPlan";
 import {
-  buildTodayPlanItems,
-  createEmptyTodayPlanProgress,
-  TodayPlanItem,
-} from "@/lib/todayPlan";
+  ALL_CLASS_TOPICS,
+  classModeKey,
+  classTopicRoute,
+  getNextClassTopic,
+} from "@/lib/topicProgress";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
+import { useSettingsStore } from "@/store/settingsStore";
 import { LanguageCode } from "@/types/learning";
 
 function getGreeting(langCode: LanguageCode | null): string {
@@ -55,88 +57,42 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { signOut } = useAuth();
-  const { selectedLanguage, tutorVoice, setTutorVoice } = useLanguageStore();
+  const { t, locale } = useT();
+  const setAppLocale = useSettingsStore((s) => s.setAppLocale);
+  const selectedLanguage = useLanguageStore((s) => s.selectedLanguage);
   const syncDailyProgress = useLearningStore((s) => s.syncDailyProgress);
-  const todayPlanProgress = useLearningStore((s) => s.todayPlanProgress);
-  const { xpToday, dailyGoal, streak, completedLessonIds, getActiveLessonId } =
-    useLearningStore();
+  const xpToday = useLearningStore((s) => s.xpToday);
+  const dailyGoal = useLearningStore((s) => s.dailyGoal);
+  const completedClassTopicIds = useLearningStore((s) => s.completedClassTopicIds);
+  const completedClassModes = useLearningStore((s) => s.completedClassModes);
+  const markClassTopicStarted = useLearningStore((s) => s.markClassTopicStarted);
 
   useEffect(() => {
     syncDailyProgress();
   }, [syncDailyProgress]);
 
   const language = LANGUAGES.find((l) => l.code === selectedLanguage);
-  const currentTutorVoiceOption =
-    TUTOR_VOICE_OPTIONS.find((option) => option.code === tutorVoice) ??
-    TUTOR_VOICE_OPTIONS[0];
-  const activeUnit = selectedLanguage
-    ? getActiveUnit(selectedLanguage, completedLessonIds)
-    : undefined;
-  const nextLesson = selectedLanguage
-    ? getNextLesson(selectedLanguage, completedLessonIds)
-    : undefined;
-  const activeLessonId = selectedLanguage
-    ? getActiveLessonId(selectedLanguage)
-    : undefined;
-  const continueLesson =
-    (activeLessonId
-      ? getLessonsForLanguage(selectedLanguage!).find(
-          (l) => l.id === activeLessonId,
-        )
-      : undefined) ?? nextLesson;
-  const progressUnit =
-    continueLesson && selectedLanguage
-      ? getUnitForLesson(selectedLanguage, continueLesson.id)
-      : activeUnit;
-  const lessonNumber =
-    continueLesson && selectedLanguage
-      ? getLessonNumber(selectedLanguage, continueLesson.id)
-      : 1;
-  const progressLabel =
-    progressUnit && selectedLanguage
-      ? `${getCefrLevelForUnit(progressUnit.order)} · Unit ${progressUnit.order}`
-      : "A1 · Unit 1";
-  const continueLessonTitle =
-    continueLesson?.title ?? "開始第一課";
-  const continueLessonTopic =
-    continueLesson?.description ?? progressUnit?.description ?? "";
-  const firstName = user?.firstName ?? "同學";
+  const currentLocaleOption =
+    APP_LOCALE_OPTIONS.find((option) => option.code === locale) ??
+    APP_LOCALE_OPTIONS[0];
+  // Continue learning follows the AI Teacher topics, in the same order.
+  const nextTopic = getNextClassTopic(completedClassTopicIds);
+  const doneTopicCount = ALL_CLASS_TOPICS.filter((topic) =>
+    completedClassTopicIds.includes(topic.id),
+  ).length;
+  const firstName = user?.firstName ?? t("home.studentFallback");
   const greeting = getGreeting(selectedLanguage);
   const xpProgress =
     dailyGoal > 0 ? Math.min((xpToday / dailyGoal) * 100, 100) : 0;
   const canSwitchLanguage = LANGUAGES.length > 1;
   const [notificationsVisible, setNotificationsVisible] = useState(false);
   const [notificationsRead, setNotificationsRead] = useState(false);
-  const today = getLocalDateKey();
-  const resolvedPlanProgress = useMemo(() => {
-    if (!continueLesson) return undefined;
 
-    if (
-      todayPlanProgress?.date === today &&
-      todayPlanProgress.lessonId === continueLesson.id
-    ) {
-      return todayPlanProgress;
-    }
-
-    return createEmptyTodayPlanProgress(continueLesson.id, today);
-  }, [continueLesson, today, todayPlanProgress]);
-
+  // `t` is rebuilt each render; `locale` is what it depends on.
   const planItems = useMemo(
-    () =>
-      buildTodayPlanItems({
-        lesson: continueLesson,
-        lessonNumber,
-        progress: resolvedPlanProgress,
-        date: today,
-        completedLessonIds,
-      }),
-    [
-      completedLessonIds,
-      continueLesson,
-      lessonNumber,
-      resolvedPlanProgress,
-      today,
-    ],
+    () => buildTodayPlanItems({ topic: nextTopic, completedClassModes, t }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nextTopic, completedClassModes, locale],
   );
 
   const notifications = useMemo(
@@ -144,30 +100,37 @@ export default function HomeScreen() {
       buildHomeNotifications({
         xpToday,
         dailyGoal,
-        streak,
-        nextLessonTitle: continueLesson?.title,
-        languageName: language?.name,
+        nextTopicTitle: nextTopic ? `${nextTopic.title} · ${nextTopic.subtitle}` : undefined,
+        t,
       }),
-    [xpToday, dailyGoal, streak, continueLesson?.title, language?.name],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [xpToday, dailyGoal, nextTopic, locale],
   );
   const showNotificationBadge =
     notifications.length > 0 && !notificationsRead;
 
+  function openRoute(route: string) {
+    router.push((CHILD_AI_RELEASE_READY ? route : "/ai-teacher") as Href);
+  }
+
   function handleContinueLearning() {
     posthog.capture("continue_learning_tapped", {
       language_code: selectedLanguage,
-      unit_order: activeUnit?.order ?? 1,
       xp_today: xpToday,
-      streak,
-      lesson_id: continueLesson?.id ?? null,
+      topic_id: nextTopic?.id ?? null,
     });
 
-    if (continueLesson) {
-      router.push(CHILD_AI_RELEASE_READY ? `/lesson/${continueLesson.id}` : `/practice/${continueLesson.id}`);
+    if (!nextTopic) {
+      router.push("/ai-teacher");
       return;
     }
 
-    router.push("/learn");
+    // Latihan first, then Role Play.
+    const mode = completedClassModes.includes(classModeKey(nextTopic.id, "practice"))
+      ? "roleplay"
+      : "practice";
+    markClassTopicStarted(nextTopic.id);
+    openRoute(classTopicRoute(nextTopic.id, mode));
   }
 
   function handlePlanItemPress(item: TodayPlanItem) {
@@ -177,7 +140,8 @@ export default function HomeScreen() {
       completed: item.completed,
       source: "home",
     });
-    router.push(item.route as Href);
+    if (nextTopic) markClassTopicStarted(nextTopic.id);
+    openRoute(item.route);
   }
 
   function handleViewAllPlan() {
@@ -201,24 +165,22 @@ export default function HomeScreen() {
     setNotificationsRead(true);
   }
 
-  function handleCycleTutorVoice() {
-    const currentIndex = TUTOR_VOICE_OPTIONS.findIndex(
-      (option) => option.code === tutorVoice,
-    );
-    const next =
-      TUTOR_VOICE_OPTIONS[(currentIndex + 1) % TUTOR_VOICE_OPTIONS.length];
-    setTutorVoice(next.code as TutorVoiceCode);
-    posthog.capture("tutor_voice_changed", {
-      tutor_voice: next.code,
+  // The flag switches only the app's UI language; the AI teacher's
+  // explanation language stays a separate setting in Profile.
+  function handleToggleLocale() {
+    const next = locale === "zh-TW" ? "en" : "zh-TW";
+    setAppLocale(next);
+    posthog.capture("app_locale_changed", {
+      app_locale: next,
       source: "home_quick_switch",
     });
   }
 
   function handleSignOut() {
-    Alert.alert("登出", "確定要登出嗎？", [
-      { text: "取消", style: "cancel" },
+    Alert.alert(t("auth.signOut"), t("auth.signOutConfirm"), [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "登出",
+        text: t("auth.signOut"),
         style: "destructive",
         onPress: async () => {
           try {
@@ -228,10 +190,7 @@ export default function HomeScreen() {
             router.replace("/onboarding");
           } catch (error) {
             console.error("Sign out failed:", error);
-            Alert.alert(
-              "Sign out failed",
-              "Something went wrong. Please try again.",
-            );
+            Alert.alert(t("auth.signOutFailed"), t("common.tryAgain"));
           }
         },
       },
@@ -282,25 +241,17 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.headerActions}>
-          <View style={styles.streakWrap}>
-            <Image source={images.streakFire} style={styles.streakIcon} />
-            <Text style={styles.streakText}>{streak}</Text>
-          </View>
-          {selectedLanguage === "id" ? (
-            <Pressable
-              testID="tutor-voice-quick-switch"
-              onPress={handleCycleTutorVoice}
-              style={({ pressed }) => [
-                styles.headerIconButton,
-                pressed && styles.headerIconButtonPressed,
-              ]}
-              hitSlop={8}
-            >
-              <Text style={styles.tutorVoiceEmoji}>
-                {currentTutorVoiceOption.emoji}
-              </Text>
-            </Pressable>
-          ) : null}
+          <Pressable
+            testID="app-locale-quick-switch"
+            onPress={handleToggleLocale}
+            style={({ pressed }) => [
+              styles.headerIconButton,
+              pressed && styles.headerIconButtonPressed,
+            ]}
+            hitSlop={8}
+          >
+            <Text style={styles.localeEmoji}>{currentLocaleOption.emoji}</Text>
+          </Pressable>
           <Pressable
             testID="notifications-button"
             onPress={handleOpenNotifications}
@@ -345,7 +296,7 @@ export default function HomeScreen() {
         <View className="flex-row items-center bg-[#FFF5E8] rounded-[20px] py-4 pl-5 pr-3 mb-4">
           <View className="flex-1 pr-2">
             <Text className="font-poppins text-xs text-text-secondary mb-1">
-              今日目標
+              {t("home.dailyGoal")}
             </Text>
             <Text>
               <Text className="font-poppins-bold text-[28px] text-text-primary leading-[34px]">
@@ -357,7 +308,7 @@ export default function HomeScreen() {
             </Text>
             {xpToday >= dailyGoal ? (
               <Text className="font-poppins-medium text-xs text-lingua-blue mt-1">
-                Goal reached today!
+                {t("home.goalReached")}
               </Text>
             ) : null}
             <View className="h-2 bg-border rounded mt-[10px] overflow-hidden">
@@ -379,23 +330,25 @@ export default function HomeScreen() {
           <View className="flex-1 py-5 pl-5 pr-2 justify-between">
             <View>
               <Text className="font-poppins text-[11px] text-white/75 mb-0.5">
-                繼續學習
+                {t("home.continueLearning")}
               </Text>
               <Text className="font-poppins-bold text-[22px] text-white leading-7">
-                {language?.code === "id" ? "印尼語" : language?.name ?? "選擇語言"}
+                {t("home.indonesian")}
               </Text>
               <Text
                 className="font-poppins-semibold text-[13px] text-white mt-1"
                 numberOfLines={1}
               >
-                Lesson {lessonNumber} · {continueLessonTitle}
+                {nextTopic
+                  ? `${nextTopic.title} · ${nextTopic.subtitle}`
+                  : t("home.allTopicsDone")}
               </Text>
               <Text
                 className="font-poppins text-[11px] text-white/65 mt-0.5"
                 numberOfLines={2}
               >
-                {progressLabel}
-                {continueLessonTopic ? ` · ${continueLessonTopic}` : ""}
+                {t("home.topicProgress", { done: doneTopicCount, total: ALL_CLASS_TOPICS.length })}
+                {nextTopic ? ` · ${comicTeacherName(nextTopic)}` : ""}
               </Text>
             </View>
             <TouchableOpacity
@@ -405,7 +358,7 @@ export default function HomeScreen() {
               onPress={handleContinueLearning}
             >
               <Text className="font-poppins-semibold text-[13px] text-lingua-purple">
-                繼續
+                {nextTopic ? t("home.continue") : t("home.review")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -419,7 +372,7 @@ export default function HomeScreen() {
         {/* ── Today's Plan Header ── */}
         <View className="flex-row items-center justify-between mb-3">
           <Text className="font-poppins-semibold text-[17px] text-text-primary">
-            今日學習計畫
+            {t("home.todayPlan")}
           </Text>
           <TouchableOpacity
             activeOpacity={0.7}
@@ -427,7 +380,7 @@ export default function HomeScreen() {
             onPress={handleViewAllPlan}
           >
             <Text className="font-poppins-medium text-[13px] text-lingua-blue">
-              View all
+              {t("common.viewAll")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -476,21 +429,6 @@ const styles = StyleSheet.create({
     gap: 6,
     flexShrink: 0,
   },
-  streakWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginRight: 4,
-  },
-  streakIcon: {
-    width: 22,
-    height: 22,
-  },
-  streakText: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: 15,
-    color: colors.semantic.streak,
-  },
   headerIconButton: {
     width: 44,
     height: 44,
@@ -501,7 +439,7 @@ const styles = StyleSheet.create({
   headerIconButtonPressed: {
     backgroundColor: colors.neutral.surface,
   },
-  tutorVoiceEmoji: {
+  localeEmoji: {
     fontSize: 20,
   },
   scrollContent: {

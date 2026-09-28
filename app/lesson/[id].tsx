@@ -55,7 +55,6 @@ function LiveLessonScreen() {
   const { getToken } = useAuth();
   const { selectedLanguage, tutorVoice, tutorEmotion } = useLanguageStore();
   const completeLesson = useLearningStore((state) => state.completeLesson);
-  const markTodayPlanItem = useLearningStore((state) => state.markTodayPlanItem);
   const setActiveLesson = useLearningStore((state) => state.setActiveLesson);
 
   const lesson = LESSONS.find((l) => l.id === id);
@@ -256,7 +255,6 @@ function LiveLessonScreen() {
 
       if (secondsInLesson >= 45) {
         completeLesson(lesson.id, lesson.xpReward);
-        markTodayPlanItem(lesson.id, "ai-conversation");
         posthog.capture("lesson_completed", {
           lesson_id: lesson.id,
           language: selectedLanguage ?? lesson.id.split("-")[0],

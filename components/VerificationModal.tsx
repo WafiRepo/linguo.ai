@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   visible: boolean;
@@ -30,6 +31,7 @@ export default function VerificationModal({
   error,
 }: Props) {
   const [code, setCode] = useState("");
+  const { t } = useT();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
@@ -86,10 +88,10 @@ export default function VerificationModal({
             <Ionicons name="close" size={22} color="#6b7280" />
           </TouchableOpacity>
 
-          <Text style={styles.title}>請查看電子郵件</Text>
+          <Text style={styles.title}>{t("verify.title")}</Text>
           <Text style={styles.subtitle}>
-            我們已將 6 位數驗證碼寄至{"\n"}
-            <Text style={styles.emailText}>{email || "你的電子郵件"}</Text>
+            {t("verify.sent")}{"\n"}
+            <Text style={styles.emailText}>{email || t("verify.yourEmail")}</Text>
           </Text>
 
           {/* Code boxes — tap to focus hidden input */}
@@ -131,8 +133,8 @@ export default function VerificationModal({
 
           <TouchableOpacity style={styles.resendBtn} onPress={handleResend}>
             <Text style={styles.resendText}>
-              沒收到驗證碼？{" "}
-              <Text style={styles.resendLink}>重新寄送</Text>
+              {t("verify.noCode")}{" "}
+              <Text style={styles.resendLink}>{t("verify.resend")}</Text>
             </Text>
           </TouchableOpacity>
         </View>

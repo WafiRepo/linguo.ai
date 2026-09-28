@@ -7,14 +7,8 @@ import { createJSONStorage, persist } from "zustand/middleware";
 // learning, and collecting it would be out of scope for this pilot.
 export type ChildClassGroup = "1" | "2" | "3" | "4" | "5" | "6";
 
-export const CHILD_CLASS_GROUP_LABELS: Record<ChildClassGroup, string> = {
-  "1": "一年級",
-  "2": "二年級",
-  "3": "三年級",
-  "4": "四年級",
-  "5": "五年級",
-  "6": "六年級",
-};
+// Labels are UI text: t(`grade.${group}`).
+export const CHILD_CLASS_GROUPS: ChildClassGroup[] = ["1", "2", "3", "4", "5", "6"];
 
 interface ChildProfileState {
   nickname: string | null;

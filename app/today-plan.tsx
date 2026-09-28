@@ -6,25 +6,24 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { TodayPlanList } from "@/components/TodayPlanList";
 import { colors } from "@/constants/theme";
-import { getLessonNumber, getLessonsForLanguage, getNextLesson } from "@/lib/curriculum";
-import { getLocalDateKey } from "@/lib/dailyProgress";
+import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
+import { useT } from "@/lib/i18n";
 import {
   buildTodayPlanItems,
   countCompletedPlanItems,
-  createEmptyTodayPlanProgress,
   TodayPlanItem,
 } from "@/lib/todayPlan";
+import { getNextClassTopic } from "@/lib/topicProgress";
 import { posthog } from "@/lib/posthog";
-import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
 
 export default function TodayPlanScreen() {
   const router = useRouter();
-  const { selectedLanguage } = useLanguageStore();
+  const { t, locale } = useT();
   const syncDailyProgress = useLearningStore((s) => s.syncDailyProgress);
-  const completedLessonIds = useLearningStore((s) => s.completedLessonIds);
-  const getActiveLessonId = useLearningStore((s) => s.getActiveLessonId);
-  const todayPlanProgress = useLearningStore((s) => s.todayPlanProgress);
+  const completedClassTopicIds = useLearningStore((s) => s.completedClassTopicIds);
+  const completedClassModes = useLearningStore((s) => s.completedClassModes);
+  const markClassTopicStarted = useLearningStore((s) => s.markClassTopicStarted);
   const dailyGoal = useLearningStore((s) => s.dailyGoal);
   const xpToday = useLearningStore((s) => s.xpToday);
 
@@ -32,48 +31,13 @@ export default function TodayPlanScreen() {
     syncDailyProgress();
   }, [syncDailyProgress]);
 
-  const continueLesson = useMemo(() => {
-    if (!selectedLanguage) return undefined;
+  const nextTopic = getNextClassTopic(completedClassTopicIds);
 
-    const activeLessonId = getActiveLessonId(selectedLanguage);
-    const lessons = getLessonsForLanguage(selectedLanguage);
-
-    if (activeLessonId) {
-      return lessons.find((lesson) => lesson.id === activeLessonId);
-    }
-
-    return getNextLesson(selectedLanguage, completedLessonIds);
-  }, [completedLessonIds, getActiveLessonId, selectedLanguage]);
-
-  const lessonNumber =
-    continueLesson && selectedLanguage
-      ? getLessonNumber(selectedLanguage, continueLesson.id)
-      : 1;
-
-  const today = getLocalDateKey();
-  const resolvedPlanProgress = useMemo(() => {
-    if (!continueLesson) return undefined;
-
-    if (
-      todayPlanProgress?.date === today &&
-      todayPlanProgress.lessonId === continueLesson.id
-    ) {
-      return todayPlanProgress;
-    }
-
-    return createEmptyTodayPlanProgress(continueLesson.id, today);
-  }, [continueLesson, today, todayPlanProgress]);
-
+  // `t` is rebuilt each render; `locale` is what it depends on.
   const planItems = useMemo(
-    () =>
-      buildTodayPlanItems({
-        lesson: continueLesson,
-        lessonNumber,
-        progress: resolvedPlanProgress,
-        date: today,
-        completedLessonIds,
-      }),
-    [completedLessonIds, continueLesson, lessonNumber, resolvedPlanProgress, today],
+    () => buildTodayPlanItems({ topic: nextTopic, completedClassModes, t }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nextTopic, completedClassModes, locale],
   );
 
   const completedCount = countCompletedPlanItems(planItems);
@@ -86,7 +50,8 @@ export default function TodayPlanScreen() {
       route: item.route,
       completed: item.completed,
     });
-    router.push(item.route as Href);
+    if (nextTopic) markClassTopicStarted(nextTopic.id);
+    router.push((CHILD_AI_RELEASE_READY ? item.route : "/ai-teacher") as Href);
   }
 
   return (
@@ -99,7 +64,7 @@ export default function TodayPlanScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.neutral.textPrimary} />
         </TouchableOpacity>
         <Text className="flex-1 text-center font-poppins-semibold text-[17px] text-text-primary mr-6">
-          {"Today's plan"}
+          {t("todayPlan.title")}
         </Text>
       </View>
 
@@ -109,10 +74,10 @@ export default function TodayPlanScreen() {
       >
         <View className="bg-white rounded-[20px] border border-border px-4 py-4 mb-4" style={styles.cardShadow}>
           <Text className="font-poppins-semibold text-base text-text-primary">
-            {continueLesson?.title ?? "Your learning path"}
+            {nextTopic ? `${nextTopic.title} · ${nextTopic.subtitle}` : t("home.allTopicsDone")}
           </Text>
           <Text className="font-poppins text-sm text-text-secondary mt-1">
-            {completedCount}/{planItems.length} tasks complete today
+            {t("todayPlan.tasksDone", { done: completedCount, total: planItems.length })}
           </Text>
           <View className="h-2 bg-border rounded mt-3 overflow-hidden">
             <View
@@ -121,8 +86,8 @@ export default function TodayPlanScreen() {
             />
           </View>
           <Text className="font-poppins text-xs text-text-secondary mt-2">
-            Daily goal: {xpToday}/{dailyGoal} XP
-            {xpToday >= dailyGoal ? " · Complete!" : ""}
+            {t("todayPlan.dailyGoal", { xp: xpToday, goal: dailyGoal })}
+            {xpToday >= dailyGoal ? ` · ${t("todayPlan.complete")}` : ""}
           </Text>
         </View>
 

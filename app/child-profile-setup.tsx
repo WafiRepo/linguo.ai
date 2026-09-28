@@ -14,20 +14,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/theme";
 import {
-  CHILD_CLASS_GROUP_LABELS,
+  CHILD_CLASS_GROUPS,
   ChildClassGroup,
   useChildProfileStore,
 } from "@/store/childProfileStore";
-
-const CLASS_GROUPS = (
-  Object.keys(CHILD_CLASS_GROUP_LABELS) as ChildClassGroup[]
-).map((value) => ({ value, label: CHILD_CLASS_GROUP_LABELS[value] }));
+import { useT } from "@/lib/i18n";
 
 // F03: minimal profile only — nickname + class group, filled in by a
 // guardian. No email, national ID, birth date, photo, or location.
 export default function ChildProfileSetupScreen() {
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const isEditMode = mode === "edit";
+  const { t } = useT();
   const { nickname, classGroup, setChildProfile } = useChildProfileStore();
   const [nicknameInput, setNicknameInput] = useState(nickname ?? "");
   const [classGroupInput, setClassGroupInput] = useState<ChildClassGroup | null>(
@@ -64,7 +62,7 @@ export default function ChildProfileSetupScreen() {
             <View className="w-8" />
           )}
           <Text className="flex-1 text-center font-poppins-semibold text-lg text-text-primary">
-            孩子的學習檔案
+            {t("childProfile.title")}
           </Text>
           <View className="w-8" />
         </View>
@@ -74,33 +72,33 @@ export default function ChildProfileSetupScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Text className="font-poppins text-sm text-text-secondary leading-6">
-            請家長協助填寫，僅需暱稱與年級，不需要真實姓名、電話、生日或照片。
+            {t("childProfile.intro")}
           </Text>
 
           <Text className="font-poppins-semibold text-base text-text-primary mt-6 mb-2">
-            暱稱
+            {t("childProfile.nickname")}
           </Text>
           <TextInput
             testID="child-profile-nickname"
             value={nicknameInput}
             onChangeText={setNicknameInput}
             maxLength={20}
-            placeholder="例如：小美"
+            placeholder={t("childProfile.nicknamePlaceholder")}
             placeholderTextColor="#9ca3af"
             className="bg-surface rounded-2xl px-4 py-4 font-poppins text-base text-text-primary"
           />
 
           <Text className="font-poppins-semibold text-base text-text-primary mt-6 mb-2">
-            年級
+            {t("childProfile.grade")}
           </Text>
           <View className="flex-row flex-wrap gap-2">
-            {CLASS_GROUPS.map((group) => {
-              const selected = classGroupInput === group.value;
+            {CHILD_CLASS_GROUPS.map((group) => {
+              const selected = classGroupInput === group;
               return (
                 <TouchableOpacity
-                  key={group.value}
-                  testID={`child-profile-class-${group.value}`}
-                  onPress={() => setClassGroupInput(group.value)}
+                  key={group}
+                  testID={`child-profile-class-${group}`}
+                  onPress={() => setClassGroupInput(group)}
                   activeOpacity={0.85}
                   className={`rounded-2xl border px-5 py-3 ${
                     selected
@@ -113,7 +111,7 @@ export default function ChildProfileSetupScreen() {
                       selected ? "text-lingua-purple" : "text-text-primary"
                     }`}
                   >
-                    {group.label}
+                    {t(`grade.${group}`)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -135,7 +133,7 @@ export default function ChildProfileSetupScreen() {
             }}
           >
             <Text className="font-poppins-semibold text-base text-white">
-              {isEditMode ? "儲存" : "開始學習"}
+              {isEditMode ? t("common.save") : t("childProfile.start")}
             </Text>
           </TouchableOpacity>
         </View>

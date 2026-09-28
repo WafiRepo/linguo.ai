@@ -7,20 +7,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/constants/theme";
 import { LANGUAGES } from "@/data/languages";
 import { resetCurrentAccountData } from "@/lib/learningAccount";
-import {
-  TUTOR_EMOTION_OPTIONS,
-  TutorEmotionCode,
-} from "@/lib/tutorEmotion";
-import {
-  TUTOR_VOICE_OPTIONS,
-  TutorVoiceCode,
-} from "@/lib/instructionLanguage";
-import { CHILD_CLASS_GROUP_LABELS, useChildProfileStore } from "@/store/childProfileStore";
+import { TUTOR_EMOTION_OPTIONS } from "@/lib/tutorEmotion";
+import { TUTOR_VOICE_OPTIONS } from "@/lib/instructionLanguage";
+import { useChildProfileStore } from "@/store/childProfileStore";
 import { useLanguageStore } from "@/store/languageStore";
+import { useT } from "@/lib/i18n";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useUser();
+  const { t } = useT();
   const { selectedLanguage, tutorVoice, tutorEmotion, setTutorVoice, setTutorEmotion } =
     useLanguageStore();
   const { nickname, classGroup } = useChildProfileStore();
@@ -29,12 +25,12 @@ export default function ProfileScreen() {
   // dialog below is the remaining guard against an accidental tap.
   function confirmDeleteData() {
     Alert.alert(
-      "刪除本機學習紀錄",
-      "這會刪除這個帳號在這台裝置上的學習進度、暱稱與年級。無法復原。這只會刪除本機資料，不會刪除家長帳號或雲端服務紀錄。",
+      t("profile.deleteData"),
+      t("profile.deleteConfirm"),
       [
-        { text: "取消", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "刪除",
+          text: t("common.delete"),
           style: "destructive",
           onPress: () => {
             // Also resets the language selection, so send the guardian back
@@ -51,7 +47,7 @@ export default function ProfileScreen() {
 
   const language = LANGUAGES.find((l) => l.code === selectedLanguage);
   const displayName =
-    user?.fullName ?? user?.firstName ?? user?.username ?? "Learner";
+    user?.fullName ?? user?.firstName ?? user?.username ?? t("profile.learnerFallback");
   const email =
     user?.primaryEmailAddress?.emailAddress ??
     user?.emailAddresses[0]?.emailAddress;
@@ -63,7 +59,7 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
       <View className="px-5 pt-2 pb-4">
         <Text className="font-poppins-semibold text-[22px] text-text-primary">
-          我的學習
+          {t("profile.title")}
         </Text>
       </View>
 
@@ -97,7 +93,7 @@ export default function ProfileScreen() {
 
       <View className="px-5 mb-6">
         <Text className="font-poppins-semibold text-sm text-text-secondary mb-2 uppercase tracking-wide">
-          孩子的學習檔案
+          {t("profile.childSection")}
         </Text>
         <TouchableOpacity
           activeOpacity={0.8}
@@ -111,10 +107,10 @@ export default function ProfileScreen() {
           </View>
           <View className="flex-1 ml-3">
             <Text className="font-poppins-semibold text-base text-text-primary">
-              {nickname ?? "尚未設定"}
+              {nickname ?? t("profile.notSet")}
             </Text>
             <Text className="font-poppins text-sm text-text-secondary mt-0.5">
-              {classGroup ? CHILD_CLASS_GROUP_LABELS[classGroup] : "尚未選擇年級"}
+              {classGroup ? t(`grade.${classGroup}`) : t("profile.noGrade")}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
@@ -125,7 +121,7 @@ export default function ProfileScreen() {
         {LANGUAGES.length > 1 ? (
           <>
             <Text className="font-poppins-semibold text-sm text-text-secondary mb-2 uppercase tracking-wide">
-              學習設定
+              {t("profile.settings")}
             </Text>
             <TouchableOpacity
               activeOpacity={0.8}
@@ -147,10 +143,10 @@ export default function ProfileScreen() {
               )}
               <View className="flex-1 ml-3">
                 <Text className="font-poppins-semibold text-base text-text-primary">
-                  學習語言
+                  {t("profile.learningLanguage")}
                 </Text>
                 <Text className="font-poppins text-sm text-text-secondary mt-0.5">
-                  {language?.code === "id" ? "印尼語" : language?.name ?? "尚未選擇"}
+                  {language?.code === "id" ? t("home.indonesian") : language?.name ?? t("profile.notChosen")}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
@@ -161,7 +157,7 @@ export default function ProfileScreen() {
         {selectedLanguage === "id" ? (
           <>
             <Text className="font-poppins-semibold text-sm text-text-secondary mb-2 mt-6 uppercase tracking-wide">
-              AI Tutor Voice
+              {t("profile.tutorVoice")}
             </Text>
             <View className="gap-3">
               {TUTOR_VOICE_OPTIONS.map((option) => {
@@ -171,7 +167,7 @@ export default function ProfileScreen() {
                     key={option.code}
                     activeOpacity={0.8}
                     testID={`profile-tutor-voice-${option.code}`}
-                    onPress={() => setTutorVoice(option.code as TutorVoiceCode)}
+                    onPress={() => setTutorVoice(option.code)}
                     className={`flex-row items-center rounded-[20px] border px-4 py-4 ${
                       selected
                         ? "bg-primary-purple/5 border-primary-purple"
@@ -184,10 +180,10 @@ export default function ProfileScreen() {
                     </View>
                     <View className="flex-1 ml-3">
                       <Text className="font-poppins-semibold text-base text-text-primary">
-                        {option.name}
+                        {t(`tutorVoice.${option.code}.name`)}
                       </Text>
                       <Text className="font-poppins text-sm text-text-secondary mt-0.5">
-                        {option.description}
+                        {t(`tutorVoice.${option.code}.description`)}
                       </Text>
                     </View>
                     {selected ? (
@@ -209,7 +205,7 @@ export default function ProfileScreen() {
         {selectedLanguage === "id" ? (
           <>
             <Text className="font-poppins-semibold text-sm text-text-secondary mb-2 mt-6 uppercase tracking-wide">
-              Gaya Guru AI
+              {t("profile.tutorStyle")}
             </Text>
             <View className="gap-3">
               {TUTOR_EMOTION_OPTIONS.map((option) => {
@@ -220,7 +216,7 @@ export default function ProfileScreen() {
                     activeOpacity={0.8}
                     testID={`profile-tutor-emotion-${option.code}`}
                     onPress={() =>
-                      setTutorEmotion(option.code as TutorEmotionCode)
+                      setTutorEmotion(option.code)
                     }
                     className={`flex-row items-center rounded-[20px] border px-4 py-4 ${
                       selected
@@ -234,10 +230,10 @@ export default function ProfileScreen() {
                     </View>
                     <View className="flex-1 ml-3">
                       <Text className="font-poppins-semibold text-base text-text-primary">
-                        {option.name}
+                        {t(`tutorEmotion.${option.code}.name`)}
                       </Text>
                       <Text className="font-poppins text-sm text-text-secondary mt-0.5">
-                        {option.description}
+                        {t(`tutorEmotion.${option.code}.description`)}
                       </Text>
                     </View>
                     {selected ? (
@@ -259,7 +255,7 @@ export default function ProfileScreen() {
 
       <View className="px-5 mt-6">
         <Text className="font-poppins-semibold text-sm text-text-secondary mb-2 uppercase tracking-wide">
-          說明與隱私
+          {t("profile.helpSection")}
         </Text>
         <TouchableOpacity
           activeOpacity={0.8}
@@ -273,7 +269,7 @@ export default function ProfileScreen() {
           </View>
           <View className="flex-1 ml-3">
             <Text className="font-poppins-semibold text-base text-text-primary">
-              說明與求助
+              {t("profile.help")}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
@@ -291,10 +287,10 @@ export default function ProfileScreen() {
           </View>
           <View className="flex-1 ml-3">
             <Text className="font-poppins-semibold text-base text-text-primary">
-              刪除本機學習紀錄
+              {t("profile.deleteData")}
             </Text>
             <Text className="font-poppins text-sm text-text-secondary mt-0.5">
-              只刪除這台裝置上的資料。
+              {t("profile.deleteDataHint")}
             </Text>
           </View>
         </TouchableOpacity>

@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { colors } from "@/constants/theme";
 import { Lesson } from "@/types/learning";
+import { useT } from "@/lib/i18n";
 
 interface PracticeCardProps {
   lesson: Lesson;
@@ -19,6 +20,7 @@ export function PracticeCard({
   locked = false,
   onPress,
 }: PracticeCardProps) {
+  const { t } = useT();
   return (
     <TouchableOpacity
       activeOpacity={locked ? 1 : 0.8}
@@ -38,7 +40,7 @@ export function PracticeCard({
           {lesson.title}
         </Text>
         <Text className="caption mt-0.5">
-          {activityCount} questions · +{activityCount * 2} XP
+          {t("practiceCard.meta", { count: activityCount, xp: activityCount * 2 })}
         </Text>
       </View>
 

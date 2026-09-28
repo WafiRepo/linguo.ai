@@ -1,19 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 
-import { Lesson } from "@/types/learning";
+import { comicTeacherName } from "@/lib/comicRoleplay";
+import { Translate } from "@/lib/i18n";
+import { classModeKey, classTopicRoute, ClassTopicMode } from "@/lib/topicProgress";
+import { ClassManagementTopic } from "@/types/classManagement";
 
-export type TodayPlanItemId = "lesson" | "ai-conversation" | "new-words";
-
-export interface TodayPlanProgress {
-  date: string;
-  lessonId: string;
-  lesson: boolean;
-  aiConversation: boolean;
-  newWords: boolean;
-}
-
+// Today's plan follows the next unfinished AI Teacher topic: its Latihan,
+// then its Role Play.
 export interface TodayPlanItem {
-  id: TodayPlanItemId;
+  id: ClassTopicMode;
   icon: keyof typeof Ionicons.glyphMap;
   iconBg: string;
   iconColor: string;
@@ -24,127 +19,44 @@ export interface TodayPlanItem {
   xpHint: string;
 }
 
-const PLAN_META: Omit<
-  TodayPlanItem,
-  "subtitle" | "completed" | "route" | "xpHint"
->[] = [
-  {
-    id: "lesson",
-    icon: "book",
-    iconBg: "#EDE9FE",
-    iconColor: "#7C3AED",
-    title: "Lesson",
-  },
-  {
-    id: "ai-conversation",
-    icon: "headset",
-    iconBg: "#EDE9FE",
-    iconColor: "#7C3AED",
-    title: "AI Conversation",
-  },
-  {
-    id: "new-words",
-    icon: "chatbubble-ellipses",
-    iconBg: "#FEE2E2",
-    iconColor: "#EF4444",
-    title: "New words",
-  },
-];
-
-export function createEmptyTodayPlanProgress(
-  lessonId: string,
-  date: string,
-): TodayPlanProgress {
-  return {
-    date,
-    lessonId,
-    lesson: false,
-    aiConversation: false,
-    newWords: false,
-  };
-}
-
-export function isTodayPlanItemComplete(
-  progress: TodayPlanProgress | undefined,
-  itemId: TodayPlanItemId,
-  lessonId: string,
-  date: string,
-): boolean {
-  if (!progress || progress.date !== date || progress.lessonId !== lessonId) {
-    return false;
-  }
-
-  switch (itemId) {
-    case "lesson":
-      return progress.lesson;
-    case "ai-conversation":
-      return progress.aiConversation;
-    case "new-words":
-      return progress.newWords;
-    default:
-      return false;
-  }
-}
-
 export function buildTodayPlanItems({
-  lesson,
-  lessonNumber,
-  progress,
-  date,
-  completedLessonIds,
+  topic,
+  completedClassModes,
+  t,
 }: {
-  lesson: Lesson | undefined;
-  lessonNumber: number;
-  progress: TodayPlanProgress | undefined;
-  date: string;
-  completedLessonIds: string[];
+  topic: ClassManagementTopic | undefined;
+  completedClassModes: string[];
+  t: Translate;
 }): TodayPlanItem[] {
-  const lessonId = lesson?.id ?? "";
-  const vocabularyCount = lesson?.vocabulary.length ?? 0;
-  const lessonCompletedEver = lesson
-    ? completedLessonIds.includes(lesson.id)
-    : false;
+  if (!topic) return [];
 
-  return PLAN_META.map((item) => {
-    const planComplete = isTodayPlanItemComplete(
-      progress,
-      item.id,
-      lessonId,
-      date,
-    );
+  const teacher = comicTeacherName(topic);
+  const isDone = (mode: ClassTopicMode) => completedClassModes.includes(classModeKey(topic.id, mode));
 
-    if (item.id === "lesson") {
-      return {
-        ...item,
-        subtitle: lesson?.title ?? "Start your first lesson",
-        completed: planComplete || lessonCompletedEver,
-        route: lesson ? `/lesson/${lesson.id}` : "/learn",
-        xpHint: lesson ? `+${lesson.xpReward} XP` : "Start learning",
-      };
-    }
-
-    if (item.id === "ai-conversation") {
-      return {
-        ...item,
-        subtitle: lesson
-          ? `Practice lesson ${lessonNumber} with Sari`
-          : "Talk with your AI teacher",
-        completed: planComplete,
-        route: lesson ? `/lesson/${lesson.id}` : "/learn",
-        xpHint: lesson ? `+${lesson.xpReward} XP` : "Voice lesson",
-      };
-    }
-
-    return {
-      ...item,
-      subtitle: lesson
-        ? `${vocabularyCount} words from ${lesson.title}`
-        : "Review vocabulary",
-      completed: planComplete,
-      route: lesson ? `/practice/${lesson.id}` : "/learn",
-      xpHint: "Up to +23 XP",
-    };
-  });
+  return [
+    {
+      id: "practice",
+      icon: "school",
+      iconBg: "#EDE9FE",
+      iconColor: "#7C3AED",
+      title: t("plan.practice.title"),
+      subtitle: t("plan.practice.subtitle", { teacher, topic: topic.subtitle }),
+      completed: isDone("practice"),
+      route: classTopicRoute(topic.id, "practice"),
+      xpHint: `+${topic.xpReward} XP`,
+    },
+    {
+      id: "roleplay",
+      icon: "chatbubbles",
+      iconBg: "#FEE2E2",
+      iconColor: "#EF4444",
+      title: t("plan.roleplay.title"),
+      subtitle: t("plan.roleplay.subtitle", { teacher }),
+      completed: isDone("roleplay"),
+      route: classTopicRoute(topic.id, "roleplay"),
+      xpHint: `+${topic.xpReward} XP`,
+    },
+  ];
 }
 
 export function countCompletedPlanItems(items: TodayPlanItem[]): number {

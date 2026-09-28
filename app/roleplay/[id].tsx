@@ -43,6 +43,7 @@ import {
   RoleplayFeedback,
   RoleplayScenario,
 } from "@/types/roleplay";
+import { Translate, useT } from "@/lib/i18n";
 
 type CallStatus = "idle" | "connecting" | "joined" | "error";
 type AgentStatus = "idle" | "connecting" | "connected" | "failed";
@@ -87,6 +88,7 @@ function LiveRoleplayScreen() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
+  const { t } = useT();
   const { tutorVoice, tutorEmotion } = useLanguageStore();
   const completeClassTopic = useLearningStore((s) => s.completeClassTopic);
 
@@ -152,14 +154,14 @@ function LiveRoleplayScreen() {
   useEffect(() => {
     if (!missionComplete || !comic || rewardedRef.current) return;
     rewardedRef.current = true;
-    completeClassTopic(comic.id, comic.xpReward);
+    completeClassTopic(comic.id, isPractice ? "practice" : "roleplay", comic.xpReward);
     posthog.capture("roleplay_completed", {
       scenario_id: comic.id,
       duration_seconds: startTimeRef.current
         ? Math.floor((Date.now() - startTimeRef.current) / 1000)
         : 0,
     });
-  }, [missionComplete, comic, completeClassTopic]);
+  }, [missionComplete, comic, isPractice, completeClassTopic]);
 
   async function startCall() {
     if (!user || !comic) return;
@@ -350,7 +352,7 @@ function LiveRoleplayScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View className="flex-1 items-center justify-center">
-          <Text className="body-md text-text-secondary">找不到這個主題</Text>
+          <Text className="body-md text-text-secondary">{t("roleplay.notFound")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -370,7 +372,7 @@ function LiveRoleplayScreen() {
 
   const practiceCanSpeak = practiceStep === "repeat" || practiceStep === "answer";
 
-  const displayStatus = getDisplayStatus(callStatus, agentStatus, scenario.aiName);
+  const displayStatus = getDisplayStatus(callStatus, agentStatus, scenario.aiName, t);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -382,7 +384,7 @@ function LiveRoleplayScreen() {
           className="flex-1 text-center font-poppins-semibold text-base text-text-primary"
           numberOfLines={1}
         >
-          {scenario.title}
+          {scenario.title} · {t(isPractice ? "mode.practice" : "mode.roleplay")}
         </Text>
         <TouchableOpacity
           className="w-9 h-9 rounded-full bg-[#E8453C] items-center justify-center"
@@ -445,8 +447,8 @@ function LiveRoleplayScreen() {
         <View className="flex-1 items-center justify-center px-8">
           {callStatus === "error" ? (
             <TouchableOpacity onPress={startCall} className="items-center">
-              <Text className="font-poppins-semibold text-sm text-text-primary">連線失敗</Text>
-              <Text className="font-poppins text-[13px] text-text-secondary mt-1">點這裡重試</Text>
+              <Text className="font-poppins-semibold text-sm text-text-primary">{t("roleplay.connectFailed")}</Text>
+              <Text className="font-poppins text-[13px] text-text-secondary mt-1">{t("roleplay.tapRetry")}</Text>
             </TouchableOpacity>
           ) : (
             <ActivityIndicator size="large" color={colors.primary.purple} />
@@ -464,6 +466,7 @@ function MissionCard({
   scenario: RoleplayScenario;
   completedIds: string[];
 }) {
+  const { t } = useT();
   return (
     <View
       className="mx-4 mb-3 rounded-[20px] p-4"
@@ -475,10 +478,10 @@ function MissionCard({
         </View>
         <View className="flex-1">
           <Text className="font-poppins-semibold text-sm text-text-primary">
-            你的任務
+            {t("roleplay.mission")}
           </Text>
           <Text className="font-poppins text-xs text-text-secondary" numberOfLines={1}>
-            和 {scenario.aiName} 用印尼語完成對話
+            {t("roleplay.missionBody", { name: scenario.aiName })}
           </Text>
         </View>
         <Text className="font-poppins-semibold text-[13px] text-lingua-purple">
@@ -487,7 +490,7 @@ function MissionCard({
       </View>
 
       <View className="flex-row flex-wrap gap-2">
-        {scenario.objectives.map((objective) => {
+        {scenario.objectives.map((objective, index) => {
           const done = completedIds.includes(objective.id);
           return (
             <View
@@ -502,7 +505,7 @@ function MissionCard({
               <Text
                 className={`font-poppins-medium text-xs ml-1 ${done ? "text-white" : "text-text-primary"}`}
               >
-                {objective.label}
+                {t("roleplay.dialogueN", { n: index + 1 })}
               </Text>
             </View>
           );
@@ -527,15 +530,20 @@ function ComicPanel({
   const image = turn
     ? images[phase === "guru" ? turn.guruImageKey : turn.studentImageKey]
     : images[lastTurn?.studentImageKey ?? topic.imageKey];
+  const { t } = useT();
 
   return (
     <View className="mx-4 mb-3">
       <View className="flex-row items-center justify-between mb-2">
         <Text className="font-poppins-semibold text-[13px] text-lingua-purple">
-          {turn ? `對話 ${turnIndex + 1}/${total}` : `對話 ${total}/${total}`}
+          {t("roleplay.dialogueProgress", { n: turn ? turnIndex + 1 : total, total })}
         </Text>
         <Text className="font-poppins text-xs text-text-secondary">
-          {!turn ? "全部完成！" : phase === "guru" ? `聽 ${comicTeacherName(topic)} 說` : "輪到你回答"}
+          {!turn
+            ? t("roleplay.allDone")
+            : phase === "guru"
+              ? t("roleplay.listenTo", { name: comicTeacherName(topic) })
+              : t("roleplay.yourTurn")}
         </Text>
       </View>
       <View
@@ -546,7 +554,7 @@ function ComicPanel({
       </View>
       {turn && phase === "student" ? (
         <Text className="font-poppins-semibold text-sm text-lingua-purple mt-2">
-          學生：{turn.studentLine.id}
+          {t("roleplay.student")}{turn.studentLine.id}
         </Text>
       ) : null}
     </View>
@@ -579,31 +587,32 @@ function CorrectionCard({
   translation: string;
   reveal?: Reveal;
 }) {
+  const { t } = useT();
   const saidWords = new Set(said.split(/\s+/).map(normalizeWord));
   const parts = expected.split(/(\s+)/);
 
   return (
     <View className="mx-4 mb-3 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-3">
       <Text className="font-poppins-semibold text-[13px] text-text-primary mb-1">
-        ✏️ 再試一次
+        {t("roleplay.tryAgain")}
       </Text>
       <Text className="font-poppins text-xs text-text-secondary">
-        你說：<Text className="text-text-primary">{said}</Text>
+        {t("roleplay.youSaid")}<Text className="text-text-primary">{said}</Text>
       </Text>
       {reveal === "none" ? (
         <Text className="font-poppins text-[13px] text-text-secondary mt-1">
-          再想想看，漫畫裡學生怎麼說？
+          {t("roleplay.thinkAgain")}
         </Text>
       ) : reveal === "first-word" ? (
         <Text className="font-poppins text-[13px] text-text-secondary mt-1">
-          提示：
+          {t("roleplay.hint")}
           <Text className="font-poppins-semibold text-[15px] text-text-primary">
             {expected.split(/\s+/)[0]} …
           </Text>
         </Text>
       ) : (
         <>
-          <Text className="font-poppins text-xs text-text-secondary mt-1">正確說法：</Text>
+          <Text className="font-poppins text-xs text-text-secondary mt-1">{t("roleplay.correctLine")}</Text>
           <Text className="font-poppins-semibold text-[15px] text-text-primary">
             {parts.map((part, index) => {
               const word = normalizeWord(part);
@@ -627,11 +636,7 @@ function CorrectionCard({
   );
 }
 
-const PRACTICE_STEPS: { key: "listen" | "repeat" | "answer"; label: string }[] = [
-  { key: "listen", label: "🎧 聽" },
-  { key: "repeat", label: "🔁 跟著說" },
-  { key: "answer", label: "💬 回答" },
-];
+const PRACTICE_STEPS: ("listen" | "repeat" | "answer")[] = ["listen", "repeat", "answer"];
 
 function PracticePanel({
   topic,
@@ -652,12 +657,15 @@ function PracticePanel({
   const image = turn
     ? images[step === "repeat" ? turn.studentImageKey : turn.guruImageKey]
     : images[lastTurn?.studentImageKey ?? topic.imageKey];
+  const { t } = useT();
 
   return (
     <View className="mx-4 mb-3">
       <View className="flex-row items-center justify-between mb-2">
         <Text className="font-poppins-semibold text-[13px] text-lingua-purple">
-          {turn ? `對話 ${turnIndex + 1}/${total}` : "全部完成！"}
+          {turn
+            ? t("roleplay.dialogueProgress", { n: turnIndex + 1, total })
+            : t("roleplay.allDone")}
         </Text>
         <Text className="text-xs">
           {stars.map((value) => "⭐".repeat(value)).join("  ")}
@@ -668,13 +676,13 @@ function PracticePanel({
         <View className="flex-row gap-2 mb-2">
           {PRACTICE_STEPS.map((item) => (
             <View
-              key={item.key}
-              className={`rounded-full px-3 py-1 ${activeStep === item.key ? "bg-lingua-purple" : "bg-surface"}`}
+              key={item}
+              className={`rounded-full px-3 py-1 ${activeStep === item ? "bg-lingua-purple" : "bg-surface"}`}
             >
               <Text
-                className={`font-poppins-medium text-xs ${activeStep === item.key ? "text-white" : "text-text-secondary"}`}
+                className={`font-poppins-medium text-xs ${activeStep === item ? "text-white" : "text-text-secondary"}`}
               >
-                {item.label}
+                {t(`practice.step.${item}`)}
               </Text>
             </View>
           ))}
@@ -691,16 +699,16 @@ function PracticePanel({
       {turn ? (
         <View className="mt-2 rounded-2xl bg-[#F5F3FF] px-3 py-2">
           <Text className="font-poppins text-xs text-text-secondary">
-            Guru：{turn.guruLine.id}
+            {comicTeacherName(topic)}: {turn.guruLine.id}
           </Text>
           {hideStudentLine ? (
             <Text className="font-poppins-semibold text-sm text-lingua-purple">
-              學生：？？？（憑記憶回答）
+              {t("roleplay.student")}{t("roleplay.fromMemory")}
             </Text>
           ) : (
             <>
               <Text className="font-poppins-semibold text-sm text-lingua-purple">
-                學生：{turn.studentLine.id}
+                {t("roleplay.student")}{turn.studentLine.id}
               </Text>
               <Text className="font-poppins text-xs text-text-secondary">
                 {turn.studentLine.zhTW}
@@ -766,6 +774,7 @@ function ActiveRoleplayContent({
   onRetry: () => void;
   onFinish: () => void;
 }) {
+  const { t } = useT();
   const { useMicrophoneState } = useCallStateHooks();
   const { microphone, optimisticIsMute } = useMicrophoneState({
     optimisticUpdates: true,
@@ -928,10 +937,10 @@ function ActiveRoleplayContent({
             <Text className="text-2xl mr-2">🎉</Text>
             <View className="flex-1">
               <Text className="font-poppins-semibold text-sm text-text-primary">
-                任務完成！+{scenario.xpReward} XP
+                {t("roleplay.missionDone", { xp: scenario.xpReward })}
               </Text>
               <Text className="font-poppins text-xs text-text-secondary">
-                可以繼續聊，或結束對話
+                {t("roleplay.keepTalking")}
               </Text>
             </View>
             <TouchableOpacity
@@ -939,7 +948,7 @@ function ActiveRoleplayContent({
               activeOpacity={0.85}
               onPress={onFinish}
             >
-              <Text className="font-poppins-semibold text-xs text-white">結束</Text>
+              <Text className="font-poppins-semibold text-xs text-white">{t("roleplay.end")}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -950,7 +959,7 @@ function ActiveRoleplayContent({
               <CaptionBubble
                 key={message.id}
                 isAgent={message.speaker === "agent"}
-                speakerName={message.speaker === "agent" ? scenario.aiName : "你"}
+                speakerName={message.speaker === "agent" ? scenario.aiName : t("roleplay.you")}
                 text={message.text}
               />
             ))}
@@ -959,7 +968,7 @@ function ActiveRoleplayContent({
                 <CaptionBubble
                   key={`partial-${speaker}`}
                   isAgent={speaker === "agent"}
-                  speakerName={speaker === "agent" ? scenario.aiName : "你"}
+                  speakerName={speaker === "agent" ? scenario.aiName : t("roleplay.you")}
                   text={partials[speaker] ?? ""}
                   isPartial
                 />
@@ -972,19 +981,21 @@ function ActiveRoleplayContent({
             {agentStatus === "failed" ? (
               <TouchableOpacity onPress={onRetry} className="items-center">
                 <Text className="font-poppins-semibold text-sm text-text-primary">
-                  {scenario.aiName} 暫時無法加入
+                  {t("roleplay.cantJoin", { name: scenario.aiName })}
                 </Text>
                 <Text className="font-poppins text-[13px] text-lingua-purple mt-1">
-                  點這裡重試
+                  {t("roleplay.tapRetry")}
                 </Text>
               </TouchableOpacity>
             ) : (
               <>
                 <Text className="font-poppins-semibold text-sm text-text-primary">
-                  {isReady ? `${scenario.aiName} 馬上開口` : `${scenario.aiName} 正在加入…`}
+                  {isReady
+                    ? t("roleplay.aboutToSpeak", { name: scenario.aiName })
+                    : t("roleplay.joining", { name: scenario.aiName })}
                 </Text>
                 <Text className="font-poppins text-[13px] text-text-secondary mt-1 text-center">
-                  不用按住按鈕，直接說話就可以了
+                  {t("roleplay.noHold")}
                 </Text>
               </>
             )}
@@ -995,7 +1006,7 @@ function ActiveRoleplayContent({
       {showHints ? (
         <View className="mx-4 mt-3 rounded-2xl bg-white border border-border p-3">
           <Text className="font-poppins-semibold text-xs text-text-secondary mb-2">
-            可以這樣說
+            {t("roleplay.youCanSay")}
           </Text>
           {scenario.hints.map((hint, index) => (
             <View key={`${index}-${hint.text}`} className="mb-1.5">
@@ -1049,7 +1060,7 @@ function ActiveRoleplayContent({
           <Text
             className={`font-poppins-medium text-[13px] mt-2 ${micOn ? "text-lingua-purple" : "text-text-secondary"}`}
           >
-            {micLabel(practice, canSpeak, isReady, micOn, scenario.aiName)}
+            {micLabel(practice, canSpeak, isReady, micOn, scenario.aiName, t)}
           </Text>
         </View>
 
@@ -1102,6 +1113,7 @@ function RoleplayReview({
   stars?: number[];
   onDone: () => void;
 }) {
+  const { t } = useT();
   const missionComplete = completedIds.length === scenario.objectives.length;
 
   return (
@@ -1109,7 +1121,7 @@ function RoleplayReview({
       <View className="flex-row items-center px-5 pt-2 pb-3">
         <View className="w-9" />
         <Text className="flex-1 text-center font-poppins-semibold text-base text-text-primary">
-          對話回顧
+          {t("roleplay.review")}
         </Text>
         <TouchableOpacity onPress={onDone} hitSlop={8} className="w-9 items-end">
           <Ionicons name="close" size={24} color={colors.neutral.textPrimary} />
@@ -1128,7 +1140,7 @@ function RoleplayReview({
             {stars.map((value, index) => (
               <View key={index} className="flex-row items-center justify-between py-0.5">
                 <Text className="font-poppins-medium text-[13px] text-text-primary">
-                  對話 {index + 1}
+                  {t("roleplay.dialogueN", { n: index + 1 })}
                 </Text>
                 <Text className="text-sm">
                   {"⭐".repeat(value)}
@@ -1143,8 +1155,8 @@ function RoleplayReview({
           <Text className="text-2xl mr-2">{missionComplete ? "🏆" : "💪"}</Text>
           <Text className="flex-1 font-poppins-medium text-[13px] text-text-primary">
             {missionComplete
-              ? `任務全部完成，獲得 +${scenario.xpReward} XP！`
-              : "還有任務沒完成，下次再試試看！"}
+              ? t("roleplay.allMissionsDone", { xp: scenario.xpReward })
+              : t("roleplay.missionsLeft")}
           </Text>
         </View>
 
@@ -1159,11 +1171,11 @@ function RoleplayReview({
             ) : null}
 
             <Text className="font-poppins-semibold text-[15px] text-text-primary mb-2">
-              可以說得更好
+              {t("roleplay.couldBeBetter")}
             </Text>
             {feedback.corrections.length === 0 ? (
               <Text className="font-poppins text-[13px] text-text-secondary">
-                這次沒有需要修正的句子 👍
+                {t("roleplay.nothingToFix")}
               </Text>
             ) : (
               feedback.corrections.map((correction, index) => (
@@ -1171,11 +1183,11 @@ function RoleplayReview({
                   key={`${index}-${correction.said}`}
                   className="rounded-2xl border border-border bg-white p-4 mb-3"
                 >
-                  <Text className="font-poppins text-xs text-text-secondary">你說</Text>
+                  <Text className="font-poppins text-xs text-text-secondary">{t("roleplay.saidLabel")}</Text>
                   <Text className="font-poppins text-sm text-text-secondary mb-2">
                     {correction.said}
                   </Text>
-                  <Text className="font-poppins text-xs text-lingua-green">更好的說法</Text>
+                  <Text className="font-poppins text-xs text-lingua-green">{t("roleplay.betterLabel")}</Text>
                   <Text className="font-poppins-semibold text-[15px] text-text-primary mb-2">
                     {correction.better}
                   </Text>
@@ -1190,7 +1202,7 @@ function RoleplayReview({
           </View>
         ) : (
           <Text className="mx-4 font-poppins text-[13px] text-text-secondary">
-            這次對話太短，AI 還來不及整理回饋。下次多說幾句試試看！
+            {t("roleplay.tooShort")}
           </Text>
         )}
       </ScrollView>
@@ -1202,7 +1214,7 @@ function RoleplayReview({
           onPress={onDone}
           testID="roleplay-review-done"
         >
-          <Text className="font-poppins-semibold text-[15px] text-white">完成</Text>
+          <Text className="font-poppins-semibold text-[15px] text-white">{t("roleplay.done")}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -1215,29 +1227,39 @@ function micLabel(
   isReady: boolean,
   micOn: boolean,
   teacherName: string,
+  t: Translate,
 ): string {
-  if (!isReady) return "請稍候…";
-  if (!micOn) return "麥克風已關閉";
-  if (practice) return canSpeak ? "輪到你了，直接說" : `先聽 ${teacherName} 說…`;
-  return "正在聆聽，直接說";
+  if (!isReady) return t("roleplay.mic.wait");
+  if (!micOn) return t("roleplay.mic.off");
+  if (practice) {
+    return canSpeak ? t("roleplay.mic.yourTurn") : t("roleplay.mic.listenFirst", { name: teacherName });
+  }
+  return t("roleplay.mic.listening");
 }
 
 function getDisplayStatus(
   callStatus: CallStatus,
   agentStatus: AgentStatus,
   aiName: string,
+  t: Translate,
 ): { color: string; label: string } {
   if (callStatus === "error") {
-    return { color: colors.semantic.error, label: "連線失敗" };
+    return { color: colors.semantic.error, label: t("roleplay.connectFailed") };
   }
   if (callStatus !== "joined") {
-    return { color: colors.semantic.warning, label: "連線中…" };
+    return { color: colors.semantic.warning, label: t("roleplay.status.connecting") };
   }
   const map: Record<AgentStatus, { color: string; label: string }> = {
-    idle: { color: colors.neutral.textSecondary, label: "準備中…" },
-    connecting: { color: colors.semantic.warning, label: `${aiName} 加入中…` },
-    connected: { color: colors.semantic.success, label: "對話中" },
-    failed: { color: colors.semantic.error, label: `${aiName} 無法加入` },
+    idle: { color: colors.neutral.textSecondary, label: t("roleplay.status.preparing") },
+    connecting: {
+      color: colors.semantic.warning,
+      label: t("roleplay.status.agentJoining", { name: aiName }),
+    },
+    connected: { color: colors.semantic.success, label: t("roleplay.status.talking") },
+    failed: {
+      color: colors.semantic.error,
+      label: t("roleplay.status.agentFailed", { name: aiName }),
+    },
   };
   return map[agentStatus];
 }

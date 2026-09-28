@@ -15,26 +15,28 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fontFamily } from "@/constants/theme";
+import { TranslationKey, useT } from "@/lib/i18n";
 
 const CIRCLE_SIZE = 52;
 const TAB_HEIGHT = 64;
 
 type TabConfig = {
-  label: string;
+  labelKey: TranslationKey;
   icon: keyof typeof Ionicons.glyphMap;
   activeIcon: keyof typeof Ionicons.glyphMap;
 };
 
 const TABS: TabConfig[] = [
-  { label: "首頁", icon: "home-outline", activeIcon: "home" },
-  { label: "學習教材", icon: "book-outline", activeIcon: "book" },
-  { label: "AI 老師", icon: "sparkles-outline", activeIcon: "sparkles" },
-  { label: "資訊", icon: "information-circle-outline", activeIcon: "information-circle" },
-  { label: "我的學習", icon: "person-outline", activeIcon: "person" },
+  { labelKey: "tabs.home", icon: "home-outline", activeIcon: "home" },
+  { labelKey: "tabs.learn", icon: "book-outline", activeIcon: "book" },
+  { labelKey: "tabs.aiTeacher", icon: "sparkles-outline", activeIcon: "sparkles" },
+  { labelKey: "tabs.info", icon: "information-circle-outline", activeIcon: "information-circle" },
+  { labelKey: "tabs.profile", icon: "person-outline", activeIcon: "person" },
 ];
 
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { t } = useT();
   const { width } = useWindowDimensions();
   const tabWidth = width / TABS.length;
 
@@ -76,7 +78,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
           <TouchableOpacity
             key={route.key}
             accessibilityRole="tab"
-            accessibilityLabel={tab.label}
+            accessibilityLabel={t(tab.labelKey)}
             accessibilityState={{ selected: isFocused }}
             onPress={onPress}
             style={styles.tab}
@@ -89,7 +91,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
             />
             {!isFocused && (
               <Text style={styles.label} numberOfLines={2}>
-                {tab.label}
+                {t(tab.labelKey)}
               </Text>
             )}
           </TouchableOpacity>

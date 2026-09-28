@@ -17,7 +17,8 @@ export function comicTopicToScenario(
 ): RoleplayScenario {
   return {
     id: topic.id,
-    title: `${topic.subtitle} · ${practice ? "Latihan" : "Role Play"}`,
+    // The screen adds the (translated) mode name.
+    title: topic.subtitle,
     subtitle: topic.title,
     emoji: "📖",
     accentColor: "#F5F3FF",
@@ -28,7 +29,7 @@ export function comicTopicToScenario(
     xpReward: topic.xpReward,
     objectives: topic.turns.map((turn, index) => ({
       id: `turn-${index}`,
-      label: `對話 ${index + 1}`,
+      label: `${index + 1}`,
       goal: `answer as the student: "${turn.studentLine.id}"`,
       targets: turn.expectedAnswers,
     })),

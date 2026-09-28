@@ -3,7 +3,6 @@ import mascotAuth from "@/assets/images/mascot-auth.png";
 import mascotWelcome from "@/assets/images/mascot-welcome.png";
 import mascotLogo from "@/assets/images/moscot-logo.png";
 import palace from "@/assets/images/palace.png";
-import streakFire from "@/assets/images/streak-fire.png";
 import treasure from "@/assets/images/treasure.png";
 
 import topik1Panel1 from "@/assets/learning-management/bagian-a/topik-1/panel-1.png";
@@ -158,7 +157,6 @@ export const images = {
   mascotWelcome,
   mascotLogo,
   palace,
-  streakFire,
   treasure,
   topik1Panel1,
   topik1Panel2,

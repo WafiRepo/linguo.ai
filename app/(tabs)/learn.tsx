@@ -15,9 +15,11 @@ import { MaterialCard } from "@/components/MaterialCard";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
 import { LEARNING_MATERIALS } from "@/data/learningMaterials";
+import { useT } from "@/lib/i18n";
 
 export default function LearnScreen() {
   const router = useRouter();
+  const { t } = useT();
 
   return (
     <SafeAreaView
@@ -41,7 +43,7 @@ export default function LearnScreen() {
             className="flex-1 text-center font-poppins-semibold text-base text-text-primary"
             numberOfLines={1}
           >
-            學習教材
+            {t("learn.title")}
           </Text>
 
           <TouchableOpacity
@@ -56,7 +58,7 @@ export default function LearnScreen() {
         </View>
 
         <Text className="caption text-center">
-          共 {LEARNING_MATERIALS.length} 個學習單元
+          {t("learn.unitCount", { count: LEARNING_MATERIALS.length })}
         </Text>
       </View>
 

@@ -21,6 +21,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useT } from "@/lib/i18n";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -28,6 +29,7 @@ type SSOStrategy = "oauth_google" | "oauth_facebook" | "oauth_apple";
 
 export default function SignUpScreen() {
   const { signUp, errors, fetchStatus } = useSignUp();
+  const { t } = useT();
   const { startSSOFlow } = useSSO();
   const { selectedLanguage } = useLanguageStore();
 
@@ -53,7 +55,7 @@ export default function SignUpScreen() {
         ],
         $exception_source: "sign-up",
       });
-      setAuthError("We couldn't create your account. Please try again.");
+      setAuthError(t("signUp.errorCreate"));
       return;
     }
     try {
@@ -71,9 +73,7 @@ export default function SignUpScreen() {
         ],
         $exception_source: "sign-up-email-code",
       });
-      setAuthError(
-        "We couldn't send your verification code. Please try again.",
-      );
+      setAuthError(t("signUp.errorCode"));
     }
   };
 
@@ -132,7 +132,7 @@ export default function SignUpScreen() {
         strategy,
         error: message,
       });
-      setAuthError("Couldn't continue with social sign up. Please try again.");
+      setAuthError(t("signUp.errorSocial"));
     }
   };
 
@@ -157,9 +157,9 @@ export default function SignUpScreen() {
             </TouchableOpacity>
 
             {/* Header */}
-            <Text className="h1 mt-4">Create your account</Text>
+            <Text className="h1 mt-4">{t("signUp.title")}</Text>
             <Text className="body-md text-text-secondary mt-2">
-              Start your language journey today ✨
+              {t("signUp.subtitle")}
             </Text>
 
             {/* Mascot */}
@@ -173,7 +173,7 @@ export default function SignUpScreen() {
 
             {/* Email */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Email</Text>
+              <Text style={styles.inputLabel}>{t("auth.email")}</Text>
               <TextInput
                 value={email}
                 onChangeText={setEmail}
@@ -192,7 +192,7 @@ export default function SignUpScreen() {
 
             {/* Password */}
             <View style={[styles.inputContainer, { flexDirection: "column" }]}>
-              <Text style={styles.inputLabel}>Password</Text>
+              <Text style={styles.inputLabel}>{t("auth.password")}</Text>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <TextInput
                   value={password}
@@ -238,7 +238,7 @@ export default function SignUpScreen() {
               testID="sign-up-button"
             >
               <Text className="font-poppins-semibold text-base text-white">
-                {isLoading ? "Creating account..." : "Sign Up"}
+                {isLoading ? t("signUp.creating") : t("signUp.button")}
               </Text>
             </TouchableOpacity>
 
@@ -246,7 +246,7 @@ export default function SignUpScreen() {
             <View className="flex-row items-center my-6 gap-3">
               <View className="flex-1 h-px bg-border" />
               <Text className="body-sm text-text-secondary">
-                or continue with
+                {t("auth.orContinueWith")}
               </Text>
               <View className="flex-1 h-px bg-border" />
             </View>
@@ -254,30 +254,30 @@ export default function SignUpScreen() {
             {/* Social */}
             <SocialButton
               icon={<AntDesign name="google" size={20} color="#DB4437" />}
-              label="Continue with Google"
+              label={t("auth.google")}
               onPress={() => handleSSO("oauth_google")}
             />
             <SocialButton
               icon={<FontAwesome name="facebook" size={20} color="#1877F2" />}
-              label="Continue with Facebook"
+              label={t("auth.facebook")}
               onPress={() => handleSSO("oauth_facebook")}
             />
             <SocialButton
               icon={<AntDesign name="apple" size={20} color="#000" />}
-              label="Continue with Apple"
+              label={t("auth.apple")}
               onPress={() => handleSSO("oauth_apple")}
             />
 
             {/* Sign In link */}
             <View className="flex-row justify-center mt-4 mb-8">
               <Text className="body-md text-text-secondary">
-                Already have an account?{" "}
+                {t("signUp.haveAccount")}
               </Text>
               <TouchableOpacity
                 onPress={() => router.replace("/(auth)/sign-in")}
               >
                 <Text className="body-md text-lingua-purple font-poppins-semibold">
-                  Log in
+                  {t("signUp.logIn")}
                 </Text>
               </TouchableOpacity>
             </View>

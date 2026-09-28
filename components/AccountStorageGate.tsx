@@ -4,12 +4,14 @@ import { type ReactNode, useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { setAccountStorageWritable } from "@/lib/accountStorage";
 import { loadLearningAccount } from "@/lib/learningAccount";
+import { useT } from "@/lib/i18n";
 
 // Serialize transitions: an old hydration must finish before another starts.
 let switching = Promise.resolve();
 
 export function AccountStorageGate({ children }: { children: ReactNode }) {
   const { isLoaded, userId } = useAuth();
+  const { t } = useT();
   // Login (Clerk) can't load offline, which otherwise looks like an endless spinner.
   const offline = useNetInfo().isConnected === false;
   const account = userId ?? "signed-out";
@@ -40,12 +42,12 @@ export function AccountStorageGate({ children }: { children: ReactNode }) {
   if (!isLoaded || readyAccount !== account || failed) {
     return <View className="flex-1 items-center justify-center gap-4 bg-white p-6">
       {offline ? <>
-        <Text accessibilityRole="alert" className="text-lg font-poppins-semibold text-text-primary">沒有網路連線</Text>
-        <Text className="text-center text-base text-text-secondary">請確認 Wi-Fi 或行動網路已開啟。連線恢復後，如果畫面沒有自動繼續，請重新開啟 App。</Text>
+        <Text accessibilityRole="alert" className="text-lg font-poppins-semibold text-text-primary">{t("gate.offline.title")}</Text>
+        <Text className="text-center text-base text-text-secondary">{t("gate.offline.body")}</Text>
       </> : failed ? <>
-        <Text accessibilityRole="alert" className="text-base text-text-primary">無法讀取學習紀錄。請再試一次。</Text>
-        <TouchableOpacity accessibilityRole="button" onPress={() => setAttempt((value) => value + 1)} className="min-h-14 justify-center rounded-2xl bg-lingua-purple px-6 py-4"><Text className="text-base text-white">再試一次</Text></TouchableOpacity>
-      </> : <><ActivityIndicator size="large" color="#6c4ef5" /><Text className="text-base text-text-primary">正在準備學習紀錄…</Text></>}
+        <Text accessibilityRole="alert" className="text-base text-text-primary">{t("gate.failed")}</Text>
+        <TouchableOpacity accessibilityRole="button" onPress={() => setAttempt((value) => value + 1)} className="min-h-14 justify-center rounded-2xl bg-lingua-purple px-6 py-4"><Text className="text-base text-white">{t("common.retry")}</Text></TouchableOpacity>
+      </> : <><ActivityIndicator size="large" color="#6c4ef5" /><Text className="text-base text-text-primary">{t("gate.loading")}</Text></>}
     </View>;
   }
   return children;

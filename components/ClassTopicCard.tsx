@@ -4,12 +4,14 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
+import { ClassTopicMode } from "@/lib/topicProgress";
 import { ClassManagementTopic } from "@/types/classManagement";
+import { useT } from "@/lib/i18n";
 
 interface ClassTopicCardProps {
   topic: ClassManagementTopic;
   isCompleted: boolean;
-  onPress: (mode: "teach" | "roleplay") => void;
+  onPress: (mode: ClassTopicMode) => void;
 }
 
 export function ClassTopicCard({
@@ -18,6 +20,7 @@ export function ClassTopicCard({
   onPress,
 }: ClassTopicCardProps) {
   const thumbnail = images[topic.imageKey];
+  const { t } = useT();
 
   return (
     <View style={styles.card}>
@@ -39,7 +42,7 @@ export function ClassTopicCard({
             {topic.description}
           </Text>
           <Text className="caption mt-1">
-            {topic.turns.length} dialog · {topic.xpReward} XP
+            {t("topicCard.meta", { count: topic.turns.length, xp: topic.xpReward })}
           </Text>
         </View>
         {isCompleted ? (
@@ -52,17 +55,17 @@ export function ClassTopicCard({
       <View style={styles.actionRow}>
         <TouchableOpacity
           style={[styles.actionButton, styles.actionButtonPrimary]}
-          onPress={() => onPress("teach")}
+          onPress={() => onPress("practice")}
         >
           <Ionicons name="school-outline" size={14} color={colors.primary.purple} />
-          <Text style={styles.actionButtonTextPrimary}>Latihan</Text>
+          <Text style={styles.actionButtonTextPrimary}>{t("mode.practice")}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionButton, styles.actionButtonSecondary]}
           onPress={() => onPress("roleplay")}
         >
           <Ionicons name="chatbubbles-outline" size={14} color={colors.neutral.textPrimary} />
-          <Text style={styles.actionButtonTextSecondary}>Role Play</Text>
+          <Text style={styles.actionButtonTextSecondary}>{t("mode.roleplay")}</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { DEFAULT_TUTOR_EMOTION, TutorEmotionCode } from "@/lib/tutorEmotion";
-import { TutorVoiceCode } from "@/lib/instructionLanguage";
+import { normalizeTutorVoice, TutorVoiceCode } from "@/lib/instructionLanguage";
 import { LanguageCode } from "@/types/learning";
 
 interface LanguageState {
@@ -31,6 +31,11 @@ export const useLanguageStore = create<LanguageState>()(
       name: "language-storage",
       storage: createJSONStorage(() => accountStorage),
       skipHydration: true,
+      // Older builds could save the removed "Guru Indonesia" ("id") option.
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<LanguageState>;
+        return { ...current, ...saved, tutorVoice: normalizeTutorVoice(saved.tutorVoice) };
+      },
     }
   )
 );

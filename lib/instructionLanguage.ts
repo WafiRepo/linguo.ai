@@ -6,37 +6,25 @@ import {
 import { Lesson, LanguageCode } from "@/types/learning";
 
 /** Language the AI teacher uses to explain (not the language being learned). */
-export type InstructionLanguageCode = "zh-TW" | "en" | "id";
+export type InstructionLanguageCode = "zh-TW" | "en";
 
 export type TutorVoiceCode = InstructionLanguageCode;
 
+// Names and descriptions are UI text and live in the i18n dictionaries.
 export interface TutorVoiceOption {
   code: TutorVoiceCode;
-  name: string;
-  description: string;
   emoji: string;
 }
 
 export const TUTOR_VOICE_OPTIONS: TutorVoiceOption[] = [
-  {
-    code: "zh-TW",
-    name: "Guru Taiwan",
-    description: "Penjelasan dalam 繁體中文（台灣）",
-    emoji: "🇹🇼",
-  },
-  {
-    code: "en",
-    name: "English Tutor",
-    description: "Explains in English",
-    emoji: "🇺🇸",
-  },
-  {
-    code: "id",
-    name: "Guru Indonesia",
-    description: "Kosakata Bahasa Indonesia, penjelasan 繁體中文（台灣）",
-    emoji: "🇮🇩",
-  },
+  { code: "zh-TW", emoji: "🇹🇼" },
+  { code: "en", emoji: "🇺🇸" },
 ];
+
+// Persisted state from older builds may still hold the removed "id" option.
+export function normalizeTutorVoice(value: string | null | undefined): TutorVoiceCode {
+  return value === "en" ? "en" : "zh-TW";
+}
 
 export function getInstructionLanguages(
   targetLanguage: LanguageCode,
@@ -140,17 +128,12 @@ export function resolveAiTeacherPrompt(
     };
   }
 
-  // Guru Indonesia (id) speaks lesson vocabulary in native Indonesian but explains
-  // in Traditional Chinese — same explanation language as Guru Taiwan, just a
-  // different teacher persona. Both share the lesson's zh-TW system prompt.
-  const explanationVoice = tutorVoice === "id" ? "zh-TW" : tutorVoice;
-
   return {
     instructionLanguages,
     systemPrompt: appendEmotionToPrompt(
       lesson.aiTeacherPrompt.systemPrompt,
       emotion,
-      explanationVoice,
+      tutorVoice,
     ),
     introMessage: lesson.aiTeacherPrompt.introMessage,
   };

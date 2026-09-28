@@ -16,10 +16,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useT } from "@/lib/i18n";
 
 export default function LanguageSelectScreen() {
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const isSwitchMode = mode === "switch";
+  const { t } = useT();
   const { selectedLanguage, setSelectedLanguage } = useLanguageStore();
   const [selectedCode, setSelectedCode] = useState<string>(
     selectedLanguage ?? DEFAULT_LANGUAGE_CODE
@@ -118,7 +120,7 @@ export default function LanguageSelectScreen() {
             <View className="w-8" />
           )}
           <Text className="flex-1 text-center font-poppins-semibold text-lg text-text-primary">
-            {isSwitchMode ? "Change language" : "Choose a language"}
+            {isSwitchMode ? t("languageSelect.change") : t("languageSelect.choose")}
           </Text>
           <View className="w-8" />
         </View>
@@ -129,7 +131,7 @@ export default function LanguageSelectScreen() {
             <Ionicons name="search-outline" size={18} color="#9ca3af" />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search languages"
+              placeholder={t("languageSelect.search")}
               placeholderTextColor="#9ca3af"
               value={search}
               onChangeText={setSearch}
@@ -139,7 +141,7 @@ export default function LanguageSelectScreen() {
 
         {/* Popular label */}
         <Text className="px-4 font-poppins-semibold text-base text-text-primary mb-2">
-          Popular
+          {t("languageSelect.popular")}
         </Text>
 
         {/* Language list */}
@@ -164,7 +166,7 @@ export default function LanguageSelectScreen() {
           onPress={handleConfirm}
         >
           <Text className="font-poppins-semibold text-base text-white">
-            {isSwitchMode ? "Save" : "Continue"}
+            {isSwitchMode ? t("common.save") : t("common.continue")}
           </Text>
         </TouchableOpacity>
       </View>

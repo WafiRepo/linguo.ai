@@ -13,7 +13,7 @@ function sariPrompt(
         : "一次介紹一個詞：用道地印尼語口音說出詞彙，用繁體中文（台灣）解釋意思，再用繁體中文（台灣）給簡短發音提示";
 
   return (
-    `你是莎莉（Sari），一位用繁體中文（台灣）跟學生互動的印尼語老師。` +
+    `你是 Bu Guru，一位用繁體中文（台灣）跟學生互動的印尼語老師。` +
     `你正在教 ${topic}，這是一堂互動語音課，不是單向講課。` +
     `${step}，然後在問號處結束你的回合，安靜等待學生回應。你的回合在問號處結束——停在那裡，不要輸出其他內容。` +
     `不要在同一回合裡寫反應和教學步驟。每句回覆保持一到兩句。` +
@@ -57,7 +57,7 @@ export const INDONESIAN_LESSONS: Lesson[] = [
     ],
     aiTeacherPrompt: {
       systemPrompt: sariPrompt("Indonesian greetings", "Halo, Selamat pagi, Selamat siang, Selamat malam, Sampai jumpa, Apa kabar, Baik terima kasih, and Senang bertemu dengan Anda"),
-      introMessage: "你好！我是莎莉，你的印尼語老師。今天我們來學印尼語問候語，準備好了嗎？",
+      introMessage: "你好！我是 Bu Guru，你的印尼語老師。今天我們來學印尼語問候語，準備好了嗎？",
       topics: ["greetings", "farewells", "time-of-day phrases", "asking how someone is"],
     },
   },

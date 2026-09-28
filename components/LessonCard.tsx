@@ -3,6 +3,7 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { colors } from "@/constants/theme";
 import { Lesson } from "@/types/learning";
+import { useT } from "@/lib/i18n";
 
 interface LessonCardProps {
   lesson: Lesson;
@@ -23,6 +24,7 @@ export function LessonCard({
   isInProgress,
   onPress,
 }: LessonCardProps) {
+  const { t } = useT();
   return (
     <TouchableOpacity
       activeOpacity={0.8}
@@ -34,7 +36,7 @@ export function LessonCard({
           <Text className="caption">Lesson {index + 1}</Text>
           {isInProgress && (
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>In progress</Text>
+              <Text style={styles.badgeText}>{t("lessonCard.inProgress")}</Text>
             </View>
           )}
         </View>
@@ -47,7 +49,7 @@ export function LessonCard({
         </Text>
 
         <Text className="caption mt-0.5">
-          {lesson.activities.length} activities · {lesson.xpReward} XP
+          {t("lessonCard.meta", { count: lesson.activities.length, xp: lesson.xpReward })}
         </Text>
       </View>
 
