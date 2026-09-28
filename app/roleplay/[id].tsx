@@ -2,6 +2,7 @@ import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Call,
+  callManager,
   StreamCall,
   StreamVideo,
   StreamVideoClient,
@@ -147,6 +148,7 @@ function LiveRoleplayScreen() {
     return () => {
       callRef.current?.leave().catch(console.error);
       clientRef.current?.disconnectUser().catch(console.error);
+      callManager.stop();
       stopAgentSession(callRef.current?.id ?? null, agentSessionRef.current);
     };
   }, [isLoaded, user, scenario, comic, isPractice, tutorVoice, tutorEmotion]);
@@ -189,6 +191,10 @@ function LiveRoleplayScreen() {
 
       const callId = `roleplay-${isPractice ? "practice" : "comic"}-${comic.id}-${user.id}`;
       const streamCall = streamClient.call("default", callId);
+      // The call switches the phone to call-audio mode; stop() in the
+      // cleanup puts it back, or later sounds (e.g. vocabulary TTS) come
+      // out of the earpiece instead of the speaker.
+      callManager.start({ audioRole: "communicator", deviceEndpointType: "speaker" });
       await streamCall.join({ create: true });
 
       // Stays off until the AI has joined, then opens for the whole conversation.
@@ -331,6 +337,7 @@ function LiveRoleplayScreen() {
       await callRef.current?.leave();
       clientRef.current?.disconnectUser();
     } catch {}
+    callManager.stop();
     callRef.current = null;
     clientRef.current = null;
     agentSessionRef.current = null;
