@@ -12,8 +12,11 @@ function base64urlEncode(input: string): string {
 
 function generateStreamToken(userId: string, secret: string): string {
   const header = base64urlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-  const iat = Math.floor(Date.now() / 1000);
-  const exp = iat + 3600;
+  const now = Math.floor(Date.now() / 1000);
+  // Backdated so a clock even slightly ahead of Stream's doesn't get the token
+  // rejected as "used before issued at" (seen when minting on a dev laptop).
+  const iat = now - 60;
+  const exp = now + 3600;
   const payload = base64urlEncode(JSON.stringify({ user_id: userId, iat, exp }));
   const signingInput = `${header}.${payload}`;
   const sig = createHmac("sha256", secret)
