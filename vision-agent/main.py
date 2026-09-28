@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from contextvars import ContextVar
 from typing import Optional
 
@@ -35,8 +36,10 @@ from instruction_language import (  # noqa: E402
 from gpt_live import GptLive  # noqa: E402
 from pronunciation import append_pronunciation_guide  # noqa: E402
 from roleplay import (  # noqa: E402
+    CORRECTION_GRACE_SECONDS,
     RoleplayController,
     RoleplayTracker,
+    ai_accepted_answer,
     build_comic_roleplay_prompt,
     build_roleplay_system_prompt,
     comic_correction_note,
@@ -379,22 +382,44 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         )
 
         if is_comic_roleplay:
-            async def on_comic_miss(said: str, recent_agent_text: str) -> None:
-                if not is_answer_attempt(said):
+            pending_miss: list[asyncio.Task] = []
+
+            async def resolve_comic_miss(said: str, index: int, started_at: float) -> None:
+                await asyncio.sleep(CORRECTION_GRACE_SECONDS)
+                remaining = tracker.remaining
+                if not remaining or tracker.objectives.index(remaining[0]) != index:
+                    return  # a later answer already completed this dialogue
+                agent_text = roleplay.agent_text_since(started_at)
+                next_line = turns[index + 1]["guru"] if index + 1 < len(turns) else ""
+                if ai_accepted_answer(agent_text, next_line):
+                    # The transcript misheard; the AI (which hears the audio) was right.
+                    _safe_log(f"[roleplay] AI accepted {said!r} for dialogue {index}; syncing")
+                    await roleplay.complete_current()
                     return
-                index = tracker.objectives.index(tracker.remaining[0])
                 # The app shows a correction card; the quiet note makes sure
-                # Bu Guru corrects it out loud even if she missed the mistake.
+                # Bu Guru corrects it out loud unless she already did.
                 await send_roleplay_event({
                     "type": "roleplay_correction",
                     "turnIndex": index,
                     "said": said[:120],
                 })
                 note = comic_correction_note(
-                    said, turns[index]["student"], help_language, recent_agent_text
+                    said, turns[index]["student"], help_language, agent_text
                 )
                 if note and is_gpt_live:
                     await agent.llm.append_thinking(note)
+
+            async def on_comic_miss(said: str, _recent_agent_text: str) -> None:
+                if not is_answer_attempt(said):
+                    return
+                for task in pending_miss:
+                    task.cancel()
+                pending_miss.clear()
+                index = tracker.objectives.index(tracker.remaining[0])
+                started_at = roleplay.user_started_at or time.monotonic()
+                pending_miss.append(
+                    asyncio.create_task(resolve_comic_miss(said, index, started_at))
+                )
 
             roleplay.on_unmatched = on_comic_miss
 

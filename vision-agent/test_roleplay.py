@@ -138,6 +138,34 @@ class CorrectionTest(unittest.IsolatedAsyncioTestCase):
             roleplay.comic_correction_note("Bagus", "Sudah.", "English", "Hampir! Coba bilang: Sudah.")
         )
 
+    def test_ai_accepted_answer(self):
+        # The case from the screenshot: AI praised and closed, transcript said "Ha- e- i".
+        self.assertTrue(roleplay.ai_accepted_answer(" Bagus, terima kasih, kamu hebat!"))
+        self.assertTrue(roleplay.ai_accepted_answer("Oke. Tekan tombolnya.", "Tekan tombolnya."))
+        self.assertFalse(roleplay.ai_accepted_answer("Hampir! Coba bilang: Baik."))
+        self.assertFalse(roleplay.ai_accepted_answer("Bagus! Coba bilang: Baik."))
+        self.assertFalse(roleplay.ai_accepted_answer(""))
+
+    async def test_complete_current_syncs_panel(self):
+        turns = roleplay.comic_turns(COMIC_RAW)
+        events: list[dict] = []
+
+        async def send(payload):
+            events.append(payload)
+
+        controller = RoleplayController(
+            send_event=send,
+            tracker=RoleplayTracker(roleplay.comic_objectives(turns), sequential=True),
+        )
+        await controller.on_user_partial(" Ha-")
+        self.assertIsNotNone(controller.user_started_at)
+        controller.on_agent_partial(" Bagus!")
+        self.assertIn("Bagus", controller.agent_text_since(controller.user_started_at))
+        await controller.complete_current()
+        self.assertEqual(events[-1], {"type": "roleplay_objective", "objectiveId": "turn-0"})
+        self.assertEqual([o.id for o in controller.tracker.remaining], ["turn-1", "turn-2"])
+        controller.close()
+
     async def test_unmatched_answer_is_reported(self):
         turns = roleplay.comic_turns(COMIC_RAW)
         misses: list[tuple[str, str]] = []

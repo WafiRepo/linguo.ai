@@ -277,9 +277,11 @@ def build_comic_roleplay_prompt(
         "word slowly, syllable by syllable (e.g. \"Gu-ru\"), give ONE short tip in "
         f"{help_language} on how to say it, and ask them to say the line once more. Only correct "
         "clear mistakes — never nitpick an accent.\n"
+        "- Praise (\"Bagus!\") ONLY a right answer. For a wrong one, start gently with "
+        "\"Hampir!\" instead — never praise and correct in the same reply.\n"
         "- You may receive quiet CORRECTION notes when the student's answer did not match the "
-        "comic. If you have not corrected them yet, do it then; never correct the same mistake "
-        "twice in a row.\n"
+        "comic. Correct at most ONCE per answer: if you already corrected or accepted it, "
+        "ignore the note.\n"
         f"- If the student is stuck or speaks {help_language}: give ONE short help sentence in "
         f"{help_language} that includes the Indonesian student line, then continue in Indonesian.\n"
         "- Keep reactions tiny (like \"Bagus!\"). This is acting out the comic, not a lesson: no "
@@ -292,6 +294,25 @@ def build_comic_roleplay_prompt(
 
 
 FILLER_WORDS = {"em", "emm", "eh", "ehm", "hmm", "uh", "um", "ah", "oh", "hm"}
+
+# gpt-live-1 hears the audio itself, while our check reads a transcript that
+# can be wrong ("Ha- e- i" for "Baik"). Before treating an answer as wrong,
+# wait this long and let the AI's own reaction decide.
+CORRECTION_GRACE_SECONDS = 3.0
+PRAISE_WORDS = ("bagus", "pintar", "hebat", "benar", "betul", "terima kasih", "mantap")
+CORRECTION_WORDS = ("coba", "bilang", "hampir", "ulang")
+
+
+def ai_accepted_answer(agent_text: str, next_teacher_line: str = "") -> bool:
+    """True when the AI's reaction shows it judged the answer right: it moved
+    on to the next teacher line, or praised without correcting."""
+    text = _normalize(agent_text)
+    if next_teacher_line and _normalize(next_teacher_line) in text:
+        return True
+    words = text.split()
+    corrected = any(word in words for word in CORRECTION_WORDS)
+    praised = any(f" {phrase} " in f" {text} " for phrase in PRAISE_WORDS)
+    return praised and not corrected
 
 
 def is_answer_attempt(text: str) -> bool:
@@ -448,8 +469,12 @@ class RoleplayController:
     _recent_user: list[tuple[float, str]] = field(default_factory=list)
     _recent_agent: list[tuple[float, str]] = field(default_factory=list)
     _feedback_task: Optional[asyncio.Task] = None
+    # When the student started their current/latest answer.
+    user_started_at: Optional[float] = None
 
     async def on_user_partial(self, fragment: str) -> None:
+        if not self._user_partial:
+            self.user_started_at = time.monotonic()
         self._user_partial.append(fragment)
         await self.send_event({
             "type": "transcript_partial",
@@ -481,7 +506,22 @@ class RoleplayController:
         self._schedule_feedback()
 
     def on_agent_partial(self, fragment: str) -> None:
-        self._recent_agent.append((time.monotonic(), fragment))
+        now = time.monotonic()
+        self._recent_agent = [(t, s) for t, s in self._recent_agent if now - t <= 60] + [
+            (now, fragment)
+        ]
+
+    def agent_text_since(self, since: float) -> str:
+        return " ".join(s for t, s in self._recent_agent if t >= since)
+
+    async def complete_current(self) -> None:
+        """Mark the current in-order objective done because the AI accepted
+        the answer even though the transcript didn't match."""
+        remaining = self.tracker.remaining
+        if not remaining:
+            return
+        self.tracker.completed.add(remaining[0].id)
+        await self.send_event({"type": "roleplay_objective", "objectiveId": remaining[0].id})
 
     async def on_agent_final(self, text: str) -> None:
         self._add_turn("agent", text)
