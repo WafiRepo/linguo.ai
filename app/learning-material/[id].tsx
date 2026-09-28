@@ -1,20 +1,50 @@
 import { Ionicons } from "@expo/vector-icons";
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { VocabularyRow } from "@/components/VocabularyRow";
+import { vocabAudio } from "@/constants/audio";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
 import { getLearningMaterial } from "@/data/learningMaterials";
+import { resetPhoneAudioToMedia } from "@/lib/audioMode";
+import { speakWithDevice } from "@/lib/deviceSpeech";
 import { useT } from "@/lib/i18n";
+import { VocabularyItem } from "@/types/learningMaterial";
 
 export default function LearningMaterialScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useT();
   const material = getLearningMaterial(id ?? "");
+  // One player for the whole list: a tap stops whatever is playing and
+  // starts the new word from the beginning, so fast taps never overlap.
+  const player = useAudioPlayer();
+  const status = useAudioPlayerStatus(player);
+  const [playingWord, setPlayingWord] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+  }, []);
+
+  function playWord(item: VocabularyItem) {
+    // In case a finished AI call left the phone in call-audio mode.
+    resetPhoneAudioToMedia();
+    const recording = vocabAudio[item.speakText];
+    if (!recording) {
+      player.pause();
+      speakWithDevice(item.speakText);
+      return;
+    }
+    setPlayingWord(item.word);
+    player.replace(recording);
+    player.seekTo(0).catch(() => {});
+    player.play();
+  }
 
   if (!material) {
     return (
@@ -58,7 +88,12 @@ export default function LearningMaterialScreen() {
         <Text style={styles.sectionTitle}>{t("material.listenVocab")}</Text>
         <View style={styles.vocabList}>
           {material.vocabulary.map((item) => (
-            <VocabularyRow key={item.word} item={item} />
+            <VocabularyRow
+              key={item.word}
+              item={item}
+              isPlaying={status.playing && playingWord === item.word}
+              onPlay={() => playWord(item)}
+            />
           ))}
         </View>
       </ScrollView>
