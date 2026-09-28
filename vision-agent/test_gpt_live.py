@@ -144,7 +144,10 @@ class GptLiveTest(unittest.IsolatedAsyncioTestCase):
             llm = GptLive(api_key="test")
             await llm.connect()
             await llm.append_instructions("MISSION STATUS: test")
+            await llm.append_thinking("TURN STATUS: quiet")
             await llm.close()
+        thinking = [e for e in server.received if e["type"] == "session.thinking.append"]
+        self.assertEqual([e["content"] for e in thinking], ["TURN STATUS: quiet"])
         appended = [e for e in server.received if e["type"] == "session.instructions.append"]
         self.assertEqual(appended, [{
             "type": "session.instructions.append",

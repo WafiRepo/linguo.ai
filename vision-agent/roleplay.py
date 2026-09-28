@@ -24,6 +24,9 @@ OBJECTIVE_MATCH_SCORE = 0.75
 # A pause splits one spoken sentence into several transcript pieces, so
 # missions are matched against the last few pieces joined together.
 USER_WINDOW_SECONDS = 12.0
+# What the AI said this recently counts as "already said" when deciding
+# whether a status note would only make it repeat itself.
+AGENT_RECENT_SECONDS = 8.0
 # Feedback is regenerated once the student has been quiet this long, so an
 # up-to-date review is ready whenever they end the conversation.
 FEEDBACK_IDLE_SECONDS = 5.0
@@ -264,23 +267,38 @@ def build_comic_roleplay_prompt(
         f"{help_language} that includes the Indonesian student line, then continue in Indonesian.\n"
         "- Keep reactions tiny (like \"Bagus!\"). This is acting out the comic, not a lesson: no "
         "explanations, no other topics, no new vocabulary.\n"
-        "- You will receive TURN STATUS updates saying which line comes next — follow them.\n"
+        "- Quiet TURN STATUS notes tell you where you are in the script. Use them to stay on "
+        "track, but never repeat a line you have already said.\n"
         "- After the last dialogue, close warmly in one short sentence.\n\n"
         f"{SAFETY_RULES}"
     )
 
 
-def comic_status_text(tracker: RoleplayTracker, turns: list[dict[str, Any]]) -> str:
+def comic_status_text(
+    tracker: RoleplayTracker,
+    turns: list[dict[str, Any]],
+    recent_agent_text: str = "",
+) -> Optional[str]:
+    """Quiet position note for the model, or None when it is already on track.
+
+    gpt-live-1 usually moves to the next line by itself right after the
+    student answers; telling it that line again made it say it twice.
+    """
     remaining = tracker.remaining
     if not remaining:
         return (
-            "TURN STATUS: the student has finished every dialogue in the comic. Close warmly in "
-            "one short sentence."
+            "TURN STATUS (for your information, do not read aloud): the student has finished "
+            "every dialogue in the comic. If you have already praised them or said goodbye, say "
+            "nothing more; otherwise close warmly in one short sentence."
         )
     next_index = tracker.objectives.index(remaining[0])
+    next_line = turns[next_index]["guru"]
+    if _normalize(next_line) in _normalize(recent_agent_text):
+        return None
     return (
-        f"TURN STATUS: dialogue {next_index} of {len(turns)} is done. Next, say exactly this "
-        f'TEACHER line and then wait for the student: "{turns[next_index]["guru"]}"'
+        f"TURN STATUS (for your information, do not read aloud): dialogue {next_index} of "
+        f'{len(turns)} is done. The next TEACHER line is: "{next_line}". If you have already '
+        "said it, do NOT say it again — just wait for the student."
     )
 
 
@@ -295,19 +313,22 @@ def roleplay_kickoff_hint(custom: dict[str, Any]) -> str:
     )
 
 
-def mission_status_text(tracker: RoleplayTracker) -> str:
+def mission_status_text(tracker: RoleplayTracker, recent_agent_text: str = "") -> str:
     remaining = tracker.remaining
     if not remaining:
         return (
-            "MISSION STATUS: the student has completed every mission. You may now close the "
-            "scene warmly in character, in one or two sentences."
+            "MISSION STATUS (for your information, do not read aloud): the student has "
+            "completed every mission. If you have not closed the scene yet, close it warmly in "
+            "character in one or two sentences; otherwise say nothing more."
         )
     done = [_goal_label(o) for o in tracker.objectives if o.id in tracker.completed]
     return (
-        f"MISSION STATUS: done so far: {'; '.join(done) or 'nothing yet'}. "
+        "MISSION STATUS (for your information, do not read aloud): "
+        f"done so far: {'; '.join(done) or 'nothing yet'}. "
         f"Still to do: {'; '.join(_goal_label(o) for o in remaining)}. "
         "Let the student do these themselves — give them a natural opening with a short "
-        "question, never do it for them, and do not end the scene yet."
+        "question, never do it for them, and do not end the scene yet. Never repeat something "
+        "you have just said."
     )
 
 
@@ -374,10 +395,11 @@ class RoleplayController:
     tracker: RoleplayTracker
     append_instructions: Optional[Callable[[str], Awaitable[None]]] = None
     generate_feedback: Optional[Callable[[list[dict[str, str]]], Awaitable[Optional[dict[str, Any]]]]] = None
-    status_text: Callable[[RoleplayTracker], str] = mission_status_text
+    status_text: Callable[[RoleplayTracker, str], Optional[str]] = mission_status_text
     turns: list[dict[str, str]] = field(default_factory=list)
     _user_partial: list[str] = field(default_factory=list)
     _recent_user: list[tuple[float, str]] = field(default_factory=list)
+    _recent_agent: list[tuple[float, str]] = field(default_factory=list)
     _feedback_task: Optional[asyncio.Task] = None
 
     async def on_user_partial(self, fragment: str) -> None:
@@ -402,9 +424,17 @@ class RoleplayController:
             logger.info("[roleplay] objective done: %s", objective.id)
             await self.send_event({"type": "roleplay_objective", "objectiveId": objective.id})
         if newly_done and self.append_instructions is not None:
-            await self.append_instructions(self.status_text(self.tracker))
+            recent = " ".join(
+                s for t, s in self._recent_agent if now - t <= AGENT_RECENT_SECONDS
+            )
+            status = self.status_text(self.tracker, recent)
+            if status:
+                await self.append_instructions(status)
 
         self._schedule_feedback()
+
+    def on_agent_partial(self, fragment: str) -> None:
+        self._recent_agent.append((time.monotonic(), fragment))
 
     async def on_agent_final(self, text: str) -> None:
         self._add_turn("agent", text)

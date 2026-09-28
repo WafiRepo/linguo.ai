@@ -116,6 +116,14 @@ class GptLive(realtime.Realtime):
             "content": content,
         })
 
+    async def append_thinking(self, content: str) -> None:
+        """Add quiet context: informs the model without prompting it to speak."""
+        await self._send({
+            "type": "session.thinking.append",
+            "delegation_id": None,
+            "content": content,
+        })
+
     async def simple_audio_response(self, pcm: PcmData, participant: Participant) -> None:
         self._current_participant = participant
         if self._ws is None or self._started is None or not self._started.is_set():

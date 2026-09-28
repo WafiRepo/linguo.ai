@@ -95,6 +95,35 @@ class ControllerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(seen_turns), 1)
 
 
+class ComicControllerTest(unittest.IsolatedAsyncioTestCase):
+    async def test_ai_moving_on_by_itself_gets_no_repeat_prompt(self):
+        """Replays the logged case: the AI said the next line before the status was sent."""
+        turns = roleplay.comic_turns(COMIC_RAW)
+        notes: list[str] = []
+
+        async def send(payload):
+            pass
+
+        async def append(text):
+            notes.append(text)
+
+        controller = RoleplayController(
+            send_event=send,
+            tracker=RoleplayTracker(roleplay.comic_objectives(turns), sequential=True),
+            append_instructions=append,
+            status_text=lambda t, recent: roleplay.comic_status_text(t, turns, recent),
+        )
+        for fragment in (" Bagus!", " Tekan", " tombolnya."):
+            controller.on_agent_partial(fragment)
+        await controller.on_user_final("Baik, Bu Guru")
+        self.assertEqual(notes, [])
+
+        await controller.on_user_final("Sudah")  # AI hasn't said line 3 yet
+        self.assertEqual(len(notes), 1)
+        self.assertIn("Besarkan suaranya sedikit.", notes[0])
+        controller.close()
+
+
 class FeedbackTest(unittest.IsolatedAsyncioTestCase):
     def test_parse_feedback_clips_and_validates(self):
         raw = json.dumps({
@@ -164,6 +193,13 @@ class ComicTest(unittest.TestCase):
         done = [o.id for o in self.tracker.record("Oke, Bu")]
         self.assertEqual(done, ["turn-1", "turn-2"])
         self.assertIn("finished every dialogue", roleplay.comic_status_text(self.tracker, self.turns))
+
+    def test_no_status_when_ai_already_said_next_line(self):
+        self.tracker.record("Baik, Bu Guru")
+        self.assertIsNone(
+            roleplay.comic_status_text(self.tracker, self.turns, " Bagus! Tekan tombolnya.")
+        )
+        self.assertIsNotNone(roleplay.comic_status_text(self.tracker, self.turns, " Bagus!"))
 
     def test_prompt_contains_script_in_order(self):
         prompt = roleplay.build_comic_roleplay_prompt(self.turns, "English", "Topik 1")

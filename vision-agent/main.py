@@ -342,7 +342,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 parse_class_turns(custom.get("class_turns") or custom.get("class_turns_json"))
             )
             tracker = RoleplayTracker(comic_objectives(turns), sequential=True)
-            status_text = lambda t: comic_status_text(t, turns)  # noqa: E731
+            status_text = lambda t, recent: comic_status_text(t, turns, recent)  # noqa: E731
             system_prompt = build_comic_roleplay_prompt(
                 turns, help_language, str(custom.get("topic_title") or "")
             )
@@ -367,7 +367,9 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         roleplay = RoleplayController(
             send_event=send_roleplay_event,
             tracker=tracker,
-            append_instructions=agent.llm.append_instructions if is_gpt_live else None,
+            # Quiet context: status notes must not prompt the model to speak,
+            # or it repeats lines it already said on its own.
+            append_instructions=agent.llm.append_thinking if is_gpt_live else None,
             generate_feedback=lambda history: generate_roleplay_feedback(
                 feedback_client, feedback_model, history, help_language
             ),
@@ -559,6 +561,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         original_emit_agent(text, mode=mode)
         if mode == "delta" and text:
             partial_agent.append(text)
+            if roleplay is not None:
+                roleplay.on_agent_partial(text)
             asyncio.create_task(
                 agent.send_custom_event({
                     "type": "transcript_partial",
