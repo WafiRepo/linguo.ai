@@ -66,15 +66,24 @@ def parse_objectives(raw: object) -> list[RoleplayObjective]:
     return objectives
 
 
+MIN_COMPACT_MATCH_CHARS = 4
+
+
 def objective_matched(text: str, targets: list[str]) -> bool:
     """Whole-phrase match, so a stray "ini" can't tick off "berapa harganya ini"."""
     normalized = f" {_normalize(text)} "
     tokens = set(normalized.split())
+    # Learners often say a word syllable by syllable ("Su- dah"), which the
+    # transcript splits apart; compare with spaces removed as well.
+    compact = normalized.replace(" ", "")
     for target in targets:
         normalized_target = _normalize(target)
         if not normalized_target:
             continue
         if f" {normalized_target} " in normalized:
+            return True
+        compact_target = normalized_target.replace(" ", "")
+        if len(compact_target) >= MIN_COMPACT_MATCH_CHARS and compact_target in compact:
             return True
         target_tokens = set(normalized_target.split())
         if len(target_tokens) >= 2 and (

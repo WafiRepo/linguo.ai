@@ -230,6 +230,10 @@ class ComicTest(unittest.TestCase):
         self.assertEqual(done, ["turn-1", "turn-2"])
         self.assertIn("finished every dialogue", roleplay.comic_status_text(self.tracker, self.turns))
 
+    def test_syllable_split_answer_counts(self):
+        self.tracker.record("Baik, Bu Guru")
+        self.assertEqual([o.id for o in self.tracker.record("Su- dah")], ["turn-1"])
+
     def test_no_status_when_ai_already_said_next_line(self):
         self.tracker.record("Baik, Bu Guru")
         self.assertIsNone(
