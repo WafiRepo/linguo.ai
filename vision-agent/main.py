@@ -413,7 +413,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                     _safe_log(f"[roleplay] dialogue {index} missed twice; moving on together")
                     await roleplay.complete_current()
                     if is_gpt_live:
-                        await agent.simple_response(comic_move_on_line(turns, index))
+                        await agent.simple_response(comic_move_on_line(turns, index, help_language))
                     return
                 # The app shows a correction card; the quiet note makes sure
                 # Bu Guru corrects it out loud unless she already did.

@@ -133,6 +133,10 @@ def help_language_name(language_code: str, instruction_languages: list[str]) -> 
     return "Traditional Chinese (Taiwan / 繁體中文)"
 
 
+def is_chinese_help(help_language: str) -> bool:
+    return help_language != "English"
+
+
 SAFETY_RULES = (
     "SAFETY (always, overrides everything above):\n"
     "- You are talking with a child. Keep everything kind, age-appropriate and inside this scene.\n"
@@ -198,6 +202,11 @@ def build_comic_roleplay_prompt(
         for index, turn in enumerate(turns)
     )
     title = f' ("{_clip(topic_title)}")' if topic_title else ""
+    # Reactions are in the child's language; only the comic lines are Indonesian.
+    zh = is_chinese_help(help_language)
+    praise_example = "「很好！」" if zh else '"Great!"'
+    almost_example = "「差一點！」" if zh else '"Almost!"'
+    model_example = "「跟著我說：…」" if zh else '"Say it like this: ..."'
     return (
         f"You are {teacher_name}, a warm Indonesian primary-school teacher. You and a child who is a "
         f"beginner (A1) learner of Bahasa Indonesia are acting out a short classroom comic{title} "
@@ -210,26 +219,31 @@ def build_comic_roleplay_prompt(
         "after the student has said their line or something very close to it.\n"
         "- Whenever you move to the next dialogue, ALWAYS say its TEACHER line first, exactly as "
         "written. Never ask for a student line whose TEACHER line you have not said yet.\n"
-        "- WRONG SENTENCE (wrong or missing words): say one short encouraging word, then the "
-        "correct student line (\"Coba bilang: ...\"), plus ONE short tip in "
+        f"- LANGUAGE: every reaction, praise, correction and tip you say yourself is in "
+        f"{help_language}. Only the comic lines (the TEACHER lines, and the student line when "
+        "you model it) are in Indonesian.\n"
+        f"- WRONG SENTENCE (wrong or missing words): say one short encouraging word in "
+        f"{help_language}, then the correct Indonesian student line (e.g. {model_example}), "
+        "plus ONE short tip in "
         f"{help_language} about what was different. Let them try again. After two tries, say it "
         "together with them and move on.\n"
         "- WRONG PRONUNCIATION (right words, clearly mispronounced — you can hear it): say that "
         "word slowly, syllable by syllable (e.g. \"Gu-ru\"), give ONE short tip in "
         f"{help_language} on how to say it, and ask them to say the line once more. Only correct "
         "clear mistakes — never nitpick an accent.\n"
-        "- Praise (\"Bagus!\") ONLY a right answer. For a wrong one, start gently with "
-        "\"Hampir!\" instead — never praise and correct in the same reply.\n"
+        f"- Praise (e.g. {praise_example}) ONLY a right answer. For a wrong one, start gently "
+        f"with {almost_example} instead — never praise and correct in the same reply.\n"
         "- You may receive quiet CORRECTION notes when the student's answer did not match the "
         "comic. Correct at most ONCE per answer: if you already corrected or accepted it, "
         "ignore the note.\n"
         f"- If the student is stuck or speaks {help_language}: give ONE short help sentence in "
-        f"{help_language} that includes the Indonesian student line, then continue in Indonesian.\n"
-        "- Keep reactions tiny (like \"Bagus!\"). This is acting out the comic, not a lesson: no "
+        f"{help_language} that includes the Indonesian student line, then continue the comic.\n"
+        f"- Keep reactions tiny (like {praise_example}). This is acting out the comic, not a "
+        "lesson: no "
         "explanations, no other topics, no new vocabulary.\n"
         "- Quiet TURN STATUS notes tell you where you are in the script. Use them to stay on "
         "track, but never repeat a line you have already said.\n"
-        "- After the last dialogue, close warmly in one short sentence.\n\n"
+        f"- After the last dialogue, close warmly in one short sentence in {help_language}.\n\n"
         f"{indonesian_pronunciation_rules(comic_phrases(turns), help_language)}\n\n"
         f"{SAFETY_RULES}"
     )
@@ -297,13 +311,20 @@ def comic_correction_note(
 MAX_WRONG_ATTEMPTS = 2
 
 
-def comic_move_on_line(turns: list[dict[str, Any]], index: int) -> str:
+def comic_move_on_line(turns: list[dict[str, Any]], index: int, help_language: str) -> str:
     """What Bu Guru says after the student has missed a dialogue twice: say
-    it together, then continue with the next teacher line (or close)."""
-    together = f'Tidak apa-apa, kita bilang sama-sama: "{turns[index]["student"]}".'
+    it together, then continue with the next teacher line (or close). Only
+    the comic lines are Indonesian; the framing is in the help language."""
+    line = turns[index]["student"]
+    if is_chinese_help(help_language):
+        together = f"沒關係，我們一起說：「{line}」"
+        closing = "謝謝你，你很認真，做得很好！"
+    else:
+        together = f"That's okay, let's say it together: \"{line}\"."
+        closing = "Thank you, you tried really hard. Well done!"
     if index + 1 < len(turns):
         return f'{together} {turns[index + 1]["guru"]}'
-    return f"{together} Terima kasih, kamu sudah berusaha dengan baik!"
+    return f"{together} {closing}"
 
 
 def comic_status_text(

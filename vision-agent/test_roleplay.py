@@ -255,12 +255,23 @@ class ComicTest(unittest.TestCase):
         self.assertIn("finished every dialogue", roleplay.comic_status_text(self.tracker, self.turns))
 
     def test_move_on_line_says_next_teacher_line_or_closes(self):
-        middle = roleplay.comic_move_on_line(self.turns, 1)
+        middle = roleplay.comic_move_on_line(self.turns, 1, "English")
         self.assertIn('"Sudah."', middle)
         self.assertTrue(middle.endswith("Besarkan suaranya sedikit."))
-        last = roleplay.comic_move_on_line(self.turns, 2)
+        last = roleplay.comic_move_on_line(self.turns, 2, "English")
         self.assertIn('"Oke, Bu."', last)
-        self.assertIn("Terima kasih", last)
+        self.assertIn("Thank you", last)
+        zh = roleplay.comic_move_on_line(self.turns, 2, roleplay.help_language_name("id", ["zh-TW"]))
+        self.assertIn("我們一起說", zh)
+        self.assertIn("Oke, Bu.", zh)
+
+    def test_comic_prompt_reactions_follow_help_language(self):
+        zh = roleplay.build_comic_roleplay_prompt(self.turns, "Traditional Chinese (Taiwan / 繁體中文)")
+        self.assertIn("很好", zh)
+        self.assertNotIn("Bagus", zh)
+        self.assertNotIn("Hampir", zh)
+        en = roleplay.build_comic_roleplay_prompt(self.turns, "English")
+        self.assertIn('"Great!"', en)
 
     def test_echoing_teacher_line_does_not_count(self):
         turns = roleplay.comic_turns([

@@ -24,6 +24,7 @@ from roleplay import (
     comic_correction_note,
     comic_phrases,
     is_answer_attempt,
+    is_chinese_help,
     objective_hit,
 )
 
@@ -83,10 +84,6 @@ def build_comic_practice_prompt(
         f"{indonesian_pronunciation_rules(comic_phrases(turns), help_language)}\n\n"
         f"{SAFETY_RULES}"
     )
-
-
-def is_chinese_help(help_language: str) -> bool:
-    return help_language != "English"
 
 
 # Script lines are framed in the help language (the child's language); only the
