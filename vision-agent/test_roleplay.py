@@ -258,6 +258,14 @@ class ComicTest(unittest.TestCase):
         self.assertEqual(done, ["turn-1", "turn-2"])
         self.assertIn("finished every dialogue", roleplay.comic_status_text(self.tracker, self.turns))
 
+    def test_move_on_line_says_next_teacher_line_or_closes(self):
+        middle = roleplay.comic_move_on_line(self.turns, 1)
+        self.assertIn('"Sudah."', middle)
+        self.assertTrue(middle.endswith("Besarkan suaranya sedikit."))
+        last = roleplay.comic_move_on_line(self.turns, 2)
+        self.assertIn('"Oke, Bu."', last)
+        self.assertIn("Terima kasih", last)
+
     def test_syllable_split_answer_counts(self):
         self.tracker.record("Baik, Bu Guru")
         self.assertEqual([o.id for o in self.tracker.record("Su- dah")], ["turn-1"])

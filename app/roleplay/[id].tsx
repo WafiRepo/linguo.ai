@@ -516,9 +516,10 @@ function ComicPanel({
 }) {
   const total = topic.turns.length;
   const turn = topic.turns[turnIndex];
+  const lastTurn = topic.turns[total - 1];
   const image = turn
     ? images[phase === "guru" ? turn.guruImageKey : turn.studentImageKey]
-    : images[topic.imageKey];
+    : images[lastTurn?.studentImageKey ?? topic.imageKey];
 
   return (
     <View className="mx-4 mb-3">

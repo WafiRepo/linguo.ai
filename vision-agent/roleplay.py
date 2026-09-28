@@ -269,6 +269,8 @@ def build_comic_roleplay_prompt(
         "time — then stop and wait for the student.\n"
         "- Never say the student's line before they have tried. Go to the next TEACHER line only "
         "after the student has said their line or something very close to it.\n"
+        "- Whenever you move to the next dialogue, ALWAYS say its TEACHER line first, exactly as "
+        "written. Never ask for a student line whose TEACHER line you have not said yet.\n"
         "- WRONG SENTENCE (wrong or missing words): say one short encouraging word, then the "
         "correct student line (\"Coba bilang: ...\"), plus ONE short tip in "
         f"{help_language} about what was different. Let them try again. After two tries, say it "
@@ -338,6 +340,18 @@ def comic_correction_note(
         f'kindly do it now: model the line once ("Coba bilang: {expected}") with one short tip in '
         f"{help_language}, then wait. Do not move to the next TEACHER line yet."
     )
+
+
+MAX_WRONG_ATTEMPTS = 2
+
+
+def comic_move_on_line(turns: list[dict[str, Any]], index: int) -> str:
+    """What Bu Guru says after the student has missed a dialogue twice: say
+    it together, then continue with the next teacher line (or close)."""
+    together = f'Tidak apa-apa, kita bilang sama-sama: "{turns[index]["student"]}".'
+    if index + 1 < len(turns):
+        return f'{together} {turns[index + 1]["guru"]}'
+    return f"{together} Terima kasih, kamu sudah berusaha dengan baik!"
 
 
 def comic_status_text(

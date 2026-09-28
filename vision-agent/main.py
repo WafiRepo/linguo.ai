@@ -37,12 +37,14 @@ from gpt_live import GptLive  # noqa: E402
 from pronunciation import append_pronunciation_guide  # noqa: E402
 from roleplay import (  # noqa: E402
     CORRECTION_GRACE_SECONDS,
+    MAX_WRONG_ATTEMPTS,
     RoleplayController,
     RoleplayTracker,
     ai_accepted_answer,
     build_comic_roleplay_prompt,
     build_roleplay_system_prompt,
     comic_correction_note,
+    comic_move_on_line,
     comic_objectives,
     comic_status_text,
     comic_turns,
@@ -383,6 +385,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
 
         if is_comic_roleplay:
             pending_miss: list[asyncio.Task] = []
+            wrong_attempts: dict[int, int] = {}
 
             async def resolve_comic_miss(said: str, index: int, started_at: float) -> None:
                 await asyncio.sleep(CORRECTION_GRACE_SECONDS)
@@ -395,6 +398,16 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                     # The transcript misheard; the AI (which hears the audio) was right.
                     _safe_log(f"[roleplay] AI accepted {said!r} for dialogue {index}; syncing")
                     await roleplay.complete_current()
+                    return
+                wrong_attempts[index] = wrong_attempts.get(index, 0) + 1
+                if wrong_attempts[index] >= MAX_WRONG_ATTEMPTS:
+                    # Don't leave a child stuck: say it together and move on.
+                    # Commentary is voiced as written, so the next teacher
+                    # line can't be skipped the way the model sometimes did.
+                    _safe_log(f"[roleplay] dialogue {index} missed twice; moving on together")
+                    await roleplay.complete_current()
+                    if is_gpt_live:
+                        await agent.simple_response(comic_move_on_line(turns, index))
                     return
                 # The app shows a correction card; the quiet note makes sure
                 # Bu Guru corrects it out loud unless she already did.
