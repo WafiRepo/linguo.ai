@@ -43,7 +43,6 @@ from roleplay import (  # noqa: E402
     RoleplayTracker,
     ai_accepted_answer,
     build_comic_roleplay_prompt,
-    build_roleplay_system_prompt,
     comic_correction_note,
     comic_move_on_line,
     comic_objectives,
@@ -51,9 +50,7 @@ from roleplay import (  # noqa: E402
     comic_turns,
     generate_roleplay_feedback,
     is_answer_attempt,
-    mission_status_text,
     help_language_name,
-    parse_objectives,
     roleplay_kickoff_hint,
     roleplay_opening_line,
 )
@@ -291,7 +288,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
     # comic_practice is AI Teacher's Latihan on the live engine:
     # listen → repeat → answer from memory, step by step.
     is_comic_practice = session_mode == "comic_practice"
-    is_roleplay = session_mode == "roleplay" or is_comic_roleplay or is_comic_practice
+    is_roleplay = is_comic_roleplay or is_comic_practice
 
     system_prompt  = custom.get("system_prompt") or DEFAULT_SYSTEM_PROMPT
     if not custom.get("system_prompt") and not is_roleplay:
@@ -351,35 +348,25 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         )
     elif is_roleplay:
         help_language = help_language_name(language_code, lesson_instruction_languages)
-        if is_comic_roleplay or is_comic_practice:
-            turns = comic_turns(
-                parse_class_turns(custom.get("class_turns") or custom.get("class_turns_json"))
+        turns = comic_turns(
+            parse_class_turns(custom.get("class_turns") or custom.get("class_turns_json"))
+        )
+        tracker = RoleplayTracker(comic_objectives(turns), sequential=True)
+        topic_title = str(custom.get("topic_title") or "")
+        # Some comics have a male teacher; only these two roles exist.
+        teacher = "Pak Guru" if custom.get("ai_name") == "Pak Guru" else "Bu Guru"
+        if teacher == "Pak Guru" and is_gpt_live:
+            agent.llm.voice = MALE_TEACHER_VOICE  # read when the session connects
+        if is_comic_practice:
+            # The practice flow voices every next line itself; no status notes.
+            status_text = lambda t, recent: None  # noqa: E731
+            system_prompt = build_comic_practice_prompt(
+                turns, help_language, topic_title, teacher
             )
-            tracker = RoleplayTracker(comic_objectives(turns), sequential=True)
-            topic_title = str(custom.get("topic_title") or "")
-            # Some comics have a male teacher; only these two roles exist.
-            teacher = "Pak Guru" if custom.get("ai_name") == "Pak Guru" else "Bu Guru"
-            if teacher == "Pak Guru" and is_gpt_live:
-                agent.llm.voice = MALE_TEACHER_VOICE  # read when the session connects
-            if is_comic_practice:
-                # The practice flow voices every next line itself; no status notes.
-                status_text = lambda t, recent: None  # noqa: E731
-                system_prompt = build_comic_practice_prompt(
-                    turns, help_language, topic_title, teacher
-                )
-            else:
-                status_text = lambda t, recent: comic_status_text(t, turns, recent)  # noqa: E731
-                system_prompt = build_comic_roleplay_prompt(
-                    turns, help_language, topic_title, teacher
-                )
         else:
-            tracker = RoleplayTracker(parse_objectives(custom.get("objectives")))
-            status_text = mission_status_text
-            system_prompt = build_roleplay_system_prompt(
-                custom,
-                tracker.objectives,
-                help_language,
-                live_mission_updates=is_gpt_live,
+            status_text = lambda t, recent: comic_status_text(t, turns, recent)  # noqa: E731
+            system_prompt = build_comic_roleplay_prompt(
+                turns, help_language, topic_title, teacher
             )
         feedback_client = AsyncOpenAI()
         feedback_model = os.getenv("ROLEPLAY_FEEDBACK_MODEL", "gpt-5.4-mini")

@@ -27,8 +27,6 @@ import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
 import { getClassTopic } from "@/data/classManagement";
-import { LESSONS } from "@/data/lessons";
-import { getRoleplayScenario } from "@/data/roleplays";
 import { apiUrl } from "@/lib/api";
 import {
   comicCallCustomData,
@@ -58,17 +56,9 @@ type ComicCorrection = {
 // Latihan steps sent by the server: listen → repeat → answer-intro → answer.
 type PracticeStep = "listen" | "repeat" | "answer-intro" | "answer" | "done";
 
-const MAX_KNOWN_WORDS = 40;
 const COMIC_HEIGHT = Math.min(Dimensions.get("window").height * 0.3, 280);
 // Latihan also shows step chips and the line card, so its comic is smaller.
 const PRACTICE_COMIC_HEIGHT = Math.min(Dimensions.get("window").height * 0.22, 200);
-
-// Words from lessons the student finished, so the AI can stay at their level.
-function getKnownWords(completedLessonIds: string[]): string[] {
-  return LESSONS.filter((lesson) => completedLessonIds.includes(lesson.id))
-    .flatMap((lesson) => lesson.vocabulary.map((item) => item.word))
-    .slice(0, MAX_KNOWN_WORDS);
-}
 
 function parseFeedback(data: {
   praise?: unknown;
@@ -98,17 +88,15 @@ function LiveRoleplayScreen() {
   const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
   const { tutorVoice, tutorEmotion } = useLanguageStore();
-  const completeRoleplay = useLearningStore((s) => s.completeRoleplay);
   const completeClassTopic = useLearningStore((s) => s.completeClassTopic);
 
-  // kind=comic is AI Teacher's Role Play: a class-management comic acted out live.
+  // AI Teacher's comic topics, acted out live: Role Play, or with
+  // mode=practice the Latihan (listen → repeat → answer).
   const comic = kind === "comic" ? getClassTopic(id ?? "") : undefined;
-  // mode=practice is AI Teacher's live Latihan: listen → repeat → answer.
   const isPractice = !!comic && mode === "practice";
   const scenario = useMemo(
-    () =>
-      comic ? comicTopicToScenario(comic, isPractice) : getRoleplayScenario(id ?? ""),
-    [comic, id, isPractice],
+    () => (comic ? comicTopicToScenario(comic, isPractice) : undefined),
+    [comic, isPractice],
   );
   const [practiceStep, setPracticeStep] = useState<PracticeStep>("listen");
   const [stars, setStars] = useState<number[]>([]);
@@ -148,7 +136,7 @@ function LiveRoleplayScreen() {
     setStars([]);
     posthog.capture("roleplay_started", {
       scenario_id: scenario.id,
-      kind: isPractice ? "comic_practice" : comic ? "comic" : "scenario",
+      kind: isPractice ? "comic_practice" : "comic",
       tutor_voice: tutorVoice,
     });
 
@@ -162,23 +150,19 @@ function LiveRoleplayScreen() {
   }, [isLoaded, user, scenario, comic, isPractice, tutorVoice, tutorEmotion]);
 
   useEffect(() => {
-    if (!missionComplete || !scenario || rewardedRef.current) return;
+    if (!missionComplete || !comic || rewardedRef.current) return;
     rewardedRef.current = true;
-    if (comic) {
-      completeClassTopic(comic.id, comic.xpReward);
-    } else {
-      completeRoleplay(scenario.id, scenario.xpReward);
-    }
+    completeClassTopic(comic.id, comic.xpReward);
     posthog.capture("roleplay_completed", {
-      scenario_id: scenario.id,
+      scenario_id: comic.id,
       duration_seconds: startTimeRef.current
         ? Math.floor((Date.now() - startTimeRef.current) / 1000)
         : 0,
     });
-  }, [missionComplete, scenario, comic, completeRoleplay, completeClassTopic]);
+  }, [missionComplete, comic, completeClassTopic]);
 
   async function startCall() {
-    if (!user || !scenario) return;
+    if (!user || !comic) return;
     setCallStatus("connecting");
 
     try {
@@ -201,9 +185,7 @@ function LiveRoleplayScreen() {
         },
       });
 
-      const callId = comic
-        ? `roleplay-${isPractice ? "practice" : "comic"}-${comic.id}-${user.id}`
-        : `roleplay-${scenario.id}-${user.id}`;
+      const callId = `roleplay-${isPractice ? "practice" : "comic"}-${comic.id}-${user.id}`;
       const streamCall = streamClient.call("default", callId);
       await streamCall.join({ create: true });
 
@@ -221,27 +203,7 @@ function LiveRoleplayScreen() {
           tutor_emotion: tutorEmotion,
         };
         await streamCall.update({
-          custom: comic
-            ? { ...common, ...comicCallCustomData(comic, isPractice) }
-            : {
-                ...common,
-                mode: "roleplay",
-                scenario_id: scenario.id,
-                ai_name: scenario.aiName,
-                ai_role: scenario.aiRole,
-                setting: scenario.setting,
-                opening_line: scenario.openingLine,
-                known_words: JSON.stringify(
-                  getKnownWords(useLearningStore.getState().completedLessonIds),
-                ),
-                objectives: JSON.stringify(
-                  scenario.objectives.map(({ id: objectiveId, goal, targets }) => ({
-                    id: objectiveId,
-                    goal,
-                    targets,
-                  })),
-                ),
-              },
+          custom: { ...common, ...comicCallCustomData(comic, isPractice) },
         });
       } catch (updateErr) {
         console.warn("[roleplay] call.update failed:", updateErr);
@@ -384,11 +346,11 @@ function LiveRoleplayScreen() {
     setReviewing(true);
   }
 
-  if (!scenario) {
+  if (!scenario || !comic) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View className="flex-1 items-center justify-center">
-          <Text className="body-md text-text-secondary">找不到這個情境</Text>
+          <Text className="body-md text-text-secondary">找不到這個主題</Text>
         </View>
       </SafeAreaView>
     );
@@ -438,34 +400,24 @@ function LiveRoleplayScreen() {
         </Text>
       </View>
 
-      {comic ? (
-        <>
-          {isPractice ? (
-            <PracticePanel
-              topic={comic}
-              turnIndex={completedIds.length}
-              step={practiceStep}
-              stars={stars}
-            />
-          ) : (
-            <ComicPanel
-              topic={comic}
-              turnIndex={completedIds.length}
-              phase={comicPhase}
-            />
-          )}
-          {correction && correction.turnIndex === completedIds.length ? (
-            <CorrectionCard
-              said={correction.said}
-              expected={comic.turns[correction.turnIndex]?.studentLine.id ?? ""}
-              translation={comic.turns[correction.turnIndex]?.studentLine.zhTW ?? ""}
-              reveal={correctionReveal(correction)}
-            />
-          ) : null}
-        </>
+      {isPractice ? (
+        <PracticePanel
+          topic={comic}
+          turnIndex={completedIds.length}
+          step={practiceStep}
+          stars={stars}
+        />
       ) : (
-        <MissionCard scenario={scenario} completedIds={completedIds} />
+        <ComicPanel topic={comic} turnIndex={completedIds.length} phase={comicPhase} />
       )}
+      {correction && correction.turnIndex === completedIds.length ? (
+        <CorrectionCard
+          said={correction.said}
+          expected={comic.turns[correction.turnIndex]?.studentLine.id ?? ""}
+          translation={comic.turns[correction.turnIndex]?.studentLine.zhTW ?? ""}
+          reveal={correctionReveal(correction)}
+        />
+      ) : null}
 
       {callStatus === "joined" && client && call ? (
         <StreamVideo client={client}>

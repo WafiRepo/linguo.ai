@@ -1,4 +1,5 @@
-"""Speak-style live roleplay: the AI plays a character and replies freely."""
+"""Live comic sessions for AI Teacher (Role Play and Latihan): prompts, answer
+matching, transcripts and end-of-session feedback."""
 
 from __future__ import annotations
 
@@ -15,12 +16,10 @@ from pronunciation import indonesian_pronunciation_rules
 
 logger = logging.getLogger(__name__)
 
-# Scenario text arrives from the client via call custom data; cap it so a
+# Comic text arrives from the client via call custom data; cap it so a
 # tampered call can't smuggle a long prompt past the server-side rules below.
 MAX_FIELD_CHARS = 200
-MAX_OBJECTIVES = 6
 MAX_TARGETS = 8
-MAX_KNOWN_WORDS = 40
 OBJECTIVE_MATCH_SCORE = 0.75
 # A pause splits one spoken sentence into several transcript pieces, so
 # missions are matched against the last few pieces joined together.
@@ -49,28 +48,6 @@ class RoleplayObjective:
     # Share of a target's words that must be said. Comics need every word:
     # "Saya tahu" is 4/5 of "Saya tidak tahu, Pak Guru" but means the opposite.
     min_overlap: float = OBJECTIVE_MATCH_SCORE
-
-
-def parse_objectives(raw: object) -> list[RoleplayObjective]:
-    if isinstance(raw, str) and raw.strip():
-        try:
-            raw = json.loads(raw)
-        except json.JSONDecodeError:
-            return []
-    if not isinstance(raw, list):
-        return []
-
-    objectives: list[RoleplayObjective] = []
-    for item in raw[:MAX_OBJECTIVES]:
-        if not isinstance(item, dict):
-            continue
-        objective_id = _clip(item.get("id"))
-        targets = [_clip(t) for t in (item.get("targets") or [])[:MAX_TARGETS] if t]
-        if objective_id and targets:
-            objectives.append(
-                RoleplayObjective(id=objective_id, goal=_clip(item.get("goal")), targets=targets)
-            )
-    return objectives
 
 
 MIN_COMPACT_MATCH_CHARS = 4
@@ -150,86 +127,10 @@ class RoleplayTracker:
         return [o for o in self.objectives if o.id not in self.completed]
 
 
-def parse_known_words(raw: object) -> list[str]:
-    if isinstance(raw, str) and raw.strip():
-        try:
-            raw = json.loads(raw)
-        except json.JSONDecodeError:
-            return []
-    if not isinstance(raw, list):
-        return []
-    return [word[:40] for word in (str(item).strip() for item in raw) if word][:MAX_KNOWN_WORDS]
-
-
 def help_language_name(language_code: str, instruction_languages: list[str]) -> str:
     if uses_english_teacher(instruction_languages, language_code):
         return "English"
     return "Traditional Chinese (Taiwan / 繁體中文)"
-
-
-def _goal_label(objective: RoleplayObjective) -> str:
-    return f"{objective.goal or objective.id} (e.g. \"{objective.targets[0]}\")"
-
-
-def build_roleplay_system_prompt(
-    custom: dict[str, Any],
-    objectives: list[RoleplayObjective],
-    help_language: str,
-    live_mission_updates: bool = False,
-) -> str:
-    ai_name = _clip(custom.get("ai_name")) or "Sari"
-    ai_role = _clip(custom.get("ai_role")) or "a friendly Indonesian local"
-    setting = _clip(custom.get("setting")) or "an everyday situation in Indonesia"
-    mission = "; ".join(_goal_label(objective) for objective in objectives)
-    known_words = parse_known_words(custom.get("known_words"))
-    known_words_rule = (
-        "- The student has already learned these words — build your sentences mostly from "
-        f"them and introduce at most one new word per reply: {', '.join(known_words)}.\n"
-        if known_words
-        else ""
-    )
-    scenario_phrases = [
-        roleplay_opening_line(custom),
-        *(target for objective in objectives for target in objective.targets),
-        *known_words,
-    ]
-    # Only GPT-Live receives MISSION STATUS updates mid-session; the Realtime
-    # fallback has to judge completion on its own.
-    closing_rule = (
-        "- You will receive MISSION STATUS updates. Do not end the scene until one says every "
-        "mission is done; then close it warmly in character in one or two sentences.\n"
-        if live_mission_updates
-        else "- Once they have done all of it, close the scene warmly in character in one or two "
-        "sentences.\n"
-    )
-
-    return (
-        f"You are {ai_name}, {ai_role}. Scene: {setting}.\n"
-        "This is a LIVE SPOKEN ROLEPLAY with a child who is a beginner (A1) learner of "
-        "Bahasa Indonesia. Stay in character and talk like a real person in this scene — "
-        "this is a conversation, not a lecture.\n\n"
-        "CONVERSATION RULES:\n"
-        "- Speak simple, standard Bahasa Indonesia: short sentences (about 10 words max), "
-        "common everyday words, warm and a little slower than normal.\n"
-        "- Reply in 1–2 short sentences, then hand the turn back — usually with one simple "
-        "question that moves the scene forward.\n"
-        "- React to what the student ACTUALLY said. Never invent their words or answer for them.\n"
-        "- If the student makes a mistake, do not stop the scene: naturally say the correct "
-        "Indonesian sentence inside your reply (a recast), then carry on.\n"
-        "- You can hear how the student pronounces words. If a word is clearly mispronounced, "
-        "say it once clearly and slowly inside your reply — never lecture about pronunciation.\n"
-        f"{known_words_rule}"
-        f"- If the student is stuck, says they don't understand, or speaks {help_language}: "
-        f"give ONE short help sentence in {help_language} that includes the Indonesian sentence "
-        "they can say, then continue in Indonesian.\n"
-        f"- STUDENT MISSION — in any order: {mission}.\n"
-        "- The mission is the STUDENT's job. Never do it for them: don't greet first after the "
-        "opening line, don't state a price before they ask, don't thank them before they thank "
-        "you. Instead, leave a natural opening with a short question so they can do it.\n"
-        f"{closing_rule}\n"
-        f"{indonesian_pronunciation_rules(scenario_phrases, help_language)}\n\n"
-        f"{SAFETY_RULES}"
-    )
 
 
 SAFETY_RULES = (
@@ -444,25 +345,6 @@ def roleplay_kickoff_hint(custom: dict[str, Any]) -> str:
     )
 
 
-def mission_status_text(tracker: RoleplayTracker, recent_agent_text: str = "") -> str:
-    remaining = tracker.remaining
-    if not remaining:
-        return (
-            "MISSION STATUS (for your information, do not read aloud): the student has "
-            "completed every mission. If you have not closed the scene yet, close it warmly in "
-            "character in one or two sentences; otherwise say nothing more."
-        )
-    done = [_goal_label(o) for o in tracker.objectives if o.id in tracker.completed]
-    return (
-        "MISSION STATUS (for your information, do not read aloud): "
-        f"done so far: {'; '.join(done) or 'nothing yet'}. "
-        f"Still to do: {'; '.join(_goal_label(o) for o in remaining)}. "
-        "Let the student do these themselves — give them a natural opening with a short "
-        "question, never do it for them, and do not end the scene yet. Never repeat something "
-        "you have just said."
-    )
-
-
 FEEDBACK_SYSTEM_PROMPT = (
     "You review a short spoken Indonesian roleplay between a child learner (A1) and a friendly "
     "character. The transcript comes from speech recognition and may contain small recognition "
@@ -526,7 +408,8 @@ class RoleplayController:
     tracker: RoleplayTracker
     append_instructions: Optional[Callable[[str], Awaitable[None]]] = None
     generate_feedback: Optional[Callable[[list[dict[str, str]]], Awaitable[Optional[dict[str, Any]]]]] = None
-    status_text: Callable[[RoleplayTracker, str], Optional[str]] = mission_status_text
+    # Quiet position note for the AI after a dialogue completes (None: send none).
+    status_text: Callable[[RoleplayTracker, str], Optional[str]] = lambda tracker, recent: None
     # Called when a student answer completes nothing: (answer, recent AI speech).
     on_unmatched: Optional[Callable[[str, str], Awaitable[None]]] = None
     # When set, it evaluates every student answer instead of the mission tracker

@@ -15,10 +15,10 @@ export default function RoleplayWebScreen() {
       <View className="flex-1 px-5 justify-center items-center">
         <Ionicons name="mic-off-outline" size={48} color={colors.neutral.textSecondary} />
         <Text className="font-poppins-semibold text-xl text-text-primary mt-4 text-center">
-          網頁版暫不提供口說角色扮演
+          網頁版暫不提供語音練習
         </Text>
         <Text className="font-poppins text-sm text-text-secondary mt-2 text-center">
-          請在手機 App 上和 AI 角色即時對話。
+          請在手機 App 上和 AI 老師練習。
         </Text>
         <TouchableOpacity
           activeOpacity={0.8}

@@ -55,16 +55,6 @@ class PromptIncludesPronunciationTest(unittest.TestCase):
             self.assertIn("mengabsen = me-ngab-sen", prompt)
             self.assertIn("hadir = ha-dir", prompt)
 
-    def test_scenario_prompt(self):
-        objectives = roleplay.parse_objectives([
-            {"id": "thanks", "goal": "thank", "targets": ["terima kasih"]},
-        ])
-        prompt = roleplay.build_roleplay_system_prompt(
-            {"opening_line": "Selamat pagi!"}, objectives, "English"
-        )
-        self.assertIn("terima = te-ri-ma", prompt)
-        self.assertIn("selamat = se-la-mat", prompt)
-
 
 if __name__ == "__main__":
     unittest.main()

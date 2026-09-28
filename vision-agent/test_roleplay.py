@@ -7,19 +7,17 @@ from unittest.mock import patch
 import roleplay
 from roleplay import (
     RoleplayController,
+    RoleplayObjective,
     RoleplayTracker,
-    build_roleplay_system_prompt,
     generate_roleplay_feedback,
-    mission_status_text,
     parse_feedback,
-    parse_objectives,
 )
 
-OBJECTIVES = parse_objectives([
-    {"id": "greet", "goal": "greet the seller", "targets": ["selamat pagi", "halo"]},
-    {"id": "buy", "goal": "say what to buy", "targets": ["saya mau", "mau beli"]},
-    {"id": "thanks", "goal": "thank the seller", "targets": ["terima kasih"]},
-])
+OBJECTIVES = [
+    RoleplayObjective(id="greet", goal="greet", targets=["selamat pagi", "halo"]),
+    RoleplayObjective(id="buy", goal="say what to buy", targets=["saya mau", "mau beli"]),
+    RoleplayObjective(id="thanks", goal="thank", targets=["terima kasih"]),
+]
 
 
 class ControllerTest(unittest.IsolatedAsyncioTestCase):
@@ -38,6 +36,7 @@ class ControllerTest(unittest.IsolatedAsyncioTestCase):
             tracker=RoleplayTracker(list(OBJECTIVES)),
             append_instructions=append,
             generate_feedback=feedback,
+            status_text=lambda tracker, recent: f"STATUS: {len(tracker.remaining)} left",
         )
 
     async def test_sentence_split_by_pause_still_completes_mission(self):
@@ -48,20 +47,13 @@ class ControllerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(done, ["buy"])
         controller.close()
 
-    async def test_mission_status_sent_to_ai_after_each_completion(self):
+    async def test_status_sent_to_ai_only_after_a_completion(self):
         controller = self.make()
         await controller.on_user_final("Selamat pagi, Bu!")
-        self.assertEqual(len(self.instructions), 1)
-        self.assertIn("Still to do", self.instructions[0])
-        self.assertIn("thank the seller", self.instructions[0])
+        self.assertEqual(self.instructions, ["STATUS: 2 left"])
         await controller.on_user_final("Bu, apa kabar?")
         self.assertEqual(len(self.instructions), 1)
         controller.close()
-
-    async def test_all_missions_done_lets_ai_close_scene(self):
-        tracker = RoleplayTracker(list(OBJECTIVES))
-        tracker.record("halo saya mau terima kasih")
-        self.assertIn("completed every mission", mission_status_text(tracker))
 
     async def test_transcript_events_and_merged_turns(self):
         controller = self.make()
@@ -305,15 +297,6 @@ class ComicTest(unittest.TestCase):
         self.assertLess(prompt.index("Masukkan ke stopkontak"), prompt.index("Tekan tombolnya"))
         self.assertIn("SAFETY", prompt)
         self.assertIn("TURN STATUS", prompt)
-
-
-class PromptTest(unittest.TestCase):
-    def test_closing_rule_depends_on_live_updates(self):
-        live = build_roleplay_system_prompt({}, OBJECTIVES, "English", live_mission_updates=True)
-        fallback = build_roleplay_system_prompt({}, OBJECTIVES, "English")
-        self.assertIn("MISSION STATUS", live)
-        self.assertNotIn("MISSION STATUS", fallback)
-        self.assertIn("Never do it for them", live)
 
 
 if __name__ == "__main__":

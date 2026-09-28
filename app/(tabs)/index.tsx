@@ -15,13 +15,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { NotificationsModal } from "@/components/NotificationsModal";
-import { RoleplayCard } from "@/components/RoleplayCard";
 import { TodayPlanList } from "@/components/TodayPlanList";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { LANGUAGES } from "@/data/languages";
-import { ROLEPLAY_SCENARIOS } from "@/data/roleplays";
 import { getActiveUnit, getCefrLevelForUnit, getLessonNumber, getLessonsForLanguage, getNextLesson, getUnitForLesson } from "@/lib/curriculum";
 import { getLocalDateKey } from "@/lib/dailyProgress";
 import { TUTOR_VOICE_OPTIONS, TutorVoiceCode } from "@/lib/instructionLanguage";
@@ -35,7 +33,6 @@ import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
 import { LanguageCode } from "@/types/learning";
-import { RoleplayScenario } from "@/types/roleplay";
 
 function getGreeting(langCode: LanguageCode | null): string {
   switch (langCode) {
@@ -61,14 +58,8 @@ export default function HomeScreen() {
   const { selectedLanguage, tutorVoice, setTutorVoice } = useLanguageStore();
   const syncDailyProgress = useLearningStore((s) => s.syncDailyProgress);
   const todayPlanProgress = useLearningStore((s) => s.todayPlanProgress);
-  const {
-    xpToday,
-    dailyGoal,
-    streak,
-    completedLessonIds,
-    completedRoleplayIds,
-    getActiveLessonId,
-  } = useLearningStore();
+  const { xpToday, dailyGoal, streak, completedLessonIds, getActiveLessonId } =
+    useLearningStore();
 
   useEffect(() => {
     syncDailyProgress();
@@ -177,11 +168,6 @@ export default function HomeScreen() {
     }
 
     router.push("/learn");
-  }
-
-  function handleRoleplayPress(scenario: RoleplayScenario) {
-    posthog.capture("roleplay_card_tapped", { scenario_id: scenario.id });
-    router.push(`/roleplay/${scenario.id}` as Href);
   }
 
   function handlePlanItemPress(item: TodayPlanItem) {
@@ -430,40 +416,6 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* ── Live Roleplay ── */}
-        {selectedLanguage === "id" ? (
-          <View className="mb-6">
-            <View className="flex-row items-center mb-1">
-              <Text className="font-poppins-semibold text-[17px] text-text-primary">
-                口說角色扮演
-              </Text>
-              <View className="bg-lingua-purple rounded-full px-2 py-0.5 ml-2">
-                <Text className="font-poppins-semibold text-[10px] text-white">
-                  LIVE
-                </Text>
-              </View>
-            </View>
-            <Text className="font-poppins text-xs text-text-secondary mb-3">
-              直接開口說印尼語，AI 會即時回應你
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.roleplayList}
-              contentContainerStyle={styles.roleplayListContent}
-            >
-              {ROLEPLAY_SCENARIOS.map((scenario) => (
-                <RoleplayCard
-                  key={scenario.id}
-                  scenario={scenario}
-                  completed={completedRoleplayIds.includes(scenario.id)}
-                  onPress={() => handleRoleplayPress(scenario)}
-                />
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
-
         {/* ── Today's Plan Header ── */}
         <View className="flex-row items-center justify-between mb-3">
           <Text className="font-poppins-semibold text-[17px] text-text-primary">
@@ -556,13 +508,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 4,
     paddingBottom: 100,
-  },
-  // Bleed the horizontal list to the screen edges past scrollContent's padding
-  roleplayList: {
-    marginHorizontal: -20,
-  },
-  roleplayListContent: {
-    paddingHorizontal: 20,
   },
   notificationBadge: {
     position: "absolute",
