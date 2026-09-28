@@ -133,7 +133,7 @@ class CorrectionTest(unittest.IsolatedAsyncioTestCase):
     def test_correction_note_skipped_when_ai_already_modeled_line(self):
         note = roleplay.comic_correction_note("Bagus", "Sudah.", "English")
         self.assertIn('"Bagus"', note)
-        self.assertIn("Coba bilang: Sudah.", note)
+        self.assertIn('model the line "Sudah."', note)
         self.assertIsNone(
             roleplay.comic_correction_note("Bagus", "Sudah.", "English", "Hampir! Coba bilang: Sudah.")
         )
@@ -145,6 +145,10 @@ class CorrectionTest(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(roleplay.ai_accepted_answer("Hampir! Coba bilang: Baik."))
         self.assertFalse(roleplay.ai_accepted_answer("Bagus! Coba bilang: Baik."))
         self.assertFalse(roleplay.ai_accepted_answer(""))
+        # Latihan reacts in Chinese.
+        self.assertTrue(roleplay.ai_accepted_answer("很好！"))
+        self.assertFalse(roleplay.ai_accepted_answer("差一點！Selamat pagi, Bu Guru。"))
+        self.assertFalse(roleplay.ai_accepted_answer("很好，但是應該說 Bu Guru。"))
 
     async def test_complete_current_syncs_panel(self):
         turns = roleplay.comic_turns(COMIC_RAW)

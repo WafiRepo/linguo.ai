@@ -4,7 +4,9 @@ from unittest.mock import patch
 
 import practice
 import roleplay
-from practice import ComicPractice, listen_line, stars_for
+from practice import ComicPractice, answer_prompt_line, listen_line, stars_for
+
+ZH = "Traditional Chinese (Taiwan / 繁體中文)"
 from roleplay import RoleplayController, RoleplayTracker
 
 TURNS_RAW = [
@@ -50,7 +52,7 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
             send_event=send,
             say=say,
             note=note,
-            help_language="English",
+            help_language=ZH,
             set_listening=set_listening,
         )
         self.controller.on_user_answer = self.practice.on_answer
@@ -75,7 +77,7 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
 
         await self.answer("Selamat pagi, Bu Guru")
         self.assertEqual(self.steps()[-2:], [(0, "answer-intro"), (0, "answer")])
-        self.assertIn("tanpa melihat teks", self.spoken[-1])
+        self.assertIn("現在不看文字", self.spoken[-1])
         self.assertEqual(self.listening[-2:], [False, True])
 
         await self.answer("Selamat pagi Bu Guru")
@@ -95,7 +97,7 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.notes), 2)
 
         await self.answer("Halo lagi")  # third miss: modeled, then moves on
-        self.assertIn('Dengar ya: "Selamat pagi, Bu Guru."', self.spoken[-2])
+        self.assertIn("聽好：「Selamat pagi, Bu Guru.」", self.spoken[-2])
         results = [e for e in self.events if e["type"] == "practice_result"]
         self.assertEqual(results[-1]["stars"], 1)
         self.assertEqual(self.steps()[-1], (1, "repeat"))
@@ -112,6 +114,17 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
         await self.answer("Selamat pagi, Bu Guru")
         results = [e for e in self.events if e["type"] == "practice_result"]
         self.assertEqual(results[0]["stars"], 2)
+        self.practice.close()
+
+    async def test_answer_split_by_a_pause_is_judged_as_one(self):
+        # From the screenshot: "Selamat" … "pagi, Bu Guru" was judged as just "pagi".
+        await self.practice.start()
+        for piece in ("Selamat", "pagi, Bu Guru"):
+            await self.controller.on_user_partial(piece)
+            await self.controller.on_user_final(piece)  # no wait: still being judged
+        await asyncio.sleep(0.05)
+        self.assertFalse([e for e in self.events if e["type"] == "roleplay_correction"])
+        self.assertEqual(self.steps()[-1], (0, "answer"))
         self.practice.close()
 
     async def test_silent_bu_guru_gets_the_line_resent_once(self):
@@ -138,7 +151,7 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
         for text in ("Selamat pagi", "Selamat pagi", "Semua hadir", "Semua hadir"):
             await self.answer(text)
         self.assertEqual(self.steps()[-1], (1, "done"))
-        self.assertIn("Latihan selesai", self.spoken[-1])
+        self.assertIn("練習完成", self.spoken[-1])
         self.practice.close()
 
 
@@ -146,14 +159,19 @@ class PracticeHelpersTest(unittest.TestCase):
     def test_stars(self):
         self.assertEqual([stars_for(n) for n in (0, 1, 2, 3, 5)], [3, 2, 2, 1, 1])
 
-    def test_listen_line_includes_meaning_without_double_punctuation(self):
-        line = listen_line(roleplay.comic_turns(TURNS_RAW)[1])
-        self.assertIn('"Siapa yang tidak hadir?"', line)
-        self.assertIn("意思是「大家都到了」", line)
-        self.assertTrue(line.endswith('tiru: "Semua hadir."'))
-        self.assertNotIn('".', line)
-        self.assertNotIn("」。", line)
+    def test_listen_line_is_framed_in_chinese_without_double_punctuation(self):
+        line = listen_line(roleplay.comic_turns(TURNS_RAW)[1], ZH)
+        self.assertEqual(
+            line,
+            "仔細聽。老師說：「Siapa yang tidak hadir?」你回答：「Semua hadir.」"
+            "意思是「大家都到了」。現在跟著說：「Semua hadir.」",
+        )
+        self.assertNotIn("」。」", line)
 
+    def test_english_help_gets_english_framing(self):
+        turn = roleplay.comic_turns(TURNS_RAW)[0]
+        self.assertTrue(listen_line(turn, "English").startswith("Listen. The teacher says"))
+        self.assertEqual(answer_prompt_line(turn, "English"), "Now without the text. Selamat pagi, anak-anak.")
 
 if __name__ == "__main__":
     unittest.main()

@@ -318,8 +318,12 @@ FILLER_WORDS = {"em", "emm", "eh", "ehm", "hmm", "uh", "um", "ah", "oh", "hm"}
 # can be wrong ("Ha- e- i" for "Baik"). Before treating an answer as wrong,
 # wait this long and let the AI's own reaction decide.
 CORRECTION_GRACE_SECONDS = 3.0
-PRAISE_WORDS = ("bagus", "pintar", "hebat", "benar", "betul", "terima kasih", "mantap")
-CORRECTION_WORDS = ("coba", "bilang", "hampir", "ulang")
+PRAISE_WORDS = ("bagus", "pintar", "hebat", "benar", "betul", "terima kasih", "mantap",
+                "great", "well done", "good job", "correct")
+CORRECTION_WORDS = ("coba", "bilang", "hampir", "ulang", "almost", "try again")
+# Chinese has no spaces between words, so these are matched as substrings.
+PRAISE_WORDS_ZH = ("很好", "很棒", "好棒", "太棒", "答對", "正確", "說得好")
+CORRECTION_WORDS_ZH = ("差一點", "再試", "再說一次", "應該", "不是", "跟著我說")
 
 
 def ai_accepted_answer(agent_text: str, next_teacher_line: str = "") -> bool:
@@ -328,9 +332,13 @@ def ai_accepted_answer(agent_text: str, next_teacher_line: str = "") -> bool:
     text = _normalize(agent_text)
     if next_teacher_line and _normalize(next_teacher_line) in text:
         return True
-    words = text.split()
-    corrected = any(word in words for word in CORRECTION_WORDS)
-    praised = any(f" {phrase} " in f" {text} " for phrase in PRAISE_WORDS)
+    spaced = f" {text} "
+    corrected = any(f" {w} " in spaced for w in CORRECTION_WORDS) or any(
+        w in text for w in CORRECTION_WORDS_ZH
+    )
+    praised = any(f" {w} " in spaced for w in PRAISE_WORDS) or any(
+        w in text for w in PRAISE_WORDS_ZH
+    )
     return praised and not corrected
 
 
@@ -354,7 +362,7 @@ def comic_correction_note(
     return (
         "CORRECTION (for your information, do not read aloud): the student said "
         f'"{said}" but their comic line is "{expected}". If you have not corrected them yet, '
-        f'kindly do it now: model the line once ("Coba bilang: {expected}") with one short tip in '
+        f'kindly do it now: model the line "{expected}" once, with one short tip in '
         f"{help_language}, then wait. Do not move to the next TEACHER line yet."
     )
 

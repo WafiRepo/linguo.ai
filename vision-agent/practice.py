@@ -48,6 +48,9 @@ def build_comic_practice_prompt(
         for index, turn in enumerate(turns)
     )
     title = f' ("{_clip(topic_title)}")' if topic_title else ""
+    zh = is_chinese_help(help_language)
+    praise_example = "「很好！」「好棒！」" if zh else '"Great!", "Well done!"'
+    almost_example = "「差一點！」" if zh else '"Almost!"'
     return (
         "You are Bu Guru, a warm, patient Indonesian primary-school teacher coaching a child "
         "who is a beginner (A1) learner of Bahasa Indonesia. Together you are practising the "
@@ -57,12 +60,15 @@ def build_comic_practice_prompt(
         "- The app walks through the steps (listen, repeat, answer from memory) and gives you "
         "the exact lines to say. Say them as given. NEVER start the next step, the next line "
         "or a new explanation on your own.\n"
+        f"- LANGUAGE: everything you say yourself — praise, corrections, tips — is in "
+        f"{help_language}. Only the Indonesian comic lines being practised are in Indonesian.\n"
         "- After each student attempt, react in ONE short reply:\n"
-        "  • Right: only a few warm words (\"Bagus!\", \"Pintar!\"). Nothing else.\n"
-        "  • Wrong words: start with \"Hampir!\", say the correct student line once, plus ONE "
-        f"short tip in {help_language} about what was different.\n"
-        "  • Clearly mispronounced word: start with \"Hampir!\", say that word slowly syllable by "
-        f"syllable (e.g. \"Gu-ru\"), plus ONE short tip in {help_language} on how to say it.\n"
+        f"  • Right: only a few warm words in {help_language} (e.g. {praise_example}). Nothing "
+        "else.\n"
+        f"  • Wrong words: start gently in {help_language} (e.g. {almost_example}), say the "
+        "correct Indonesian student line once, plus ONE short tip about what was different.\n"
+        "  • Clearly mispronounced word: start the same way, say that word slowly syllable by "
+        "syllable (e.g. \"Gu-ru\"), plus ONE short tip on how to say it.\n"
         "- Never praise and correct in the same reply. Only correct clear mistakes, never an accent.\n"
         f"- If the student asks something in {help_language}, answer in one short sentence.\n"
         "- You may get quiet CORRECTION notes; correct at most once per attempt.\n\n"
@@ -70,23 +76,38 @@ def build_comic_practice_prompt(
     )
 
 
-# No punctuation after the quoted lines: Bu Guru reads them out and the
-# transcript showed doubles like `"…anak-anak.".` and `「…。」。`.
-def listen_line(turn: dict[str, Any]) -> str:
-    meaning_zh = turn["student_zh"].rstrip("。.")
-    meaning = f" 意思是「{meaning_zh}」" if meaning_zh else ""
-    return (
-        f'Dengar ya. Bu Guru bilang: "{turn["guru"]}" Kamu jawab: "{turn["student"]}"'
-        f'{meaning} Sekarang tiru: "{turn["student"]}"'
-    )
+def is_chinese_help(help_language: str) -> bool:
+    return help_language != "English"
 
 
-def answer_prompt_line(turn: dict[str, Any]) -> str:
-    return f'Sekarang tanpa melihat teks. {turn["guru"]}'
+# Script lines are framed in the help language (the child's language); only the
+# Indonesian comic lines stay Indonesian. No punctuation after quoted lines:
+# Bu Guru reads them out, and `"…".` / `「…。」。` came out doubled.
+def listen_line(turn: dict[str, Any], help_language: str) -> str:
+    guru, student = turn["guru"], turn["student"]
+    if is_chinese_help(help_language):
+        meaning_zh = turn["student_zh"].rstrip("。.")
+        meaning = f"意思是「{meaning_zh}」。" if meaning_zh else ""
+        return f"仔細聽。老師說：「{guru}」你回答：「{student}」{meaning}現在跟著說：「{student}」"
+    return f'Listen. The teacher says: "{guru}" You answer: "{student}" Now repeat: "{student}"'
 
 
-def modeled_line(turn: dict[str, Any]) -> str:
-    return f'Dengar ya: "{turn["student"]}" Tidak apa-apa, kita lanjut.'
+def answer_prompt_line(turn: dict[str, Any], help_language: str) -> str:
+    if is_chinese_help(help_language):
+        return f"現在不看文字。{turn['guru']}"
+    return f"Now without the text. {turn['guru']}"
+
+
+def modeled_line(turn: dict[str, Any], help_language: str) -> str:
+    if is_chinese_help(help_language):
+        return f"聽好：「{turn['student']}」沒關係，我們繼續。"
+    return f'Listen: "{turn["student"]}" That\'s okay, let\'s go on.'
+
+
+def closing_line(help_language: str) -> str:
+    if is_chinese_help(help_language):
+        return "練習完成了，你很棒！謝謝你認真練習。"
+    return "Practice finished. You did great! Thank you for practising."
 
 
 def stars_for(wrong_attempts: int) -> int:
@@ -113,6 +134,8 @@ class ComicPractice:
     step_wrong: int = 0
     stars: list[int] = field(default_factory=list)
     _pending: Optional[asyncio.Task] = None
+    _attempt_parts: list[str] = field(default_factory=list)
+    _attempt_started_at: Optional[float] = None
 
     async def start(self) -> None:
         await self._begin_dialogue(0)
@@ -124,11 +147,19 @@ class ComicPractice:
     async def on_answer(self, text: str) -> None:
         if self.step not in ("repeat", "answer") or not is_answer_attempt(text):
             return
-        if self._pending is not None:
+        # A pause splits one answer into pieces ("Selamat" … "pagi"). Pieces
+        # arriving while the previous one is still being judged belong to the
+        # same attempt, so judge them together.
+        if self._pending is not None and not self._pending.done():
             self._pending.cancel()
-        started_at = self.controller.user_started_at
+            self._attempt_parts.append(text)
+        else:
+            self._attempt_parts = [text]
+            self._attempt_started_at = self.controller.user_started_at
         self._pending = asyncio.create_task(
-            self._resolve(text, self.index, self.step, started_at)
+            self._resolve(
+                " ".join(self._attempt_parts), self.index, self.step, self._attempt_started_at
+            )
         )
 
     async def _resolve(self, said: str, index: int, step: str, started_at: Optional[float]) -> None:
@@ -153,7 +184,9 @@ class ComicPractice:
             "attempt": self.step_wrong,
         })
         if self.step_wrong >= MAX_STEP_ATTEMPTS:
-            await self._speak_and_wait(modeled_line(turn), confirm=turn["student"])
+            await self._speak_and_wait(
+                modeled_line(turn, self.help_language), confirm=turn["student"]
+            )
             await self._passed()
             return
         if self.note is not None:
@@ -166,7 +199,9 @@ class ComicPractice:
         self.step_wrong = 0
         if self.step == "repeat":
             await self._set_step("answer-intro")
-            await self._speak_and_wait(answer_prompt_line(turn), confirm=turn["guru"])
+            await self._speak_and_wait(
+                answer_prompt_line(turn, self.help_language), confirm=turn["guru"]
+            )
             await self._set_step("answer")
             return
 
@@ -178,12 +213,15 @@ class ComicPractice:
             await self._begin_dialogue(self.index + 1)
         else:
             await self._set_step("done")
-            await self.say("Latihan selesai. Kamu hebat! Terima kasih sudah berlatih.")
+            await self.say(closing_line(self.help_language))
 
     async def _begin_dialogue(self, index: int) -> None:
         self.index, self.wrong, self.step_wrong = index, 0, 0
         await self._set_step("listen")
-        await self._speak_and_wait(listen_line(self.turns[index]), confirm=self.turns[index]["student"])
+        turn = self.turns[index]
+        await self._speak_and_wait(
+            listen_line(turn, self.help_language), confirm=turn["student"]
+        )
         await self._set_step("repeat")
 
     async def _set_step(self, step: str) -> None:
