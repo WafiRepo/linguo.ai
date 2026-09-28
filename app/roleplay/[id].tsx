@@ -45,10 +45,19 @@ import {
 type CallStatus = "idle" | "connecting" | "joined" | "error";
 type AgentStatus = "idle" | "connecting" | "connected" | "failed";
 type ComicPhase = "guru" | "student";
-type ComicCorrection = { turnIndex: number; said: string };
+type ComicCorrection = {
+  turnIndex: number;
+  said: string;
+  step?: string;
+  attempt?: number;
+};
+// Latihan steps sent by the server: listen → repeat → answer-intro → answer.
+type PracticeStep = "listen" | "repeat" | "answer-intro" | "answer" | "done";
 
 const MAX_KNOWN_WORDS = 40;
 const COMIC_HEIGHT = Math.min(Dimensions.get("window").height * 0.3, 280);
+// Latihan also shows step chips and the line card, so its comic is smaller.
+const PRACTICE_COMIC_HEIGHT = Math.min(Dimensions.get("window").height * 0.22, 200);
 
 // Words from lessons the student finished, so the AI can stay at their level.
 function getKnownWords(completedLessonIds: string[]): string[] {
@@ -76,7 +85,11 @@ export default function RoleplayScreen() {
 }
 
 function LiveRoleplayScreen() {
-  const { id, kind } = useLocalSearchParams<{ id: string; kind?: string }>();
+  const { id, kind, mode } = useLocalSearchParams<{
+    id: string;
+    kind?: string;
+    mode?: string;
+  }>();
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
@@ -86,10 +99,15 @@ function LiveRoleplayScreen() {
 
   // kind=comic is AI Teacher's Role Play: a class-management comic acted out live.
   const comic = kind === "comic" ? getClassTopic(id ?? "") : undefined;
+  // mode=practice is AI Teacher's live Latihan: listen → repeat → answer.
+  const isPractice = !!comic && mode === "practice";
   const scenario = useMemo(
-    () => (comic ? comicTopicToScenario(comic) : getRoleplayScenario(id ?? "")),
-    [comic, id],
+    () =>
+      comic ? comicTopicToScenario(comic, isPractice) : getRoleplayScenario(id ?? ""),
+    [comic, id, isPractice],
   );
+  const [practiceStep, setPracticeStep] = useState<PracticeStep>("listen");
+  const [stars, setStars] = useState<number[]>([]);
   const [comicPhase, setComicPhase] = useState<ComicPhase>("guru");
   const [correction, setCorrection] = useState<ComicCorrection | null>(null);
 
@@ -122,9 +140,11 @@ function LiveRoleplayScreen() {
     setReviewing(false);
     setComicPhase("guru");
     setCorrection(null);
+    setPracticeStep("listen");
+    setStars([]);
     posthog.capture("roleplay_started", {
       scenario_id: scenario.id,
-      kind: comic ? "comic" : "scenario",
+      kind: isPractice ? "comic_practice" : comic ? "comic" : "scenario",
       tutor_voice: tutorVoice,
     });
 
@@ -135,7 +155,7 @@ function LiveRoleplayScreen() {
       clientRef.current?.disconnectUser().catch(console.error);
       stopAgentSession(callRef.current?.id ?? null, agentSessionRef.current);
     };
-  }, [isLoaded, user, scenario, comic, tutorVoice, tutorEmotion]);
+  }, [isLoaded, user, scenario, comic, isPractice, tutorVoice, tutorEmotion]);
 
   useEffect(() => {
     if (!missionComplete || !scenario || rewardedRef.current) return;
@@ -178,7 +198,7 @@ function LiveRoleplayScreen() {
       });
 
       const callId = comic
-        ? `roleplay-comic-${comic.id}-${user.id}`
+        ? `roleplay-${isPractice ? "practice" : "comic"}-${comic.id}-${user.id}`
         : `roleplay-${scenario.id}-${user.id}`;
       const streamCall = streamClient.call("default", callId);
       await streamCall.join({ create: true });
@@ -198,7 +218,7 @@ function LiveRoleplayScreen() {
         };
         await streamCall.update({
           custom: comic
-            ? { ...common, ...comicCallCustomData(comic) }
+            ? { ...common, ...comicCallCustomData(comic, isPractice) }
             : {
                 ...common,
                 mode: "roleplay",
@@ -315,6 +335,20 @@ function LiveRoleplayScreen() {
     [scenario?.id],
   );
 
+  const handlePracticeStep = useCallback((step: PracticeStep) => {
+    setPracticeStep(step);
+    // A new step starts clean; its own mistakes bring a new card.
+    setCorrection(null);
+  }, []);
+
+  const handlePracticeResult = useCallback((turnIndex: number, value: number) => {
+    setStars((prev) => {
+      const next = [...prev];
+      next[turnIndex] = value;
+      return next;
+    });
+  }, []);
+
   async function handleLeave() {
     posthog.capture("roleplay_left", {
       scenario_id: scenario?.id ?? id,
@@ -362,10 +396,13 @@ function LiveRoleplayScreen() {
         scenario={scenario}
         completedIds={completedIds}
         feedback={feedback}
+        stars={isPractice ? stars : undefined}
         onDone={() => router.back()}
       />
     );
   }
+
+  const practiceCanSpeak = practiceStep === "repeat" || practiceStep === "answer";
 
   const displayStatus = getDisplayStatus(callStatus, agentStatus, scenario.aiName);
 
@@ -399,16 +436,26 @@ function LiveRoleplayScreen() {
 
       {comic ? (
         <>
-          <ComicPanel
-            topic={comic}
-            turnIndex={completedIds.length}
-            phase={comicPhase}
-          />
+          {isPractice ? (
+            <PracticePanel
+              topic={comic}
+              turnIndex={completedIds.length}
+              step={practiceStep}
+              stars={stars}
+            />
+          ) : (
+            <ComicPanel
+              topic={comic}
+              turnIndex={completedIds.length}
+              phase={comicPhase}
+            />
+          )}
           {correction && correction.turnIndex === completedIds.length ? (
             <CorrectionCard
               said={correction.said}
               expected={comic.turns[correction.turnIndex]?.studentLine.id ?? ""}
               translation={comic.turns[correction.turnIndex]?.studentLine.zhTW ?? ""}
+              reveal={correctionReveal(correction)}
             />
           ) : null}
         </>
@@ -429,6 +476,10 @@ function LiveRoleplayScreen() {
               onAgentTurn={handleAgentTurn}
               onCorrection={handleCorrection}
               onFeedback={setFeedback}
+              onPracticeStep={handlePracticeStep}
+              onPracticeResult={handlePracticeResult}
+              practice={isPractice}
+              canSpeak={!isPractice || practiceCanSpeak}
               onRetry={() => startAgentSession(call.id)}
               onFinish={handleLeave}
             />
@@ -550,15 +601,27 @@ function normalizeWord(word: string): string {
   return word.toLowerCase().replace(/[.,!?;:"'()]/g, "");
 }
 
+type Reveal = "full" | "first-word" | "none";
+
+// Latihan's answer-from-memory step reveals the line gradually: a nudge,
+// then the first word, then (on the third miss Bu Guru models it anyway).
+function correctionReveal(correction: ComicCorrection): Reveal {
+  if (correction.step !== "answer") return "full";
+  if ((correction.attempt ?? 1) <= 1) return "none";
+  return "first-word";
+}
+
 // Highlights the words of the comic line the student left out or got wrong.
 function CorrectionCard({
   said,
   expected,
   translation,
+  reveal = "full",
 }: {
   said: string;
   expected: string;
   translation: string;
+  reveal?: Reveal;
 }) {
   const saidWords = new Set(said.split(/\s+/).map(normalizeWord));
   const parts = expected.split(/(\s+)/);
@@ -571,23 +634,124 @@ function CorrectionCard({
       <Text className="font-poppins text-xs text-text-secondary">
         你說：<Text className="text-text-primary">{said}</Text>
       </Text>
-      <Text className="font-poppins text-xs text-text-secondary mt-1">正確說法：</Text>
-      <Text className="font-poppins-semibold text-[15px] text-text-primary">
-        {parts.map((part, index) => {
-          const word = normalizeWord(part);
-          const missed = word.length > 0 && !saidWords.has(word);
-          return (
-            <Text
-              key={index}
-              className={missed ? "bg-[#FDE68A] text-[#92400E]" : undefined}
+      {reveal === "none" ? (
+        <Text className="font-poppins text-[13px] text-text-secondary mt-1">
+          再想想看，漫畫裡學生怎麼說？
+        </Text>
+      ) : reveal === "first-word" ? (
+        <Text className="font-poppins text-[13px] text-text-secondary mt-1">
+          提示：
+          <Text className="font-poppins-semibold text-[15px] text-text-primary">
+            {expected.split(/\s+/)[0]} …
+          </Text>
+        </Text>
+      ) : (
+        <>
+          <Text className="font-poppins text-xs text-text-secondary mt-1">正確說法：</Text>
+          <Text className="font-poppins-semibold text-[15px] text-text-primary">
+            {parts.map((part, index) => {
+              const word = normalizeWord(part);
+              const missed = word.length > 0 && !saidWords.has(word);
+              return (
+                <Text
+                  key={index}
+                  className={missed ? "bg-[#FDE68A] text-[#92400E]" : undefined}
+                >
+                  {part}
+                </Text>
+              );
+            })}
+          </Text>
+          {translation ? (
+            <Text className="font-poppins text-xs text-text-secondary mt-1">{translation}</Text>
+          ) : null}
+        </>
+      )}
+    </View>
+  );
+}
+
+const PRACTICE_STEPS: { key: "listen" | "repeat" | "answer"; label: string }[] = [
+  { key: "listen", label: "🎧 聽" },
+  { key: "repeat", label: "🔁 跟著說" },
+  { key: "answer", label: "💬 回答" },
+];
+
+function PracticePanel({
+  topic,
+  turnIndex,
+  step,
+  stars,
+}: {
+  topic: ClassManagementTopic;
+  turnIndex: number;
+  step: PracticeStep;
+  stars: number[];
+}) {
+  const total = topic.turns.length;
+  const turn = topic.turns[turnIndex];
+  const lastTurn = topic.turns[total - 1];
+  const activeStep = step === "answer-intro" ? "answer" : step;
+  const hideStudentLine = step === "answer-intro" || step === "answer";
+  const image = turn
+    ? images[step === "repeat" ? turn.studentImageKey : turn.guruImageKey]
+    : images[lastTurn?.studentImageKey ?? topic.imageKey];
+
+  return (
+    <View className="mx-4 mb-3">
+      <View className="flex-row items-center justify-between mb-2">
+        <Text className="font-poppins-semibold text-[13px] text-lingua-purple">
+          {turn ? `對話 ${turnIndex + 1}/${total}` : "全部完成！"}
+        </Text>
+        <Text className="text-xs">
+          {stars.map((value) => "⭐".repeat(value)).join("  ")}
+        </Text>
+      </View>
+
+      {turn ? (
+        <View className="flex-row gap-2 mb-2">
+          {PRACTICE_STEPS.map((item) => (
+            <View
+              key={item.key}
+              className={`rounded-full px-3 py-1 ${activeStep === item.key ? "bg-lingua-purple" : "bg-surface"}`}
             >
-              {part}
+              <Text
+                className={`font-poppins-medium text-xs ${activeStep === item.key ? "text-white" : "text-text-secondary"}`}
+              >
+                {item.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <View
+        className="rounded-2xl overflow-hidden bg-surface"
+        style={{ height: PRACTICE_COMIC_HEIGHT }}
+      >
+        <Image source={image} contentFit="contain" style={styles.comicImage} />
+      </View>
+
+      {turn ? (
+        <View className="mt-2 rounded-2xl bg-[#F5F3FF] px-3 py-2">
+          <Text className="font-poppins text-xs text-text-secondary">
+            Guru：{turn.guruLine.id}
+          </Text>
+          {hideStudentLine ? (
+            <Text className="font-poppins-semibold text-sm text-lingua-purple">
+              學生：？？？（憑記憶回答）
             </Text>
-          );
-        })}
-      </Text>
-      {translation ? (
-        <Text className="font-poppins text-xs text-text-secondary mt-1">{translation}</Text>
+          ) : (
+            <>
+              <Text className="font-poppins-semibold text-sm text-lingua-purple">
+                學生：{turn.studentLine.id}
+              </Text>
+              <Text className="font-poppins text-xs text-text-secondary">
+                {turn.studentLine.zhTW}
+              </Text>
+            </>
+          )}
+        </View>
       ) : null}
     </View>
   );
@@ -604,6 +768,9 @@ interface RoleplayCustomEvent {
     objectiveId?: string;
     turnIndex?: number;
     said?: string;
+    step?: string;
+    attempt?: number;
+    stars?: number;
     praise?: unknown;
     corrections?: unknown;
   };
@@ -619,6 +786,10 @@ function ActiveRoleplayContent({
   onAgentTurn,
   onCorrection,
   onFeedback,
+  onPracticeStep,
+  onPracticeResult,
+  practice,
+  canSpeak,
   onRetry,
   onFinish,
 }: {
@@ -631,6 +802,11 @@ function ActiveRoleplayContent({
   onAgentTurn: () => void;
   onCorrection: (correction: ComicCorrection) => void;
   onFeedback: (feedback: RoleplayFeedback) => void;
+  onPracticeStep: (step: PracticeStep) => void;
+  onPracticeResult: (turnIndex: number, stars: number) => void;
+  /** Latihan: tap to talk, only when it's the student's step. */
+  practice: boolean;
+  canSpeak: boolean;
   onRetry: () => void;
   onFinish: () => void;
 }) {
@@ -645,15 +821,22 @@ function ActiveRoleplayContent({
   const micAutoStartedRef = useRef(false);
   const scrollRef = useRef<ScrollView | null>(null);
 
-  const isReady = agentStatus === "connected";
+  const isReady = agentStatus === "connected" && canSpeak;
   const micOn = isReady && !optimisticIsMute;
 
-  // Open mic like a real conversation — no push-to-talk.
+  // Role Play: open mic like a real conversation. Latihan: the student taps.
   useEffect(() => {
-    if (!isReady || micAutoStartedRef.current) return;
+    if (practice || !isReady || micAutoStartedRef.current) return;
     micAutoStartedRef.current = true;
     microphone.enable().catch((e) => console.warn("[roleplay] mic enable failed:", e));
-  }, [isReady, microphone]);
+  }, [practice, isReady, microphone]);
+
+  // Latihan: close the mic whenever it stops being the student's step.
+  useEffect(() => {
+    if (practice && !canSpeak && !optimisticIsMute) {
+      microphone.disable().catch(() => {});
+    }
+  }, [practice, canSpeak, optimisticIsMute, microphone]);
 
   useEffect(() => {
     const unsubscribe = call.on("custom", (event: RoleplayCustomEvent) => {
@@ -669,7 +852,26 @@ function ActiveRoleplayContent({
         typeof data.turnIndex === "number" &&
         data.said
       ) {
-        onCorrection({ turnIndex: data.turnIndex, said: data.said });
+        onCorrection({
+          turnIndex: data.turnIndex,
+          said: data.said,
+          step: data.step,
+          attempt: data.attempt,
+        });
+        return;
+      }
+
+      if (data.type === "practice_step" && data.step) {
+        onPracticeStep(data.step as PracticeStep);
+        return;
+      }
+
+      if (
+        data.type === "practice_result" &&
+        typeof data.turnIndex === "number" &&
+        typeof data.stars === "number"
+      ) {
+        onPracticeResult(data.turnIndex, data.stars);
         return;
       }
 
@@ -705,7 +907,16 @@ function ActiveRoleplayContent({
     });
 
     return unsubscribe;
-  }, [call, onObjectiveDone, onStudentTurn, onAgentTurn, onCorrection, onFeedback]);
+  }, [
+    call,
+    onObjectiveDone,
+    onStudentTurn,
+    onAgentTurn,
+    onCorrection,
+    onFeedback,
+    onPracticeStep,
+    onPracticeResult,
+  ]);
 
   function handleToggleMic() {
     if (!isReady) return;
@@ -857,7 +1068,7 @@ function ActiveRoleplayContent({
           <Text
             className={`font-poppins-medium text-[13px] mt-2 ${micOn ? "text-lingua-purple" : "text-text-secondary"}`}
           >
-            {!isReady ? "請稍候…" : micOn ? "正在聆聽，直接說" : "麥克風已關閉"}
+            {micLabel(practice, isReady, micOn)}
           </Text>
         </View>
 
@@ -900,11 +1111,14 @@ function RoleplayReview({
   scenario,
   completedIds,
   feedback,
+  stars,
   onDone,
 }: {
   scenario: RoleplayScenario;
   completedIds: string[];
   feedback: RoleplayFeedback | null;
+  /** Latihan only: stars earned per dialogue. */
+  stars?: number[];
   onDone: () => void;
 }) {
   const missionComplete = completedIds.length === scenario.objectives.length;
@@ -927,6 +1141,22 @@ function RoleplayReview({
         showsVerticalScrollIndicator={false}
       >
         <MissionCard scenario={scenario} completedIds={completedIds} />
+
+        {stars && stars.length > 0 ? (
+          <View className="mx-4 mb-4 rounded-2xl bg-[#FFF7E0] p-3">
+            {stars.map((value, index) => (
+              <View key={index} className="flex-row items-center justify-between py-0.5">
+                <Text className="font-poppins-medium text-[13px] text-text-primary">
+                  對話 {index + 1}
+                </Text>
+                <Text className="text-sm">
+                  {"⭐".repeat(value)}
+                  {"☆".repeat(3 - value)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <View className="mx-4 mb-4 flex-row items-center rounded-2xl bg-surface p-3">
           <Text className="text-2xl mr-2">{missionComplete ? "🏆" : "💪"}</Text>
@@ -996,6 +1226,12 @@ function RoleplayReview({
       </View>
     </SafeAreaView>
   );
+}
+
+function micLabel(practice: boolean, isReady: boolean, micOn: boolean): string {
+  if (!isReady) return practice ? "先聽 Bu Guru 說…" : "請稍候…";
+  if (practice) return micOn ? "說完後再點一下" : "點一下開始說";
+  return micOn ? "正在聆聽，直接說" : "麥克風已關閉";
 }
 
 function getDisplayStatus(

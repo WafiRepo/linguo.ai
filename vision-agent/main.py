@@ -34,6 +34,7 @@ from instruction_language import (  # noqa: E402
     normalize_instruction_languages,
 )
 from gpt_live import GptLive  # noqa: E402
+from practice import ComicPractice, build_comic_practice_prompt  # noqa: E402
 from pronunciation import append_pronunciation_guide  # noqa: E402
 from roleplay import (  # noqa: E402
     CORRECTION_GRACE_SECONDS,
@@ -285,7 +286,10 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
     # comic_roleplay is AI Teacher's Role Play: the same live engine, but the
     # conversation follows a class-management comic script in order.
     is_comic_roleplay = session_mode == "comic_roleplay"
-    is_roleplay = session_mode == "roleplay" or is_comic_roleplay
+    # comic_practice is AI Teacher's Latihan on the live engine:
+    # listen → repeat → answer from memory, step by step.
+    is_comic_practice = session_mode == "comic_practice"
+    is_roleplay = session_mode == "roleplay" or is_comic_roleplay or is_comic_practice
 
     system_prompt  = custom.get("system_prompt") or DEFAULT_SYSTEM_PROMPT
     if not custom.get("system_prompt") and not is_roleplay:
@@ -325,6 +329,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
     )
 
     roleplay: RoleplayController | None = None
+    practice: ComicPractice | None = None
     is_gpt_live = isinstance(agent.llm, GptLive)
 
     if is_class_management:
@@ -344,15 +349,19 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         )
     elif is_roleplay:
         help_language = help_language_name(language_code, lesson_instruction_languages)
-        if is_comic_roleplay:
+        if is_comic_roleplay or is_comic_practice:
             turns = comic_turns(
                 parse_class_turns(custom.get("class_turns") or custom.get("class_turns_json"))
             )
             tracker = RoleplayTracker(comic_objectives(turns), sequential=True)
-            status_text = lambda t, recent: comic_status_text(t, turns, recent)  # noqa: E731
-            system_prompt = build_comic_roleplay_prompt(
-                turns, help_language, str(custom.get("topic_title") or "")
-            )
+            topic_title = str(custom.get("topic_title") or "")
+            if is_comic_practice:
+                # The practice flow voices every next line itself; no status notes.
+                status_text = lambda t, recent: None  # noqa: E731
+                system_prompt = build_comic_practice_prompt(turns, help_language, topic_title)
+            else:
+                status_text = lambda t, recent: comic_status_text(t, turns, recent)  # noqa: E731
+                system_prompt = build_comic_roleplay_prompt(turns, help_language, topic_title)
         else:
             tracker = RoleplayTracker(parse_objectives(custom.get("objectives")))
             status_text = mission_status_text
@@ -435,6 +444,23 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 )
 
             roleplay.on_unmatched = on_comic_miss
+
+        if is_comic_practice:
+            async def say_script(text: str) -> None:
+                # Straight to the model (no local interrupt), so a praise
+                # Bu Guru is still saying isn't cut off mid-word.
+                async for _ in agent.llm.simple_response(text):
+                    pass
+
+            practice = ComicPractice(
+                turns=turns,
+                controller=roleplay,
+                send_event=send_roleplay_event,
+                say=say_script,
+                note=agent.llm.append_thinking if is_gpt_live else None,
+                help_language=help_language,
+            )
+            roleplay.on_user_answer = practice.on_answer
 
         system_prompt = append_emotion_to_prompt(
             system_prompt,
@@ -673,6 +699,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
 
             if is_class_management and class_mgmt is not None:
                 await class_mgmt.start()
+            elif practice is not None:
+                await practice.start()
             elif is_roleplay:
                 # GPT-Live voices commentary as-is, so it gets the bare line;
                 # the Realtime fallback needs the instruction wrapper.
@@ -699,6 +727,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
 
             await agent.finish()
     finally:
+        if practice is not None:
+            practice.close()
         if roleplay is not None:
             roleplay.close()
         llm._emit_user_speech_transcription = original_emit_user

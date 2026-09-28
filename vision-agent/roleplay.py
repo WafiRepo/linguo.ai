@@ -231,6 +231,7 @@ def comic_turns(raw_turns: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "guru": guru,
             "guru_zh": _clip(turn.get("guruLineZh")),
             "student": student,
+            "student_zh": _clip(turn.get("studentLineZh")),
             "answers": answers or [student],
         })
     return turns
@@ -478,6 +479,11 @@ class RoleplayController:
     status_text: Callable[[RoleplayTracker, str], Optional[str]] = mission_status_text
     # Called when a student answer completes nothing: (answer, recent AI speech).
     on_unmatched: Optional[Callable[[str, str], Awaitable[None]]] = None
+    # When set, it evaluates every student answer instead of the mission tracker
+    # (Latihan's step-by-step practice owns its own flow).
+    on_user_answer: Optional[Callable[[str], Awaitable[None]]] = None
+    # Set each time the AI finishes an utterance.
+    agent_spoke: asyncio.Event = field(default_factory=asyncio.Event)
     turns: list[dict[str, str]] = field(default_factory=list)
     _user_partial: list[str] = field(default_factory=list)
     _recent_user: list[tuple[float, str]] = field(default_factory=list)
@@ -500,6 +506,11 @@ class RoleplayController:
         self._user_partial.clear()
         self._add_turn("user", text)
         await self.send_event({"type": "transcript_final", "speaker": "user", "text": text})
+
+        if self.on_user_answer is not None:
+            await self.on_user_answer(text)
+            self._schedule_feedback()
+            return
 
         now = time.monotonic()
         self._recent_user = [
@@ -538,6 +549,7 @@ class RoleplayController:
         await self.send_event({"type": "roleplay_objective", "objectiveId": remaining[0].id})
 
     async def on_agent_final(self, text: str) -> None:
+        self.agent_spoke.set()
         self._add_turn("agent", text)
         await self.send_event({"type": "transcript_final", "speaker": "agent", "text": text})
 
