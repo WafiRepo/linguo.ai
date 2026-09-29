@@ -1,10 +1,14 @@
 import React from "react";
 import { Easing, Interactive, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
-import { colors, fontFamily } from "../theme";
+import { colors } from "../theme";
 
 // Small label + big headline at the top of a feature scene.
-export const Headline: React.FC<{ eyebrow: string; title: string }> = ({ eyebrow, title }) => {
+export const Headline: React.FC<{ eyebrow: string; title: string; fontFamily: string }> = ({
+  eyebrow,
+  title,
+  fontFamily,
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 

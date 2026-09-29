@@ -11,11 +11,14 @@ import {
 } from "remotion";
 
 import { Voiceover } from "../components/Voiceover";
-import { BRAND_NAME, colors, fontFamily } from "../theme";
+import { COPY } from "../copy";
+import { Locale } from "../voiceover";
+import { BRAND_NAME, colors, fontFamilyFor } from "../theme";
 
 // Opening: brand, promise and the fox mascot on Lingua purple.
-export const IntroScene: React.FC = () => {
+export const IntroScene: React.FC<{ locale: Locale }> = ({ locale }) => {
   const frame = useCurrentFrame();
+  const fontFamily = fontFamilyFor(locale);
   const { fps } = useVideoConfig();
 
   return (
@@ -70,6 +73,7 @@ export const IntroScene: React.FC = () => {
           fontWeight: 700,
           fontSize: 92,
           lineHeight: 1.1,
+          whiteSpace: "pre-line",
           color: "white",
           opacity: interpolate(frame, [0.3 * fps, 0.9 * fps], [0, 1], {
             extrapolateLeft: "clamp",
@@ -82,7 +86,7 @@ export const IntroScene: React.FC = () => {
           }),
         }}
       >
-        Learn Indonesian with an AI teacher
+        {COPY[locale].promise}
       </Interactive.Div>
 
       <Interactive.Div
@@ -107,7 +111,7 @@ export const IntroScene: React.FC = () => {
       >
         <CanvasImage src={staticFile("brand/mascot-welcome.png")} width={800} height={900} fit="contain" />
       </Interactive.Div>
-      <Voiceover id="intro" />
+      <Voiceover locale={locale} id="intro" />
     </AbsoluteFill>
   );
 };

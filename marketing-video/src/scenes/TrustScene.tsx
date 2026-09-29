@@ -13,25 +13,22 @@ import {
 import { Headline } from "../components/Headline";
 import { SoftBackground } from "../components/SoftBackground";
 import { Voiceover } from "../components/Voiceover";
-import { colors, fontFamily } from "../theme";
-
-const POINTS = [
-  "In English or Traditional Chinese",
-  "Only a nickname and grade",
-  "No photos, addresses or real names",
-];
+import { COPY } from "../copy";
+import { Locale } from "../voiceover";
+import { colors, fontFamilyFor } from "../theme";
 
 // What parents and schools want to know: language and privacy.
-export const TrustScene: React.FC = () => {
+export const TrustScene: React.FC<{ locale: Locale }> = ({ locale }) => {
   const frame = useCurrentFrame();
+  const fontFamily = fontFamilyFor(locale);
   const { fps } = useVideoConfig();
 
   return (
     <AbsoluteFill name="Trust">
       <SoftBackground />
-      <Headline eyebrow="For families and schools" title="Simple, safe and bilingual" />
+      <Headline eyebrow={COPY[locale].trust.eyebrow} title={COPY[locale].trust.title} fontFamily={fontFamily} />
 
-      {POINTS.map((point, index) => (
+      {COPY[locale].trust.points.map((point, index) => (
         <Interactive.Div
           key={point}
           name={`Point ${index + 1}`}
@@ -102,7 +99,7 @@ export const TrustScene: React.FC = () => {
       >
         <CanvasImage src={staticFile("brand/mascot-auth.png")} width={500} height={560} fit="contain" />
       </Interactive.Div>
-      <Voiceover id="trust" />
+      <Voiceover locale={locale} id="trust" />
     </AbsoluteFill>
   );
 };

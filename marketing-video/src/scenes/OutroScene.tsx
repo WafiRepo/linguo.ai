@@ -11,11 +11,14 @@ import {
 } from "remotion";
 
 import { Voiceover } from "../components/Voiceover";
-import { BRAND_NAME, colors, fontFamily } from "../theme";
+import { COPY } from "../copy";
+import { Locale } from "../voiceover";
+import { BRAND_NAME, colors, fontFamilyFor } from "../theme";
 
 // Closing card: logo, name and tagline.
-export const OutroScene: React.FC = () => {
+export const OutroScene: React.FC<{ locale: Locale }> = ({ locale }) => {
   const frame = useCurrentFrame();
+  const fontFamily = fontFamilyFor(locale);
   const { fps } = useVideoConfig();
 
   return (
@@ -86,9 +89,9 @@ export const OutroScene: React.FC = () => {
           }),
         }}
       >
-        Speak Indonesian with confidence
+        {COPY[locale].tagline}
       </Interactive.Div>
-      <Voiceover id="outro" />
+      <Voiceover locale={locale} id="outro" />
     </AbsoluteFill>
   );
 };

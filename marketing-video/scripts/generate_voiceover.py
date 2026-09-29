@@ -1,43 +1,65 @@
 """Record the narrator voiceover for the app intro video (run once per script change).
 
-Writes public/voiceover/<scene>.mp3 and src/voiceover.ts (scene durations in
-seconds), so each scene lasts as long as its line.
+Writes public/voiceover/<locale>/<scene>.mp3 and src/voiceover-<locale>.ts
+(scene durations in seconds), so each scene lasts as long as its line.
 
 Usage (from marketing-video/, OPENAI_API_KEY in ../vision-agent/.env):
-    ../vision-agent/.venv/Scripts/python.exe scripts/generate_voiceover.py
+    ../vision-agent/.venv/Scripts/python.exe scripts/generate_voiceover.py en
+    ../vision-agent/.venv/Scripts/python.exe scripts/generate_voiceover.py zh-TW
 """
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import OpenAI
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT_DIR = ROOT / "public" / "voiceover"
-INDEX_FILE = ROOT / "src" / "voiceover.ts"
 
 MODEL = "gpt-4o-mini-tts"
 VOICE = "marin"
-INSTRUCTIONS = (
-    "You are a warm, friendly narrator for a short app introduction aimed at parents, "
-    "teachers and schools. Sound clear, upbeat and trustworthy, at a relaxed but lively "
-    "pace. Pronounce 'Bu Guru' the Indonesian way: boo GOO-roo."
-)
+
+INSTRUCTIONS = {
+    "en": (
+        "You are a warm, friendly narrator for a short app introduction aimed at parents, "
+        "teachers and schools. Sound clear, upbeat and trustworthy, at a relaxed but lively "
+        "pace. Pronounce 'Bu Guru' the Indonesian way: boo GOO-roo."
+    ),
+    "zh-TW": (
+        "你是一位溫暖、親切的旁白，為家長、老師和學校介紹一個學習 App。"
+        "請用自然的台灣國語口音說話，清楚、有活力、值得信賴，速度輕快但不急。"
+        "'Lingua' 念成英文 LING-gwa；'AI' 念成英文字母 A-I；"
+        "'Bu Guru' 用印尼語念：boo GOO-roo。"
+    ),
+}
 
 # Scene id -> narration. Keep ids in sync with the scenes in src/IntroVideo.tsx.
-SCRIPT = [
-    ("intro", "Meet Lingua: a friendly AI teacher that helps children learn Indonesian."),
-    ("topics", "It's built around eighteen illustrated classroom comics, made for primary schools in Taiwan."),
-    ("materials", "Children explore picture lessons, and hear every word in a clear, natural voice."),
-    ("practice", "In Practice, they listen, repeat, and answer, one step at a time."),
-    ("roleplay", "In Role Play, they talk live with Bu Guru, who gently corrects mistakes right away."),
-    ("review", "Every session ends with stars, praise, and simple tips to improve."),
-    ("progress", "Daily goals and a clear path through every topic keep learning on track."),
-    ("trust", "It works in English or Traditional Chinese, and asks only for a nickname and grade."),
-    ("outro", "Lingua. Speak Indonesian with confidence."),
-]
+SCRIPTS = {
+    "en": [
+        ("intro", "Meet Lingua: a friendly AI teacher that helps children learn Indonesian."),
+        ("topics", "It's built around eighteen illustrated classroom comics, made for primary schools in Taiwan."),
+        ("materials", "Children explore picture lessons, and hear every word in a clear, natural voice."),
+        ("practice", "In Practice, they listen, repeat, and answer, one step at a time."),
+        ("roleplay", "In Role Play, they talk live with Bu Guru, who gently corrects mistakes right away."),
+        ("review", "Every session ends with stars, praise, and simple tips to improve."),
+        ("progress", "Daily goals and a clear path through every topic keep learning on track."),
+        ("trust", "It works in English or Traditional Chinese, and asks only for a nickname and grade."),
+        ("outro", "Lingua. Speak Indonesian with confidence."),
+    ],
+    "zh-TW": [
+        ("intro", "認識 Lingua：一位親切的 AI 老師，陪孩子輕鬆學印尼語。"),
+        ("topics", "課程圍繞十八個課堂漫畫主題，專為台灣的國小設計。"),
+        ("materials", "孩子可以看圖學習，每個單字都有清楚、自然的發音。"),
+        ("practice", "在練習模式，孩子一步一步地聽、跟著說，再回答。"),
+        ("roleplay", "在角色扮演中，孩子和 Bu Guru 即時對話，說錯時，老師會溫柔地馬上糾正。"),
+        ("review", "每次練習結束，孩子會得到星星、鼓勵，和簡單的改進建議。"),
+        ("progress", "每日目標和清楚的學習路徑，讓孩子穩定進步。"),
+        ("trust", "App 可以用繁體中文或英文，而且只需要暱稱和年級。"),
+        ("outro", "Lingua，讓孩子自信說印尼語。"),
+    ],
+}
 
 
 def duration_seconds(path: Path) -> float:
@@ -50,31 +72,32 @@ def duration_seconds(path: Path) -> float:
 
 
 def main() -> None:
+    locale = sys.argv[1] if len(sys.argv) > 1 else "en"
+    script = SCRIPTS[locale]
     load_dotenv(ROOT.parent / "vision-agent" / ".env")
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir = ROOT / "public" / "voiceover" / locale
+    out_dir.mkdir(parents=True, exist_ok=True)
     client = OpenAI()
-    durations = {}
-    for scene_id, text in SCRIPT:
-        path = OUT_DIR / f"{scene_id}.mp3"
-        print(f"recording {scene_id}")
+    lines = []
+    for scene_id, text in script:
+        path = out_dir / f"{scene_id}.mp3"
+        print(f"recording {locale}/{scene_id}")
         audio = client.audio.speech.create(
-            model=MODEL, voice=VOICE, input=text, instructions=INSTRUCTIONS, response_format="mp3"
+            model=MODEL, voice=VOICE, input=text, instructions=INSTRUCTIONS[locale], response_format="mp3"
         ).content
         path.write_bytes(audio)
-        durations[scene_id] = round(duration_seconds(path), 2)
+        lines.append({"id": scene_id, "text": text, "seconds": round(duration_seconds(path), 2)})
 
-    lines = [
-        "// Generated by scripts/generate_voiceover.py — do not edit by hand.",
-        "export const VOICEOVER = " + json.dumps(
-            [{"id": sid, "text": text, "seconds": durations[sid]} for sid, text in SCRIPT],
-            indent=2,
-        ) + " as const;",
-        "",
-        "export type SceneId = (typeof VOICEOVER)[number][\"id\"];",
-        "",
-    ]
-    INDEX_FILE.write_text("\n".join(lines), encoding="utf-8", newline="\n")
-    print(json.dumps(durations, indent=1), "total", round(sum(durations.values()), 1))
+    const_name = "VOICEOVER_" + locale.replace("-", "_").upper()
+    ts = (
+        "// Generated by scripts/generate_voiceover.py — do not edit by hand.\n"
+        f"export const {const_name} = "
+        + json.dumps(lines, indent=2, ensure_ascii=False)
+        + " as const;\n"
+    )
+    (ROOT / "src" / f"voiceover-{locale}.ts").write_text(ts, encoding="utf-8", newline="\n")
+    total = sum(line["seconds"] for line in lines)
+    print(json.dumps({line["id"]: line["seconds"] for line in lines}), "total", round(total, 1))
 
 
 if __name__ == "__main__":

@@ -14,31 +14,33 @@ import { Headline } from "../components/Headline";
 import { PHONE_SIZE, PhoneFrame } from "../components/PhoneFrame";
 import { SoftBackground } from "../components/SoftBackground";
 import { Voiceover } from "../components/Voiceover";
-import { SceneId } from "../voiceover";
+import { fontFamilyFor } from "../theme";
+import { Locale, SceneId } from "../voiceover";
 
 export type FeatureSceneProps = {
+  locale: Locale;
   id: SceneId;
   eyebrow: string;
   title: string;
-  /** A screenshot in public/screens, or a recording in public/clips. */
+  /** A screenshot in public/<locale>/screens, or a recording in public/<locale>/clips. */
   screen?: string;
   clip?: { src: string; startSeconds: number; playbackRate: number };
 };
 
 // A feature shown on the phone, with its headline above it.
-export const FeatureScene: React.FC<FeatureSceneProps> = ({ id, eyebrow, title, screen, clip }) => {
+export const FeatureScene: React.FC<FeatureSceneProps> = ({ locale, id, eyebrow, title, screen, clip }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
 
   return (
     <AbsoluteFill name="Feature">
       <SoftBackground />
-      <Headline eyebrow={eyebrow} title={title} />
+      <Headline eyebrow={eyebrow} title={title} fontFamily={fontFamilyFor(locale)} />
       <PhoneFrame top={560}>
         {clip ? (
           <Video
             name="Recording"
-            src={staticFile(clip.src)}
+            src={staticFile(`${locale}/${clip.src}`)}
             trimBefore={clip.startSeconds * fps}
             playbackRate={clip.playbackRate}
             muted
@@ -59,7 +61,7 @@ export const FeatureScene: React.FC<FeatureSceneProps> = ({ id, eyebrow, title, 
             }}
           >
             <CanvasImage
-              src={staticFile(screen)}
+              src={staticFile(`${locale}/${screen}`)}
               width={PHONE_SIZE.screenWidth}
               height={PHONE_SIZE.screenHeight}
               fit="cover"
@@ -67,7 +69,7 @@ export const FeatureScene: React.FC<FeatureSceneProps> = ({ id, eyebrow, title, 
           </Interactive.Div>
         ) : null}
       </PhoneFrame>
-      <Voiceover id={id} />
+      <Voiceover locale={locale} id={id} />
     </AbsoluteFill>
   );
 };
