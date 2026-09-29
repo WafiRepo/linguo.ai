@@ -50,3 +50,7 @@ replay_pid*.log
 
 # Source reference docs (not bundled by the app)
 assets/VINSA_classroom management (2).pdf
+
+# Rendered marketing video and raw screen recordings (large; source lives in marketing-video/)
+marketing/*.mp4
+marketing/recordings/
