@@ -102,7 +102,7 @@ export default function ChildProfileSetupScreen() {
                   activeOpacity={0.85}
                   className={`rounded-2xl border px-5 py-3 ${
                     selected
-                      ? "bg-primary-purple/10 border-primary-purple"
+                      ? "bg-lingua-purple/10 border-lingua-purple"
                       : "bg-white border-border"
                   }`}
                 >

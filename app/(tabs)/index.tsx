@@ -208,7 +208,7 @@ export default function HomeScreen() {
       {language ? (
         <Image
           source={{ uri: language.flag }}
-          className="w-[34px] h-[34px] rounded-full"
+          className="w-[34px] h-[34px] rounded-full border border-border"
         />
       ) : (
         <View className="w-[34px] h-[34px] rounded-full bg-surface" />

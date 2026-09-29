@@ -170,7 +170,7 @@ export default function ProfileScreen() {
                     onPress={() => setTutorVoice(option.code)}
                     className={`flex-row items-center rounded-[20px] border px-4 py-4 ${
                       selected
-                        ? "bg-primary-purple/5 border-primary-purple"
+                        ? "bg-lingua-purple/5 border-lingua-purple"
                         : "bg-white border-border"
                     }`}
                     style={styles.cardShadow}
@@ -220,7 +220,7 @@ export default function ProfileScreen() {
                     }
                     className={`flex-row items-center rounded-[20px] border px-4 py-4 ${
                       selected
-                        ? "bg-primary-purple/5 border-primary-purple"
+                        ? "bg-lingua-purple/5 border-lingua-purple"
                         : "bg-white border-border"
                     }`}
                     style={styles.cardShadow}

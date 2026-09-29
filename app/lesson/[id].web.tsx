@@ -23,7 +23,7 @@ export default function LessonWebScreen() {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => router.back()}
-          className="mt-6 bg-primary-purple rounded-2xl px-6 py-3"
+          className="mt-6 bg-lingua-purple rounded-2xl px-6 py-3"
         >
           <Text className="font-poppins-semibold text-white">{t("common.back")}</Text>
         </TouchableOpacity>
