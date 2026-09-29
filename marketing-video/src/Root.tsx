@@ -1,6 +1,8 @@
 import "./index.css";
-import { Composition, Folder } from "remotion";
+import { Composition, Folder, Still } from "remotion";
 
+import { ArchitectureDiagram } from "./diagrams/ArchitectureDiagram";
+import { SystemDiagram } from "./diagrams/SystemDiagram";
 import { featuresFor, introVideoFrames, IntroVideo, sceneFrames } from "./IntroVideo";
 import { FeatureScene } from "./scenes/FeatureScene";
 import { IntroScene } from "./scenes/IntroScene";
@@ -19,6 +21,10 @@ const LOCALES: { locale: Locale; suffix: string }[] = [
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      <Folder name="README-Diagrams">
+        <Still id="SystemDiagram" component={SystemDiagram} width={1720} height={1020} />
+        <Still id="ArchitectureDiagram" component={ArchitectureDiagram} width={1820} height={1110} />
+      </Folder>
       {LOCALES.map(({ locale, suffix }) => (
         <Folder key={locale} name={`IntroVideo${suffix}-Scenes`}>
           <Composition
