@@ -25,3 +25,19 @@ export const PART_TITLES: Record<CurriculumPart, { zh: string; en: string }> = {
 };
 
 export const COURSE_TITLE = { zh: "印尼語課室用語", en: "Indonesian Classroom Language" };
+
+/** A certificate is for one part, or FULL once parts A, B and C are all done. */
+export type CertificateKind = CurriculumPart | "FULL";
+
+export const CERTIFICATE_KINDS: CertificateKind[] = ["A", "B", "C", "FULL"];
+
+/** Topics that must be finished (Practice and Role Play) for each certificate. */
+export const CERTIFICATE_TOPICS: Record<CertificateKind, string[]> = {
+  ...CURRICULUM_PARTS,
+  FULL: [...CURRICULUM_PARTS.A, ...CURRICULUM_PARTS.B, ...CURRICULUM_PARTS.C],
+};
+
+export const CERTIFICATE_TITLES: Record<CertificateKind, { zh: string; en: string }> = {
+  ...PART_TITLES,
+  FULL: { zh: "全部課程", en: "Full Course" },
+};

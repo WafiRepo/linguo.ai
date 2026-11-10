@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { WaveHeader } from "@/components/WaveHeader";
-import { PART_TITLES } from "@/constants/curriculumParts";
+import { CERTIFICATE_TITLES } from "@/constants/curriculumParts";
 import { fetchCertificates, printCertificate, shareCertificatePdf } from "@/lib/certificates";
 import { isNoAccessError } from "@/lib/api";
 import { Translate, useT } from "@/lib/i18n";
@@ -104,7 +104,7 @@ export default function CertificatesScreen() {
             <PartCard
               key={status.part}
               status={status}
-              title={PART_TITLES[status.part][locale === "zh-TW" ? "zh" : "en"]}
+              title={CERTIFICATE_TITLES[status.part][locale === "zh-TW" ? "zh" : "en"]}
               date={status.certificate ? dateFormat.format(new Date(status.certificate.completedAt)) : ""}
               busy={busy}
               onAction={run}

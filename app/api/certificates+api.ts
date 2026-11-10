@@ -1,11 +1,11 @@
 import { randomBytes } from "crypto";
 
 import {
+  CERTIFICATE_KINDS,
+  CERTIFICATE_TITLES,
+  CERTIFICATE_TOPICS,
+  CertificateKind,
   COURSE_TITLE,
-  CURRICULUM_PARTS,
-  CurriculumPart,
-  PART_KEYS,
-  PART_TITLES,
 } from "../../constants/curriculumParts";
 import { getBearerToken, verifyClerkToken } from "../../lib/clerkAuth";
 import { isSupabaseConfigured, supabaseRest } from "../../lib/supabase";
@@ -20,7 +20,7 @@ import type { Certificate, CertificatesResponse } from "../../types/certificate"
 type SessionRow = { topic_id: string; mode: "practice" | "roleplay"; created_at: string };
 type CertificateRow = {
   certificate_no: string;
-  part: CurriculumPart;
+  part: CertificateKind;
   student_name: string;
   course_title: string;
   completed_at: string;
@@ -30,16 +30,16 @@ type CertificateRow = {
 // No 0/O/1/I, so the number is easy to read out or type.
 const ID_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 
-function newCertificateNo(part: CurriculumPart): string {
+function newCertificateNo(part: CertificateKind): string {
   const bytes = randomBytes(8);
   const code = Array.from(bytes, (byte) => ID_ALPHABET[byte % ID_ALPHABET.length]).join("");
   return `BI-${part}-${code}`;
 }
 
 /** When the part was completed: the moment its last required session was first done. */
-function completionDate(part: CurriculumPart, sessions: SessionRow[]): string | null {
+function completionDate(part: CertificateKind, sessions: SessionRow[]): string | null {
   let latest: string | null = null;
-  for (const topicId of CURRICULUM_PARTS[part]) {
+  for (const topicId of CERTIFICATE_TOPICS[part]) {
     for (const mode of ["practice", "roleplay"] as const) {
       const first = sessions
         .filter((session) => session.topic_id === topicId && session.mode === mode)
@@ -52,9 +52,9 @@ function completionDate(part: CurriculumPart, sessions: SessionRow[]): string | 
   return latest;
 }
 
-function topicsDone(part: CurriculumPart, sessions: SessionRow[]): number {
+function topicsDone(part: CertificateKind, sessions: SessionRow[]): number {
   const done = new Set(sessions.map((session) => `${session.topic_id}:${session.mode}`));
-  return CURRICULUM_PARTS[part].filter((id) => done.has(`${id}:practice`) && done.has(`${id}:roleplay`))
+  return CERTIFICATE_TOPICS[part].filter((id) => done.has(`${id}:practice`) && done.has(`${id}:roleplay`))
     .length;
 }
 
@@ -105,7 +105,8 @@ export async function GET(request: Request): Promise<Response> {
     const issuedParts = new Set(existing.map((row) => row.part));
 
     // Issue certificates for parts finished since the last check.
-    const earned = PART_KEYS.filter((part) => !issuedParts.has(part) && completionDate(part, sessions));
+    // FULL is earned once every topic of A, B and C is done.
+    const earned = CERTIFICATE_KINDS.filter((part) => !issuedParts.has(part) && completionDate(part, sessions));
     if (earned.length) {
       const profiles = await supabaseRest<{ nickname: string | null }[]>(
         `profiles?user_id=eq.${user}&select=nickname`,
@@ -119,7 +120,8 @@ export async function GET(request: Request): Promise<Response> {
           user_id: ownerId,
           part,
           student_name: studentName,
-          course_title: `${COURSE_TITLE.en} · ${PART_TITLES[part].en}`,
+          course_title:
+            part === "FULL" ? COURSE_TITLE.en : `${COURSE_TITLE.en} · ${CERTIFICATE_TITLES[part].en}`,
           completed_at: completionDate(part, sessions),
         })),
       });
@@ -129,12 +131,12 @@ export async function GET(request: Request): Promise<Response> {
       ? await supabaseRest<CertificateRow[]>(`certificates?user_id=eq.${user}`)
       : existing;
     const body: CertificatesResponse = {
-      parts: PART_KEYS.map((part) => {
+      parts: CERTIFICATE_KINDS.map((part) => {
         const row = certificates.find((item) => item.part === part);
         return {
           part,
           topicsDone: topicsDone(part, sessions),
-          topicsTotal: CURRICULUM_PARTS[part].length,
+          topicsTotal: CERTIFICATE_TOPICS[part].length,
           certificate: row ? toCertificate(row) : null,
         };
       }),

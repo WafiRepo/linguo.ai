@@ -25,7 +25,7 @@ export const en = {
   "certificates.pdfError": "Couldn't create the PDF. Please try again.",
   "certificates.print": "Print",
   "certificates.progress": "{done}/{total} topics finished",
-  "certificates.rule": "Finish both Practice and Role Play for every topic in a part to earn that part's certificate.",
+  "certificates.rule": "Finish both Practice and Role Play for every topic in a part to earn that part's certificate. Finish all three parts for the Full Course certificate.",
   "certificates.title": "Certificates",
   "childProfile.grade": "Grade",
   "childProfile.intro": "Please fill this in with a parent. Only a nickname and grade are needed — no real name, phone number, birthday or photo.",

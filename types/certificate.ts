@@ -1,8 +1,8 @@
-import type { CurriculumPart } from "@/constants/curriculumParts";
+import type { CertificateKind } from "@/constants/curriculumParts";
 
 export interface Certificate {
   certificateNo: string;
-  part: CurriculumPart;
+  part: CertificateKind;
   studentName: string;
   courseTitle: string;
   completedAt: string;
@@ -10,7 +10,7 @@ export interface Certificate {
 }
 
 export interface PartCertificateStatus {
-  part: CurriculumPart;
+  part: CertificateKind;
   /** Topics with both Latihan and Role Play finished. */
   topicsDone: number;
   topicsTotal: number;

@@ -2,7 +2,7 @@ import { File, Paths } from "expo-file-system";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 
-import { COURSE_TITLE, PART_TITLES } from "@/constants/curriculumParts";
+import { CERTIFICATE_TITLES, COURSE_TITLE } from "@/constants/curriculumParts";
 import { STORY } from "@/data/teamStory";
 import { ApiError, apiUrl } from "@/lib/api";
 import { Certificate, CertificatesResponse } from "@/types/certificate";
@@ -35,7 +35,10 @@ function formatDates(iso: string) {
 
 /** Landscape A4 certificate; the same bilingual layout for every app language. */
 export function certificateHtml(certificate: Certificate): string {
-  const part = PART_TITLES[certificate.part];
+  const part = CERTIFICATE_TITLES[certificate.part];
+  // The full-course certificate names only the course.
+  const courseZh = certificate.part === "FULL" ? COURSE_TITLE.zh : `${COURSE_TITLE.zh} · ${part.zh}`;
+  const courseEn = certificate.part === "FULL" ? COURSE_TITLE.en : `${COURSE_TITLE.en} · ${part.en}`;
   const date = formatDates(certificate.completedAt);
   const name = escapeHtml(certificate.studentName);
 
@@ -71,8 +74,8 @@ export function certificateHtml(certificate: Certificate): string {
   <div class="lead">茲證明 &nbsp;/&nbsp; This certifies that</div>
   <div class="name">${name}</div>
   <div class="lead">已完成 &nbsp;/&nbsp; has successfully completed</div>
-  <div class="course">${COURSE_TITLE.zh} · ${part.zh}</div>
-  <div class="course-en">${COURSE_TITLE.en} · ${part.en}</div>
+  <div class="course">${courseZh}</div>
+  <div class="course-en">${courseEn}</div>
   <div class="date">完成日期 ${date.zh} &nbsp;/&nbsp; Completed on ${date.en}</div>
   <div class="footer">
     <div class="org">
