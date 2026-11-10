@@ -1,3 +1,4 @@
+import { PART_KEYS, partOfTopic } from "@/constants/curriculumParts";
 import { apiUrl } from "@/lib/api";
 import { ALL_CLASS_TOPICS } from "@/lib/topicProgress";
 import { useChildProfileStore } from "@/store/childProfileStore";
@@ -87,12 +88,6 @@ export interface PortfolioSummary {
   improvements: SessionResult["corrections"];
 }
 
-function partOf(topicId: string): "A" | "B" | "C" {
-  if (topicId.startsWith("b-")) return "B";
-  if (topicId.startsWith("c-")) return "C";
-  return "A";
-}
-
 export function summarizePortfolio(sessions: SessionResult[]): PortfolioSummary {
   const finished = new Set(
     sessions.filter((session) => session.completed).map((session) => `${session.topicId}:${session.mode}`),
@@ -123,10 +118,10 @@ export function summarizePortfolio(sessions: SessionResult[]): PortfolioSummary 
     totalTopics: ALL_CLASS_TOPICS.length,
     sessionsCount: sessions.length,
     averageStars: allStars.length ? allStars.reduce((a, b) => a + b, 0) / allStars.length : null,
-    parts: (["A", "B", "C"] as const).map((key) => ({
+    parts: PART_KEYS.map((key) => ({
       key,
-      done: completedTopicIds.filter((id) => partOf(id) === key).length,
-      total: ALL_CLASS_TOPICS.filter((topic) => partOf(topic.id) === key).length,
+      done: completedTopicIds.filter((id) => partOfTopic(id) === key).length,
+      total: ALL_CLASS_TOPICS.filter((topic) => partOfTopic(topic.id) === key).length,
     })),
     strengths,
     improvements,

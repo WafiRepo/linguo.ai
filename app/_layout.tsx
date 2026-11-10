@@ -55,6 +55,7 @@ export default function RootLayout() {
           <Stack.Screen name="story" />
           <Stack.Screen name="ebooks" />
           <Stack.Screen name="portfolio" />
+          <Stack.Screen name="certificates" />
         </Stack>
         </AccountStorageGate>
       </ClerkProvider>

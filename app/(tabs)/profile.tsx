@@ -122,6 +122,26 @@ export default function ProfileScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.primary.purple} />
         </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          testID="profile-open-certificates"
+          onPress={() => router.push("/certificates" as Href)}
+          className="flex-row items-center bg-white rounded-[20px] border border-border px-4 py-4 mt-3"
+          style={styles.cardShadow}
+        >
+          <View className="w-11 h-11 rounded-full bg-surface items-center justify-center">
+            <Ionicons name="document-text-outline" size={22} color={colors.primary.purple} />
+          </View>
+          <View className="flex-1 ml-3">
+            <Text className="font-poppins-semibold text-base text-text-primary">
+              {t("certificates.title")}
+            </Text>
+            <Text className="font-poppins text-sm text-text-secondary mt-0.5">
+              {t("certificates.cardBody")}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+        </TouchableOpacity>
       </View>
 
       <View className="px-5 mb-6">
