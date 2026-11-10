@@ -108,6 +108,12 @@ function LiveRoleplayScreen() {
   const [stars, setStars] = useState<number[]>([]);
   const [comicPhase, setComicPhase] = useState<ComicPhase>("guru");
   const [correction, setCorrection] = useState<ComicCorrection | null>(null);
+  // The comic dialogue on screen. It moves on only when the teacher starts the
+  // next dialogue's line, not as soon as the server marks a dialogue done:
+  // the teacher may still be correcting the previous one.
+  const [displayTurn, setDisplayTurn] = useState(0);
+  const pendingTurnRef = useRef<number | null>(null);
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [client, setClient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<Call | null>(null);
@@ -174,6 +180,8 @@ function LiveRoleplayScreen() {
     setReviewing(false);
     setComicPhase("guru");
     setCorrection(null);
+    setDisplayTurn(0);
+    pendingTurnRef.current = null;
     setPracticeStep("listen");
     setStars([]);
     posthog.capture("roleplay_started", {
@@ -320,14 +328,53 @@ function LiveRoleplayScreen() {
       .catch(() => {});
   }
 
+  const showTurn = useCallback((index: number) => {
+    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+    advanceTimerRef.current = null;
+    pendingTurnRef.current = null;
+    setDisplayTurn(index);
+    // Next comic dialogue: Bu Guru speaks first.
+    setComicPhase("guru");
+    setCorrection((current) => (current && current.turnIndex < index ? null : current));
+  }, []);
+
+  // Move on now if the teacher is already saying the next dialogue's line,
+  // or after a short wait when the line is never heard (fallback).
+  const scheduleAdvance = useCallback(
+    (index: number) => {
+      pendingTurnRef.current = index;
+      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = setTimeout(() => showTurn(index), COMIC_ADVANCE_FALLBACK_MS);
+    },
+    [showTurn],
+  );
+
+  useEffect(() => () => {
+    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (completedIds.length > displayTurn) scheduleAdvance(completedIds.length);
+    // displayTurn is read only to know whether a move is needed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completedIds.length, scheduleAdvance]);
+
+  const handleAgentText = useCallback(
+    (text: string) => {
+      const pending = pendingTurnRef.current;
+      if (pending === null || !comic) return;
+      const nextGuruLine = comic.turns[pending]?.guruLine.id;
+      // No next dialogue (all done) or the teacher started it: show it.
+      if (!nextGuruLine || saysLine(text, nextGuruLine)) showTurn(pending);
+    },
+    [comic, showTurn],
+  );
+
   const handleObjectiveDone = useCallback(
     (objectiveId: string) => {
       setCompletedIds((prev) =>
         prev.includes(objectiveId) ? prev : [...prev, objectiveId],
       );
-      // Next comic dialogue: Bu Guru speaks first.
-      setComicPhase("guru");
-      setCorrection(null);
       posthog.capture("roleplay_objective_completed", {
         scenario_id: scenario?.id ?? null,
         objective_id: objectiveId,
@@ -347,12 +394,15 @@ function LiveRoleplayScreen() {
   const handleCorrection = useCallback(
     (next: ComicCorrection) => {
       setCorrection(next);
+      setDisplayTurn(next.turnIndex);
+      // Still move on afterwards, once the teacher continues.
+      if (pendingTurnRef.current !== null) scheduleAdvance(pendingTurnRef.current);
       posthog.capture("roleplay_correction_shown", {
         scenario_id: scenario?.id ?? null,
         turn_index: next.turnIndex,
       });
     },
-    [scenario?.id],
+    [scenario?.id, scheduleAdvance],
   );
 
   const handlePracticeStep = useCallback((step: PracticeStep) => {
@@ -460,14 +510,14 @@ function LiveRoleplayScreen() {
       {isPractice ? (
         <PracticePanel
           topic={comic}
-          turnIndex={completedIds.length}
+          turnIndex={displayTurn}
           step={practiceStep}
           stars={stars}
         />
       ) : (
-        <ComicPanel topic={comic} turnIndex={completedIds.length} phase={comicPhase} />
+        <ComicPanel topic={comic} turnIndex={displayTurn} phase={comicPhase} />
       )}
-      {correction && correction.turnIndex === completedIds.length ? (
+      {correction && correction.turnIndex === displayTurn ? (
         <CorrectionCard
           said={correction.said}
           expected={comic.turns[correction.turnIndex]?.studentLine.id ?? ""}
@@ -487,6 +537,7 @@ function LiveRoleplayScreen() {
               onObjectiveDone={handleObjectiveDone}
               onStudentTurn={handleStudentTurn}
               onAgentTurn={handleAgentTurn}
+              onAgentText={handleAgentText}
               onCorrection={handleCorrection}
               onFeedback={setFeedback}
               onPracticeStep={handlePracticeStep}
@@ -568,6 +619,26 @@ function MissionCard({
       </View>
     </View>
   );
+}
+
+// Wait this long for the teacher to start the next dialogue before moving the comic anyway.
+const COMIC_ADVANCE_FALLBACK_MS = 8000;
+
+function comparableWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/** True when the teacher's speech contains the start of a comic line. */
+function saysLine(speech: string, line: string): boolean {
+  const words = comparableWords(line);
+  if (!words.length) return false;
+  // The first three words are enough to recognise the line (all of a short one).
+  const start = words.slice(0, Math.min(3, words.length)).join(" ");
+  return comparableWords(speech).join(" ").includes(start);
 }
 
 function ComicPanel({
@@ -803,6 +874,7 @@ function ActiveRoleplayContent({
   onObjectiveDone,
   onStudentTurn,
   onAgentTurn,
+  onAgentText,
   onCorrection,
   onFeedback,
   onPracticeStep,
@@ -819,6 +891,8 @@ function ActiveRoleplayContent({
   onObjectiveDone: (objectiveId: string) => void;
   onStudentTurn: () => void;
   onAgentTurn: () => void;
+  /** Every piece of the teacher's speech (partial and final). */
+  onAgentText: (text: string) => void;
   onCorrection: (correction: ComicCorrection) => void;
   onFeedback: (feedback: RoleplayFeedback) => void;
   onPracticeStep: (step: PracticeStep) => void;
@@ -905,6 +979,7 @@ function ActiveRoleplayContent({
       if (data.type === "transcript_partial" && data.text) {
         const text = data.text;
         if (speaker === "user") userPartialRef.current = text;
+        else onAgentText(text);
         setPartials((prev) => ({ ...prev, [speaker]: text }));
         return;
       }
@@ -912,6 +987,7 @@ function ActiveRoleplayContent({
       if (data.type === "transcript_final" && data.text) {
         const text = data.text;
         setPartials((prev) => ({ ...prev, [speaker]: undefined }));
+        if (speaker === "agent") onAgentText(text);
 
         if (speaker === "user") {
           userPartialRef.current = "";
@@ -957,6 +1033,7 @@ function ActiveRoleplayContent({
     onObjectiveDone,
     onStudentTurn,
     onAgentTurn,
+    onAgentText,
     onCorrection,
     onFeedback,
     onPracticeStep,
