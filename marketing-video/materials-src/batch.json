@@ -1,0 +1,149 @@
+{
+ "jobs": 1,
+ "tasks": [
+  {
+   "id": "icons-b2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-b2.md"
+   ],
+   "image": "raw/icons-b2.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "icons-b3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-b3.md"
+   ],
+   "image": "raw/icons-b3.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-b1-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-b1-1.md"
+   ],
+   "image": "raw/s-b1-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-b1-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-b1-2.md"
+   ],
+   "image": "raw/s-b1-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-b1-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-b1-3.md"
+   ],
+   "image": "raw/s-b1-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-b1-4",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-b1-4.md"
+   ],
+   "image": "raw/s-b1-4.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-b1-5",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-b1-5.md"
+   ],
+   "image": "raw/s-b1-5.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-b2-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-b2-1.md"
+   ],
+   "image": "raw/s-b2-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-b2-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-b2-2.md"
+   ],
+   "image": "raw/s-b2-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-b2-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-b2-3.md"
+   ],
+   "image": "raw/s-b2-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-b3-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-b3-1.md"
+   ],
+   "image": "raw/s-b3-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-b3-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-b3-2.md"
+   ],
+   "image": "raw/s-b3-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  }
+ ]
+}

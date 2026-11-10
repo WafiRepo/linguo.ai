@@ -150,6 +150,9 @@ import bagianCTopik4Panel8 from "@/assets/learning-management/bagian-c/topik-4/p
 import learningMaterialBagian1 from "@/assets/learning-materials/bagian-1.jpg";
 import learningMaterialBagian2 from "@/assets/learning-materials/bagian-2.jpg";
 import learningMaterialBagian3 from "@/assets/learning-materials/bagian-3.jpg";
+import learningMaterialBagian4 from "@/assets/learning-materials/bagian-4.jpg";
+import learningMaterialBagian5 from "@/assets/learning-materials/bagian-5.jpg";
+import learningMaterialBagian6 from "@/assets/learning-materials/bagian-6.jpg";
 
 export const images = {
   earth,
@@ -285,4 +288,7 @@ export const images = {
   learningMaterialBagian1,
   learningMaterialBagian2,
   learningMaterialBagian3,
+  learningMaterialBagian4,
+  learningMaterialBagian5,
+  learningMaterialBagian6,
 } as const;

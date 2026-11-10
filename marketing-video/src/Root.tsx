@@ -3,6 +3,8 @@ import { Composition, Folder, Still } from "remotion";
 
 import { ArchitectureDiagram } from "./diagrams/ArchitectureDiagram";
 import { SystemDiagram } from "./diagrams/SystemDiagram";
+import { MATERIAL_PAGES, PAGE_SIZE } from "./materials/materials";
+import { MaterialPageStill } from "./materials/MaterialPageStill";
 import { featuresFor, introVideoFrames, IntroVideo, sceneFrames } from "./IntroVideo";
 import { FeatureScene } from "./scenes/FeatureScene";
 import { IntroScene } from "./scenes/IntroScene";
@@ -24,6 +26,17 @@ export const RemotionRoot: React.FC = () => {
       <Folder name="README-Diagrams">
         <Still id="SystemDiagram" component={SystemDiagram} width={1720} height={1020} />
         <Still id="ArchitectureDiagram" component={ArchitectureDiagram} width={1820} height={1110} />
+      </Folder>
+      <Folder name="Learning-Materials">
+        {MATERIAL_PAGES.map((page) => (
+          <Still
+            key={page.id}
+            id={`Material-${page.id}`}
+            component={MaterialPageStill}
+            defaultProps={{ page }}
+            {...PAGE_SIZE}
+          />
+        ))}
       </Folder>
       {LOCALES.map(({ locale, suffix }) => (
         <Folder key={locale} name={`IntroVideo${suffix}-Scenes`}>

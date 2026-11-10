@@ -78,6 +78,56 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
       { word: "hadir", translation: "到", speakText: "hadir" },
     ],
   },
+  // Bagian IV–VI follow AI Teacher Part B, topics 1–3 (same comic dialogues).
+  {
+    id: "bagian-4",
+    title: "Bagian IV",
+    subtitle: "Bersiap Memulai Pelajaran",
+    imageKey: "learningMaterialBagian4",
+    aspectRatio: 1086 / 1448,
+    vocabulary: [
+      { word: "silakan", translation: "請", speakText: "silakan" },
+      { word: "duduk", translation: "坐下", speakText: "duduk" },
+      { word: "perhatikan", translation: "注意", speakText: "perhatikan" },
+      { word: "lihat", translation: "看", speakText: "lihat" },
+      { word: "depan", translation: "前面", speakText: "depan" },
+      { word: "keluarkan", translation: "拿出來", speakText: "keluarkan" },
+      { word: "buku", translation: "課本", speakText: "buku" },
+      { word: "pensil", translation: "鉛筆", speakText: "pensil" },
+    ],
+  },
+  {
+    id: "bagian-5",
+    title: "Bagian V",
+    subtitle: "Menunjukkan Gambar dan Video",
+    imageKey: "learningMaterialBagian5",
+    aspectRatio: 1086 / 1448,
+    vocabulary: [
+      { word: "gambar", translation: "圖片", speakText: "gambar" },
+      { word: "melihat", translation: "看到", speakText: "melihat" },
+      { word: "apa", translation: "什麼", speakText: "apa" },
+      { word: "kalian", translation: "你們", speakText: "kalian" },
+      { word: "sekolah", translation: "學校", speakText: "sekolah" },
+      { word: "bagus sekali", translation: "非常好", speakText: "bagus sekali" },
+      { word: "mari", translation: "我們來", speakText: "mari" },
+      { word: "video", translation: "影片", speakText: "video" },
+    ],
+  },
+  {
+    id: "bagian-6",
+    title: "Bagian VI",
+    subtitle: "Membuka Buku dan Halaman",
+    imageKey: "learningMaterialBagian6",
+    aspectRatio: 1086 / 1448,
+    vocabulary: [
+      { word: "keluarkan", translation: "拿出來", speakText: "keluarkan" },
+      { word: "buku", translation: "課本", speakText: "buku" },
+      { word: "buka", translation: "翻開", speakText: "buka" },
+      { word: "halaman", translation: "頁", speakText: "halaman" },
+      { word: "sepuluh (10)", translation: "十", speakText: "sepuluh" },
+      { word: "sudah", translation: "好了", speakText: "sudah" },
+    ],
+  },
 ];
 
 export function getLearningMaterial(id: string): LearningMaterial | undefined {

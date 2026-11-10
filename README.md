@@ -40,10 +40,10 @@
 | [▶ Watch the English demo (50 s)](docs/media/lingua-demo-en.mp4) | [▶ 觀看中文介紹影片 (63 s)](docs/media/lingua-demo-zh-TW.mp4) |
 
 <p align="center">
-  <img src="marketing/screenshots/02-home-goal-reached.png" alt="Home" width="180" />
-  <img src="marketing/screenshots/07-vocabulary-playing.png" alt="Vocabulary with audio" width="180" />
-  <img src="marketing/screenshots/09-practice-session.png" alt="Practice session" width="180" />
-  <img src="marketing/screenshots/11-session-review.png" alt="Session review" width="180" />
+  <img src="marketing/screenshots/EN/02-home-goal-reached.png" alt="Home" width="180" />
+  <img src="marketing/screenshots/EN/07-vocabulary-playing.png" alt="Vocabulary with audio" width="180" />
+  <img src="marketing/screenshots/EN/09-practice-session.png" alt="Practice session" width="180" />
+  <img src="marketing/screenshots/EN/11-session-review.png" alt="Session review" width="180" />
 </p>
 
 ---
