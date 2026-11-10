@@ -383,8 +383,9 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             # Quiet context: status notes must not prompt the model to speak,
             # or it repeats lines it already said on its own.
             append_instructions=agent.llm.append_thinking if is_gpt_live else None,
+            # The comic script keeps corrections to the lines the student practised.
             generate_feedback=lambda history: generate_roleplay_feedback(
-                feedback_client, feedback_model, history, help_language
+                feedback_client, feedback_model, history, help_language, script=turns
             ),
             status_text=status_text,
         )

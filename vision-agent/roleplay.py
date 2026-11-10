@@ -380,6 +380,58 @@ FEEDBACK_SYSTEM_PROMPT = (
     "- praise: one encouraging sentence in {help_language} about something they did well."
 )
 
+# Added when the session follows a fixed comic script (Latihan / Role Play).
+COMIC_FEEDBACK_RULES = (
+    "\nThis was a practice of a FIXED comic script; the script is given before the transcript. "
+    "Judge every STUDENT line only against the script line the student was answering:\n"
+    "- A line that already says the script's student line or one of its accepted answers "
+    "(ignoring capitals, punctuation and fillers like 'oh', 'eh', 'em') is CORRECT: never "
+    "correct it.\n"
+    "- 'better' MUST be exactly that script student line. Never add words, greetings or polite "
+    "phrases that are not in the script (for example, do not add 'terima kasih').\n"
+    "- Repeated words from speech recognition (like 'Baik Baik') are not mistakes.\n"
+    "- Only correct a line with missing, wrong or extra words compared with the script."
+)
+
+# Fillers that never make an answer wrong. Not 'oke'/'ya': they can be script answers.
+_FILLERS = {"oh", "eh", "em", "emm", "hmm", "uh", "um", "ah"}
+
+
+def _comparable(text: str) -> str:
+    """Lower-case words without punctuation, fillers or immediate repeats."""
+    words = [w for w in _normalize(text).split() if w not in _FILLERS]
+    deduped = [w for i, w in enumerate(words) if i == 0 or w != words[i - 1]]
+    return " ".join(deduped)
+
+
+def filter_comic_corrections(
+    corrections: list[dict[str, str]], script: list[dict[str, Any]]
+) -> list[dict[str, str]]:
+    """Safety net after the model: keep only corrections that make sense for the script.
+
+    Drops a correction when the student's line already matches an accepted answer,
+    or when the suggested line is not one of the script's student lines.
+    """
+    accepted = {_comparable(a) for turn in script for a in [turn["student"], *turn["answers"]]}
+    script_lines = {_comparable(turn["student"]): turn["student"] for turn in script}
+    script_lines.update({_comparable(a): turn["student"] for turn in script for a in turn["answers"]})
+    kept = []
+    for item in corrections:
+        said, better = _comparable(item["said"]), _comparable(item["better"])
+        if said in accepted or better not in script_lines:
+            continue
+        # Show the script's own spelling and punctuation.
+        kept.append({**item, "better": script_lines[better]})
+    return kept
+
+
+def _script_text(script: list[dict[str, Any]]) -> str:
+    lines = ["COMIC SCRIPT:"]
+    for index, turn in enumerate(script, start=1):
+        accepted = "; ".join(turn["answers"])
+        lines.append(f'{index}. TEACHER: {turn["guru"]} -> STUDENT should say: {turn["student"]} (accepted: {accepted})')
+    return "\n".join(lines)
+
 
 def parse_feedback(raw: str) -> Optional[dict[str, Any]]:
     try:
@@ -406,19 +458,30 @@ async def generate_roleplay_feedback(
     model: str,
     turns: list[dict[str, str]],
     help_language: str,
+    script: Optional[list[dict[str, Any]]] = None,
 ) -> Optional[dict[str, Any]]:
+    """End-of-session praise and corrections. With a comic script, corrections
+    must follow the script (prompt rules + filter_comic_corrections)."""
     transcript = "\n".join(
         f"{'STUDENT' if turn['speaker'] == 'user' else 'CHARACTER'}: {turn['text']}" for turn in turns
     )
+    system = FEEDBACK_SYSTEM_PROMPT.replace("{help_language}", help_language)
+    user = transcript
+    if script:
+        system += COMIC_FEEDBACK_RULES
+        user = f"{_script_text(script)}\n\nTRANSCRIPT:\n{transcript}"
     response = await client.chat.completions.create(
         model=model,
         response_format={"type": "json_object"},
         messages=[
-            {"role": "system", "content": FEEDBACK_SYSTEM_PROMPT.replace("{help_language}", help_language)},
-            {"role": "user", "content": transcript},
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
         ],
     )
-    return parse_feedback(response.choices[0].message.content or "")
+    feedback = parse_feedback(response.choices[0].message.content or "")
+    if feedback and script:
+        feedback["corrections"] = filter_comic_corrections(feedback["corrections"], script)
+    return feedback
 
 
 @dataclass

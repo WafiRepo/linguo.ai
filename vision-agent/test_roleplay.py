@@ -225,6 +225,45 @@ class FeedbackTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("in English", captured["messages"][0]["content"])
 
 
+class ComicFeedbackTest(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.script = roleplay.comic_turns([
+            {"guruLine": "Masukkan ke stopkontak.", "studentLine": "Baik, Bu Guru.",
+             "expectedAnswers": ["Baik, Bu Guru", "Baik"]},
+            {"guruLine": "Tekan tombolnya.", "studentLine": "Sudah.", "expectedAnswers": ["Sudah"]},
+            {"guruLine": "Besarkan suaranya sedikit.", "studentLine": "Baik.", "expectedAnswers": ["Baik"]},
+        ])
+
+    def test_filter_drops_correct_answers_and_off_script_suggestions(self):
+        corrections = [
+            {"said": "Oh Baik", "better": "Baik.", "tip": "filler only"},          # correct already
+            {"said": "Baik Baik", "better": "Baik.", "tip": "ASR repeat"},         # correct already
+            {"said": "Baik Okay", "better": "Baik, terima kasih.", "tip": "off-script"},
+            {"said": "Baik . Sudah", "better": "sudah", "tip": "extra word"},      # real mistake
+        ]
+        kept = roleplay.filter_comic_corrections(corrections, self.script)
+        self.assertEqual(kept, [{"said": "Baik . Sudah", "better": "Sudah.", "tip": "extra word"}])
+
+    async def test_generate_sends_script_and_filters(self):
+        captured = {}
+
+        async def create(**kwargs):
+            captured.update(kwargs)
+            content = json.dumps({"praise": "Bagus", "corrections": [
+                {"said": "Baik Okay", "better": "Baik, terima kasih.", "tip": "x"},
+            ]})
+            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
+
+        client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+        result = await generate_roleplay_feedback(
+            client, "gpt-5.4-mini", [{"speaker": "user", "text": "Baik Okay"}], "English", script=self.script,
+        )
+        self.assertEqual(result, {"praise": "Bagus", "corrections": []})
+        self.assertIn("COMIC SCRIPT:", captured["messages"][1]["content"])
+        self.assertIn("STUDENT should say: Sudah.", captured["messages"][1]["content"])
+        self.assertIn("FIXED comic script", captured["messages"][0]["content"])
+
+
 COMIC_RAW = [
     {"guruLine": "Masukkan ke stopkontak.", "guruLineZh": "把插頭插入插座。",
      "studentLine": "Baik, Bu Guru.", "expectedAnswers": ["Baik, Bu Guru", "Baik"]},
