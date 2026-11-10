@@ -159,7 +159,6 @@ export default function PracticeScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-5xl mb-4">🎉</Text>
           <Text className="h2 text-center mb-2">Practice complete!</Text>
           <Text className="body-md text-text-secondary text-center mb-1">
             {correctCount}/{activities.length} correct

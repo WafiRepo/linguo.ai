@@ -689,8 +689,8 @@ function PracticePanel({
             ? t("roleplay.dialogueProgress", { n: turnIndex + 1, total })
             : t("roleplay.allDone")}
         </Text>
-        <Text className="text-xs">
-          {stars.map((value) => "⭐".repeat(value)).join("  ")}
+        <Text className="font-poppins text-[13px] text-[#E0A100]">
+          {stars.map((value) => "★".repeat(value) + "☆".repeat(3 - value)).join("  ")}
         </Text>
       </View>
 
@@ -956,7 +956,6 @@ function ActiveRoleplayContent({
       >
         {missionComplete ? (
           <View className="flex-row items-center bg-white rounded-2xl p-3 mb-2 border border-lingua-green">
-            <Text className="text-2xl mr-2">🎉</Text>
             <View className="flex-1">
               <Text className="font-poppins-semibold text-sm text-text-primary">
                 {t("roleplay.missionDone", { xp: scenario.xpReward })}
@@ -1164,8 +1163,8 @@ function RoleplayReview({
                 <Text className="font-poppins-medium text-[13px] text-text-primary">
                   {t("roleplay.dialogueN", { n: index + 1 })}
                 </Text>
-                <Text className="text-sm">
-                  {"⭐".repeat(value)}
+                <Text className="font-poppins text-sm text-[#E0A100]">
+                  {"★".repeat(value)}
                   {"☆".repeat(3 - value)}
                 </Text>
               </View>
@@ -1174,7 +1173,6 @@ function RoleplayReview({
         ) : null}
 
         <View className="mx-4 mb-4 flex-row items-center rounded-2xl bg-surface p-3">
-          <Text className="text-2xl mr-2">{missionComplete ? "🏆" : "💪"}</Text>
           <Text className="flex-1 font-poppins-medium text-[13px] text-text-primary">
             {missionComplete
               ? t("roleplay.allMissionsDone", { xp: scenario.xpReward })
@@ -1187,7 +1185,7 @@ function RoleplayReview({
             {feedback.praise ? (
               <View className="rounded-2xl bg-[#FFF7E0] p-4 mb-4">
                 <Text className="font-poppins-semibold text-sm text-text-primary">
-                  🌟 {feedback.praise}
+                  {feedback.praise}
                 </Text>
               </View>
             ) : null}
