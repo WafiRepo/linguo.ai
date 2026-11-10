@@ -23,7 +23,7 @@ export const en = {
   "certificates.locked": "Not earned yet",
   "certificates.number": "Certificate no. {no}",
   "certificates.pdfError": "Couldn't create the PDF. Please try again.",
-  "certificates.preview": "Preview",
+  "certificates.print": "Print",
   "certificates.progress": "{done}/{total} topics finished",
   "certificates.rule": "Finish both Practice and Role Play for every topic in a part to earn that part's certificate.",
   "certificates.title": "Certificates",

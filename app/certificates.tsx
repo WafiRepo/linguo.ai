@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacit
 
 import { WaveHeader } from "@/components/WaveHeader";
 import { PART_TITLES } from "@/constants/curriculumParts";
-import { fetchCertificates, previewCertificate, shareCertificatePdf } from "@/lib/certificates";
+import { fetchCertificates, printCertificate, shareCertificatePdf } from "@/lib/certificates";
 import { Translate, useT } from "@/lib/i18n";
 import { Certificate, CertificatesResponse, PartCertificateStatus } from "@/types/certificate";
 
@@ -44,10 +44,10 @@ export default function CertificatesScreen() {
     }, [load]),
   );
 
-  async function run(action: "preview" | "pdf", certificate: Certificate) {
+  async function run(action: "print" | "pdf", certificate: Certificate) {
     setBusy(`${action}:${certificate.part}`);
     try {
-      if (action === "preview") await previewCertificate(certificate);
+      if (action === "print") await printCertificate(certificate);
       else await shareCertificatePdf(certificate);
     } catch {
       Alert.alert(t("certificates.pdfError"));
@@ -113,7 +113,7 @@ function PartCard({
   title: string;
   date: string;
   busy: string | null;
-  onAction: (action: "preview" | "pdf", certificate: Certificate) => void;
+  onAction: (action: "print" | "pdf", certificate: Certificate) => void;
   t: Translate;
 }) {
   const { certificate } = status;
@@ -143,10 +143,10 @@ function PartCard({
           </Text>
           <View className="mt-4 flex-row gap-3">
             <ActionButton
-              label={t("certificates.preview")}
-              loading={busy === `preview:${certificate.part}`}
+              label={t("certificates.print")}
+              loading={busy === `print:${certificate.part}`}
               disabled={!!busy}
-              onPress={() => onAction("preview", certificate)}
+              onPress={() => onAction("print", certificate)}
             />
             <ActionButton
               label={t("certificates.download")}

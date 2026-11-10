@@ -24,7 +24,7 @@ export const zhTW: Record<TranslationKey, string> = {
   "certificates.locked": "尚未獲得",
   "certificates.number": "證書編號 {no}",
   "certificates.pdfError": "無法產生 PDF，請再試一次。",
-  "certificates.preview": "預覽",
+  "certificates.print": "列印",
   "certificates.progress": "已完成 {done}/{total} 個主題",
   "certificates.rule": "完成同一部分所有主題的「練習」與「角色扮演」，就能獲得該部分的證書。",
   "certificates.title": "數位證書",

@@ -1,3 +1,4 @@
+import { File, Paths } from "expo-file-system";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 
@@ -88,14 +89,24 @@ export function certificateHtml(certificate: Certificate): string {
 
 const PAGE = { width: 842, height: 595 }; // A4 landscape in points
 
-/** Opens the system print/PDF preview. */
-export async function previewCertificate(certificate: Certificate) {
-  await Print.printAsync({ html: certificateHtml(certificate), ...PAGE });
+/** Writes the PDF to the cache as e.g. "Certificate-BI-A-7K3QX9MP.pdf". */
+async function makeCertificatePdf(certificate: Certificate): Promise<string> {
+  const { uri } = await Print.printToFileAsync({ html: certificateHtml(certificate), ...PAGE });
+  const named = new File(Paths.cache, `Certificate-${certificate.certificateNo}.pdf`);
+  if (named.exists) named.delete();
+  new File(uri).move(named);
+  return named.uri;
+}
+
+/** Opens the system print dialog with the finished (landscape) PDF. */
+export async function printCertificate(certificate: Certificate) {
+  // Printing the PDF file, not the HTML, keeps the page landscape on Android.
+  await Print.printAsync({ uri: await makeCertificatePdf(certificate) });
 }
 
 /** Makes the PDF file and opens the share sheet (save to Files, LINE, email…). */
 export async function shareCertificatePdf(certificate: Certificate) {
-  const { uri } = await Print.printToFileAsync({ html: certificateHtml(certificate), ...PAGE });
+  const uri = await makeCertificatePdf(certificate);
   await Sharing.shareAsync(uri, {
     mimeType: "application/pdf",
     UTI: "com.adobe.pdf",
