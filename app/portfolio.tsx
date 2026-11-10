@@ -89,8 +89,7 @@ export default function PortfolioScreen() {
         {loading && !data ? <ActivityIndicator color={PURPLE} className="mt-10" /> : null}
 
         {offline ? (
-          <View className="flex-row items-center gap-2 rounded-2xl bg-[#fff4e5] px-4 py-3">
-            <Ionicons name="cloud-offline-outline" size={20} color="#b45309" />
+          <View className="flex-row items-center gap-3 rounded-2xl border border-[#fde3c2] bg-[#fffaf3] px-4 py-3">
             <Text className="flex-1 font-poppins text-[13px] leading-5 text-[#92400e]">{t("portfolio.offline")}</Text>
             <TouchableOpacity onPress={load} hitSlop={8}>
               <Text className="font-poppins-semibold text-[13px] text-[#b45309]">{t("common.retry")}</Text>
@@ -100,81 +99,87 @@ export default function PortfolioScreen() {
 
         {/* Teachers: pick a student */}
         {!studentId && data?.students ? (
-          <StudentList students={data.students} t={t} onOpen={(id) => router.push(`/portfolio?studentId=${encodeURIComponent(id)}` as Href)} />
+          <StudentList
+            students={data.students}
+            t={t}
+            onOpen={(id) => router.push(`/portfolio?studentId=${encodeURIComponent(id)}` as Href)}
+          />
         ) : null}
 
         {/* Overview */}
-        <SectionLabel icon="stats-chart" label={t("portfolio.summary")} />
-        <View className="flex-row flex-wrap gap-3">
-          <Stat icon="flash" color="#f59e0b" value={String(summary.totalXp)} label={t("portfolio.totalXp")} />
-          <Stat
-            icon="checkmark-circle"
-            color="#22c55e"
-            value={`${summary.topicsCompleted}/${summary.totalTopics}`}
-            label={t("portfolio.topics")}
-          />
-          <Stat icon="time" color={PURPLE} value={String(summary.sessionsCount)} label={t("portfolio.sessions")} />
-          <Stat
-            icon="star"
-            color="#facc15"
-            value={summary.averageStars === null ? "–" : summary.averageStars.toFixed(1)}
-            label={t("portfolio.stars")}
-          />
-        </View>
+        <SectionLabel label={t("portfolio.summary")} />
+        <View className="rounded-[24px] border border-[#e4dcff] bg-white p-4" style={styles.softShadow}>
+          <View className="flex-row">
+            <Stat value={String(summary.totalXp)} label={t("portfolio.totalXp")} />
+            <Stat value={`${summary.topicsCompleted}/${summary.totalTopics}`} label={t("portfolio.topics")} divider />
+            <Stat value={String(summary.sessionsCount)} label={t("portfolio.sessions")} divider />
+            <Stat
+              value={summary.averageStars === null ? "–" : summary.averageStars.toFixed(1)}
+              label={t("portfolio.stars")}
+              divider
+            />
+          </View>
 
-        {/* Progress by part */}
-        <View className="mt-3 rounded-[24px] border border-[#e4dcff] bg-white p-4" style={styles.softShadow}>
-          <Text className="font-poppins-semibold text-[15px] text-text-primary mb-1">{t("portfolio.parts")}</Text>
-          {summary.parts.map((part) => (
-            <View key={part.key} className="mt-2">
-              <View className="flex-row justify-between">
-                <Text className="font-poppins text-[13px] text-text-secondary">{t("portfolio.part", { part: part.key })}</Text>
-                <Text className="font-poppins-semibold text-[13px] text-[#4a32c9]">
-                  {part.done}/{part.total}
-                </Text>
+          <View className="mt-4 border-t border-[#f0ecff] pt-3">
+            <Text className="font-poppins-semibold text-sm text-text-primary">{t("portfolio.parts")}</Text>
+            {summary.parts.map((part) => (
+              <View key={part.key} className="mt-2.5">
+                <View className="flex-row justify-between">
+                  <Text className="font-poppins text-[13px] text-text-secondary">
+                    {t("portfolio.part", { part: part.key })}
+                  </Text>
+                  <Text className="font-poppins-medium text-[13px] text-text-primary">
+                    {part.done}/{part.total}
+                  </Text>
+                </View>
+                <View className="mt-1 h-2 rounded-full bg-[#ece6ff] overflow-hidden">
+                  <View
+                    className="h-full rounded-full bg-[#6c4ef5]"
+                    style={{ width: `${part.total ? (part.done / part.total) * 100 : 0}%` }}
+                  />
+                </View>
               </View>
-              <View className="mt-1 h-2.5 rounded-full bg-[#ece6ff] overflow-hidden">
-                <View
-                  className="h-full rounded-full bg-[#6c4ef5]"
-                  style={{ width: `${part.total ? (part.done / part.total) * 100 : 0}%` }}
-                />
-              </View>
-            </View>
-          ))}
+            ))}
+          </View>
         </View>
 
         {/* Strengths & areas to improve */}
-        <SectionLabel icon="sparkles" label={t("portfolio.strengths")} />
-        <View className="rounded-[24px] bg-[#ecfdf3] p-4 gap-2">
+        <SectionLabel label={t("portfolio.strengths")} />
+        <View className="rounded-[24px] border border-[#e4dcff] bg-white px-4 py-1" style={styles.softShadow}>
           {summary.strengths.length ? (
-            summary.strengths.map((text) => (
-              <View key={text} className="flex-row gap-2">
-                <Text className="font-poppins text-sm">🌟</Text>
-                <Text className="flex-1 font-poppins text-sm leading-6 text-[#166534]">{text}</Text>
-              </View>
+            summary.strengths.map((text, index) => (
+              <Text
+                key={text}
+                className={`py-3 font-poppins text-sm leading-6 text-text-primary ${
+                  index > 0 ? "border-t border-[#f0ecff]" : ""
+                }`}
+              >
+                {text}
+              </Text>
             ))
           ) : (
-            <Text className="font-poppins text-sm text-[#166534]">{t("portfolio.noStrengths")}</Text>
+            <Text className="py-3 font-poppins text-sm text-text-secondary">{t("portfolio.noStrengths")}</Text>
           )}
         </View>
 
-        <SectionLabel icon="construct" label={t("portfolio.improve")} />
-        <View className="rounded-[24px] bg-[#fff7ed] p-4 gap-3">
+        <SectionLabel label={t("portfolio.improve")} />
+        <View className="rounded-[24px] border border-[#e4dcff] bg-white px-4 py-1" style={styles.softShadow}>
           {summary.improvements.length ? (
-            summary.improvements.map((correction) => (
-              <Correction key={correction.better} said={correction.said} better={correction.better} tip={correction.tip} t={t} />
+            summary.improvements.map((correction, index) => (
+              <View key={correction.better} className={`py-3 ${index > 0 ? "border-t border-[#f0ecff]" : ""}`}>
+                <Correction said={correction.said} better={correction.better} tip={correction.tip} t={t} />
+              </View>
             ))
           ) : (
-            <Text className="font-poppins text-sm text-[#9a3412]">{t("portfolio.noImprove")}</Text>
+            <Text className="py-3 font-poppins text-sm text-text-secondary">{t("portfolio.noImprove")}</Text>
           )}
         </View>
 
         {/* History */}
-        <SectionLabel icon="calendar" label={t("portfolio.history")} />
+        <SectionLabel label={t("portfolio.history")} />
         {sessions.length === 0 && !loading ? (
-          <View className="items-center rounded-[24px] border border-dashed border-[#c9b8ff] bg-white px-6 py-8">
-            <Ionicons name="school-outline" size={40} color="#a78bfa" />
-            <Text className="mt-3 font-poppins text-sm leading-6 text-text-secondary text-center">{t("portfolio.empty")}</Text>
+          <View className="rounded-[24px] border border-dashed border-[#c9b8ff] bg-white px-6 py-8">
+            <Text className="font-poppins text-sm leading-6 text-text-secondary text-center">{t("portfolio.empty")}</Text>
           </View>
         ) : (
           <View className="gap-3">
@@ -194,31 +199,15 @@ export default function PortfolioScreen() {
   );
 }
 
-function SectionLabel({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
-  return (
-    <View className="mt-6 mb-3 flex-row items-center gap-2">
-      <Ionicons name={icon} size={20} color={PURPLE} />
-      <Text className="font-poppins-bold text-lg text-[#4a32c9]">{label}</Text>
-    </View>
-  );
+function SectionLabel({ label }: { label: string }) {
+  return <Text className="mt-7 mb-3 font-poppins-semibold text-base text-text-primary">{label}</Text>;
 }
 
-function Stat({
-  icon,
-  color,
-  value,
-  label,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-  value: string;
-  label: string;
-}) {
+function Stat({ value, label, divider = false }: { value: string; label: string; divider?: boolean }) {
   return (
-    <View className="w-[48%] grow rounded-[20px] border border-[#e4dcff] bg-white px-4 py-3" style={styles.softShadow}>
-      <Ionicons name={icon} size={22} color={color} />
-      <Text className="mt-1 font-poppins-bold text-2xl text-text-primary">{value}</Text>
-      <Text className="font-poppins text-[13px] text-text-secondary">{label}</Text>
+    <View className={`flex-1 items-center px-1 ${divider ? "border-l border-[#f0ecff]" : ""}`}>
+      <Text className="font-poppins-bold text-xl text-[#4a32c9]">{value}</Text>
+      <Text className="mt-0.5 font-poppins text-[11px] leading-4 text-text-secondary text-center">{label}</Text>
     </View>
   );
 }
@@ -226,10 +215,10 @@ function Stat({
 function Correction({ said, better, tip, t }: { said: string; better: string; tip: string; t: Translate }) {
   return (
     <View>
-      <Text className="font-poppins text-[13px] text-[#9a3412]">
+      <Text className="font-poppins text-[13px] text-text-secondary">
         {t("portfolio.said")}: <Text className="line-through">{said}</Text>
       </Text>
-      <Text className="font-poppins-semibold text-sm text-[#166534]">
+      <Text className="font-poppins-semibold text-sm text-text-primary">
         {t("portfolio.better")}: {better}
       </Text>
       {tip ? <Text className="font-poppins text-[13px] leading-5 text-text-secondary">{tip}</Text> : null}
@@ -251,58 +240,52 @@ function SessionCard({
   const [open, setOpen] = useState(false);
   const topic = getClassTopic(session.topicId);
   const hasDetails = !!session.praise || session.corrections.length > 0;
+  const averageStars = session.stars.length
+    ? (session.stars.reduce((a, b) => a + b, 0) / session.stars.length).toFixed(1)
+    : null;
+
+  // One quiet line of facts instead of a row of badges.
+  const details = [
+    t(session.mode === "practice" ? "mode.practice" : "mode.roleplay"),
+    session.completed
+      ? t("portfolio.goals", { done: session.objectivesDone, total: session.objectivesTotal })
+      : t("portfolio.notFinished"),
+    session.xpEarned ? `+${session.xpEarned} XP` : null,
+    averageStars ? `${t("portfolio.stars")} ${averageStars}/3` : null,
+    session.durationSeconds >= 60
+      ? t("portfolio.minutes", { count: Math.round(session.durationSeconds / 60) })
+      : null,
+  ].filter(Boolean);
 
   return (
     <TouchableOpacity
       activeOpacity={hasDetails ? 0.85 : 1}
       onPress={() => hasDetails && setOpen((value) => !value)}
-      className="rounded-[24px] border border-[#e4dcff] bg-white p-4"
+      className="rounded-[20px] border border-[#e4dcff] bg-white px-4 py-3.5"
       style={styles.softShadow}
     >
-      <View className="flex-row items-start gap-3">
-        <View
-          className={`w-11 h-11 rounded-full items-center justify-center ${
-            session.completed ? "bg-[#dcfce7]" : "bg-[#f3f4f6]"
-          }`}
-        >
-          <Ionicons
-            name={session.mode === "practice" ? "mic" : "chatbubbles"}
-            size={22}
-            color={session.completed ? "#16a34a" : "#9ca3af"}
-          />
-        </View>
+      <View className="flex-row items-center gap-3">
         <View className="flex-1">
-          <Text className="font-poppins-semibold text-[15px] text-text-primary" numberOfLines={2}>
+          <View className="flex-row items-center justify-between gap-2">
+            <Text className="font-poppins text-xs text-text-secondary">{date}</Text>
+            {pending ? <Text className="font-poppins text-xs text-[#b45309]">{t("portfolio.pending")}</Text> : null}
+          </View>
+          <Text className="mt-1 font-poppins-semibold text-[15px] text-text-primary" numberOfLines={2}>
             {topic?.title ?? session.topicId}
           </Text>
-          <Text className="font-poppins text-xs text-text-secondary mt-0.5">{date}</Text>
-          <View className="flex-row flex-wrap gap-1.5 mt-2">
-            <Chip label={t(session.mode === "practice" ? "mode.practice" : "mode.roleplay")} />
-            <Chip
-              label={
-                session.completed
-                  ? t("portfolio.goals", { done: session.objectivesDone, total: session.objectivesTotal })
-                  : t("portfolio.notFinished")
-              }
-              tone={session.completed ? "good" : "muted"}
-            />
-            {session.xpEarned ? <Chip label={`+${session.xpEarned} XP`} tone="xp" /> : null}
-            {session.durationSeconds >= 60 ? (
-              <Chip label={t("portfolio.minutes", { count: Math.round(session.durationSeconds / 60) })} tone="muted" />
-            ) : null}
-            {pending ? <Chip label={t("portfolio.pending")} tone="muted" /> : null}
-          </View>
-          {session.stars.length ? (
-            <Text className="mt-2 font-poppins text-sm">{session.stars.map((value) => "⭐".repeat(value)).join("  ")}</Text>
-          ) : null}
+          <Text
+            className={`mt-1 font-poppins text-[13px] ${session.completed ? "text-[#4a32c9]" : "text-text-secondary"}`}
+          >
+            {details.join("  ·  ")}
+          </Text>
         </View>
-        {hasDetails ? <Ionicons name={open ? "chevron-up" : "chevron-down"} size={20} color={PURPLE} /> : null}
+        {hasDetails ? <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color="#9ca3af" /> : null}
       </View>
 
       {open ? (
-        <View className="mt-3 gap-3 rounded-2xl bg-[#f4f1ff] p-3">
+        <View className="mt-3 gap-3 border-t border-[#f0ecff] pt-3">
           {session.praise ? (
-            <Text className="font-poppins text-sm leading-6 text-[#166534]">🌟 {session.praise}</Text>
+            <Text className="font-poppins text-sm leading-6 text-text-primary">{session.praise}</Text>
           ) : null}
           {session.corrections.map((correction, index) => (
             <Correction key={index} said={correction.said} better={correction.better} tip={correction.tip} t={t} />
@@ -310,20 +293,6 @@ function SessionCard({
         </View>
       ) : null}
     </TouchableOpacity>
-  );
-}
-
-function Chip({ label, tone = "default" }: { label: string; tone?: "default" | "good" | "muted" | "xp" }) {
-  const { bg, text } = {
-    default: { bg: "bg-[#ece6ff]", text: "text-[#4a32c9]" },
-    good: { bg: "bg-[#dcfce7]", text: "text-[#166534]" },
-    muted: { bg: "bg-[#f3f4f6]", text: "text-[#4b5563]" },
-    xp: { bg: "bg-[#fef3c7]", text: "text-[#92400e]" },
-  }[tone];
-  return (
-    <View className={`rounded-lg px-2 py-0.5 ${bg}`}>
-      <Text className={`font-poppins-medium text-xs ${text}`}>{label}</Text>
-    </View>
   );
 }
 
@@ -338,8 +307,8 @@ function StudentList({
 }) {
   return (
     <>
-      <SectionLabel icon="people" label={t("portfolio.students")} />
-      <Text className="font-poppins text-[13px] text-text-secondary -mt-1 mb-3">{t("portfolio.studentsHint")}</Text>
+      <SectionLabel label={t("portfolio.students")} />
+      <Text className="-mt-1 mb-3 font-poppins text-[13px] text-text-secondary">{t("portfolio.studentsHint")}</Text>
       <View className="gap-2">
         {students.map((student) => (
           <TouchableOpacity
@@ -348,16 +317,17 @@ function StudentList({
             onPress={() => onOpen(student.userId)}
             className="flex-row items-center rounded-[20px] border border-[#e4dcff] bg-white px-4 py-3"
           >
-            <Ionicons name="person-circle" size={32} color="#a78bfa" />
-            <View className="flex-1 ml-3">
+            <View className="flex-1">
               <Text className="font-poppins-semibold text-[15px] text-text-primary">
                 {student.nickname ?? t("portfolio.unnamed")}
               </Text>
               {student.classGroup ? (
-                <Text className="font-poppins text-xs text-text-secondary">{t(`grade.${student.classGroup}` as TranslationKey)}</Text>
+                <Text className="font-poppins text-xs text-text-secondary">
+                  {t(`grade.${student.classGroup}` as TranslationKey)}
+                </Text>
               ) : null}
             </View>
-            <Ionicons name="chevron-forward" size={20} color={PURPLE} />
+            <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
           </TouchableOpacity>
         ))}
       </View>
@@ -375,8 +345,8 @@ const styles = StyleSheet.create({
   softShadow: {
     shadowColor: "#6c4ef5",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 10,
-    elevation: 2,
+    elevation: 1,
   },
 });
