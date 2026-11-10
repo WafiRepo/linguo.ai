@@ -33,7 +33,7 @@ export default function EbooksScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.neutral.background }}>
-      <WaveHeader title={t("info.ebook.title")} onBack={() => router.back()} backLabel={t("common.back")} />
+      <WaveHeader title={t("info.ebook.title")} onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/chat"))} backLabel={t("common.back")} />
       <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 8, paddingBottom: 40 }}>
         <View className="rounded-3xl bg-purple-50 p-6">
           <View className="mb-4 h-16 w-16 items-center justify-center rounded-2xl bg-white">

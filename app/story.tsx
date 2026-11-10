@@ -21,7 +21,7 @@ export default function StoryScreen() {
 
   return (
     <View className="flex-1 bg-[#faf8ff]">
-      <WaveHeader title={t("story.title")} onBack={() => router.back()} backLabel={t("common.back")} />
+      <WaveHeader title={t("story.title")} onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/chat"))} backLabel={t("common.back")} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Hero */}
         <View className="mx-5 rounded-[28px] bg-[#ece2fc] overflow-hidden pt-6">
