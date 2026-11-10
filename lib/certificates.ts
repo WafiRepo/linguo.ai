@@ -4,7 +4,7 @@ import * as Sharing from "expo-sharing";
 
 import { COURSE_TITLE, PART_TITLES } from "@/constants/curriculumParts";
 import { STORY } from "@/data/teamStory";
-import { apiUrl } from "@/lib/api";
+import { ApiError, apiUrl } from "@/lib/api";
 import { Certificate, CertificatesResponse } from "@/types/certificate";
 
 // Digital Certificate: load from the API, turn into a PDF on the phone.
@@ -17,7 +17,7 @@ export async function fetchCertificates(getToken: GetToken, studentId?: string):
   const res = await fetch(apiUrl(`/api/certificates${query}`), {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error(`Load failed (${res.status})`);
+  if (!res.ok) throw new ApiError(res.status);
   return res.json();
 }
 

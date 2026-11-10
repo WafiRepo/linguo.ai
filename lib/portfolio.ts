@@ -1,5 +1,5 @@
 import { PART_KEYS, partOfTopic } from "@/constants/curriculumParts";
-import { apiUrl } from "@/lib/api";
+import { ApiError, apiUrl } from "@/lib/api";
 import { ALL_CLASS_TOPICS } from "@/lib/topicProgress";
 import { useChildProfileStore } from "@/store/childProfileStore";
 import { usePortfolioStore } from "@/store/portfolioStore";
@@ -54,7 +54,7 @@ export async function fetchPortfolio(getToken: GetToken, studentId?: string): Pr
   const res = await fetch(apiUrl(`/api/portfolio${query}`), {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error(`Load failed (${res.status})`);
+  if (!res.ok) throw new ApiError(res.status);
   return res.json();
 }
 

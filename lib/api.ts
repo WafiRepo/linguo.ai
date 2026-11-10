@@ -28,6 +28,18 @@ function resolveApiBase(): string {
 
 const API_BASE = resolveApiBase();
 
+/** Error from an API route, with its HTTP status (0 = no response at all). */
+export class ApiError extends Error {
+  constructor(public status: number) {
+    super(`API request failed (${status})`);
+  }
+}
+
+/** 401/403/404: the server answered, but this account may not see the data. */
+export function isNoAccessError(error: unknown): boolean {
+  return error instanceof ApiError && [401, 403, 404].includes(error.status);
+}
+
 export function apiUrl(path: string): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   if (!API_BASE) {

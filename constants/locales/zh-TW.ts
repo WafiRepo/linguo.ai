@@ -38,6 +38,7 @@ export const zhTW: Record<TranslationKey, string> = {
   "common.cancel": "取消",
   "common.continue": "繼續",
   "common.delete": "刪除",
+  "common.noAccess": "你沒有權限查看這個頁面。資料可能已被刪除，或你的帳號已不再具有教師權限。",
   "common.ok": "確定",
   "common.retry": "再試一次",
   "common.save": "儲存",

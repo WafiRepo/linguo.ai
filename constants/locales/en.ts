@@ -37,6 +37,7 @@ export const en = {
   "common.cancel": "Cancel",
   "common.continue": "Continue",
   "common.delete": "Delete",
+  "common.noAccess": "You don't have access to this page. It may have been removed, or your account no longer has teacher access.",
   "common.ok": "OK",
   "common.retry": "Try again",
   "common.save": "Save",

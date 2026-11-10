@@ -13,6 +13,7 @@ import {
   summarizePortfolio,
   uploadPendingSessions,
 } from "@/lib/portfolio";
+import { isNoAccessError } from "@/lib/api";
 import { usePortfolioStore } from "@/store/portfolioStore";
 import { PortfolioResponse, SessionResult, StudentOverview } from "@/types/portfolio";
 
@@ -30,6 +31,7 @@ export default function PortfolioScreen() {
   const [data, setData] = useState<PortfolioResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
+  const [noAccess, setNoAccess] = useState(false);
 
   // Clerk's getToken changes identity on every render; keep it in a ref so
   // `load` stays stable and the focus effect doesn't reload in a loop.
@@ -46,8 +48,15 @@ export default function PortfolioScreen() {
       if (!studentId) usePortfolioStore.getState().setRole(result.role);
       setData(result);
       setOffline(false);
-    } catch {
-      setOffline(true);
+      setNoAccess(false);
+    } catch (error) {
+      if (isNoAccessError(error)) {
+        // e.g. a student's page after the teacher role was removed.
+        setNoAccess(true);
+        setData(null);
+      } else {
+        setOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -87,6 +96,22 @@ export default function PortfolioScreen() {
   const title = studentId ? data?.student.nickname ?? t("portfolio.unnamed") : t("portfolio.title");
   const isStaff = data?.role === "teacher" || data?.role === "admin";
   const openStudent = (id: string) => router.push(`/portfolio?studentId=${encodeURIComponent(id)}` as Href);
+
+  // The server refused (e.g. a student page after teacher access was removed).
+  if (noAccess) {
+    return (
+      <View className="flex-1 bg-[#faf8ff]">
+        <WaveHeader
+          title={t("portfolio.title")}
+          onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/profile"))}
+          backLabel={t("common.back")}
+        />
+        <View className="mx-5 mt-4 rounded-2xl border border-[#e4dcff] bg-white px-4 py-4">
+          <Text className="font-poppins text-sm leading-6 text-text-secondary">{t("common.noAccess")}</Text>
+        </View>
+      </View>
+    );
+  }
 
   // Teachers: their own page is the list of students.
   if (!studentId && isStaff && data?.students) {

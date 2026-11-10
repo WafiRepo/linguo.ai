@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacit
 import { WaveHeader } from "@/components/WaveHeader";
 import { PART_TITLES } from "@/constants/curriculumParts";
 import { fetchCertificates, printCertificate, shareCertificatePdf } from "@/lib/certificates";
+import { isNoAccessError } from "@/lib/api";
 import { Translate, useT } from "@/lib/i18n";
 import { Certificate, CertificatesResponse, PartCertificateStatus } from "@/types/certificate";
 
@@ -22,6 +23,7 @@ export default function CertificatesScreen() {
   const [data, setData] = useState<CertificatesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [noAccess, setNoAccess] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   // Clerk's getToken changes every render; a ref keeps `load` stable.
@@ -33,8 +35,14 @@ export default function CertificatesScreen() {
     try {
       setData(await fetchCertificates(() => getTokenRef.current(), studentId));
       setFailed(false);
-    } catch {
-      setFailed(true);
+      setNoAccess(false);
+    } catch (error) {
+      if (isNoAccessError(error)) {
+        setNoAccess(true);
+        setData(null);
+      } else {
+        setFailed(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -73,6 +81,12 @@ export default function CertificatesScreen() {
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text className="mt-2 font-poppins text-sm leading-6 text-text-secondary">{t("certificates.rule")}</Text>
+
+        {noAccess ? (
+          <View className="mt-4 rounded-2xl border border-[#e4dcff] bg-white px-4 py-4">
+            <Text className="font-poppins text-sm leading-6 text-text-secondary">{t("common.noAccess")}</Text>
+          </View>
+        ) : null}
 
         {failed ? (
           <View className="mt-4 flex-row items-center gap-3 rounded-2xl border border-[#fde3c2] bg-[#fffaf3] px-4 py-3">
