@@ -957,9 +957,12 @@ function ActiveRoleplayContent({
     onPracticeResult,
   ]);
 
-  function handleToggleMic() {
-    if (!isReady) return;
-    microphone.toggle().catch((e) => console.warn("[roleplay] mic toggle failed:", e));
+  // The mic stays on for the whole session: turning it off and on again
+  // re-publishes the audio track and the AI teacher stops hearing the student.
+  // So the button can only switch a muted mic back on, never off.
+  function handleMicPress() {
+    if (!isReady || !optimisticIsMute) return;
+    microphone.enable().catch((e) => console.warn("[roleplay] mic enable failed:", e));
   }
 
   function handleToggleHints() {
@@ -1085,8 +1088,10 @@ function ActiveRoleplayContent({
 
         <View className="items-center">
           <Pressable
-            onPress={handleToggleMic}
-            disabled={!isReady}
+            onPress={handleMicPress}
+            disabled={!isReady || micOn}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !isReady || micOn }}
             testID="roleplay-mic-button"
             style={({ pressed }) => [
               styles.micButton,

@@ -201,7 +201,7 @@ export const zhTW: Record<TranslationKey, string> = {
   "roleplay.listenTo": "聽 {name} 說",
   "roleplay.mic.listenFirst": "先聽 {name} 說…",
   "roleplay.mic.listening": "正在聆聽，直接說",
-  "roleplay.mic.off": "麥克風已關閉",
+  "roleplay.mic.off": "麥克風已關閉，點一下開啟",
   "roleplay.mic.wait": "請稍候…",
   "roleplay.mic.yourTurn": "輪到你了，直接說",
   "roleplay.mission": "你的任務",

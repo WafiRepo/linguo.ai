@@ -200,7 +200,7 @@ export const en = {
   "roleplay.listenTo": "Listen to {name}",
   "roleplay.mic.listenFirst": "Listen to {name} first…",
   "roleplay.mic.listening": "Listening — just speak",
-  "roleplay.mic.off": "Microphone is off",
+  "roleplay.mic.off": "Microphone is off — tap to turn it on",
   "roleplay.mic.wait": "Please wait…",
   "roleplay.mic.yourTurn": "Your turn — just speak",
   "roleplay.mission": "Your mission",
