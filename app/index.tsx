@@ -6,11 +6,14 @@ import { ActivityIndicator, View } from "react-native";
 import { isLanguageAvailable } from "@/data/languages";
 import { useChildProfileStore } from "@/store/childProfileStore";
 import { useLanguageStore } from "@/store/languageStore";
+import { usePortfolioStore } from "@/store/portfolioStore";
 
 export default function Index() {
   const { isSignedIn, isLoaded } = useAuth();
   const { selectedLanguage } = useLanguageStore();
   const { nickname, classGroup } = useChildProfileStore();
+  const { role, roleChosen } = usePortfolioStore();
+  const isStaff = role === "teacher" || role === "admin";
   const [languageHydrated, setLanguageHydrated] = useState(
     useLanguageStore.persist.hasHydrated()
   );
@@ -38,11 +41,17 @@ export default function Index() {
     return <Redirect href="/onboarding" />;
   }
 
+  // Student or Teacher, chosen once after sign-up.
+  if (!roleChosen) {
+    return <Redirect href={"/role-select" as Href} />;
+  }
+
   if (!selectedLanguage || !isLanguageAvailable(selectedLanguage)) {
     return <Redirect href="/language-select" />;
   }
 
-  if (!nickname || !classGroup) {
+  // Teachers don't need a child profile (nickname + grade).
+  if (!isStaff && (!nickname || !classGroup)) {
     return <Redirect href={"/child-profile-setup" as Href} />;
   }
 

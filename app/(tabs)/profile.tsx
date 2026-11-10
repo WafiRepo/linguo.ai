@@ -160,6 +160,7 @@ export default function ProfileScreen() {
         )}
       </View>
 
+      {isStaff ? null : (
       <View className="px-5 mb-6">
         <Text className="font-poppins-semibold text-sm text-text-secondary mb-2 uppercase tracking-wide">
           {t("profile.childSection")}
@@ -185,6 +186,7 @@ export default function ProfileScreen() {
           <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
         </TouchableOpacity>
       </View>
+      )}
 
       <View className="px-5">
         {LANGUAGES.length > 1 ? (

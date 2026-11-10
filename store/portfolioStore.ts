@@ -12,6 +12,9 @@ interface PortfolioState {
   /** From the server; teachers see "My students" instead of their own portfolio. */
   role: PortfolioRole;
   setRole: (role: PortfolioRole) => void;
+  /** Student/Teacher was chosen on this device (app/role-select.tsx). */
+  roleChosen: boolean;
+  setRoleChosen: (chosen: boolean) => void;
   addPending: (session: NewSessionResult) => void;
   removePending: (session: NewSessionResult) => void;
 }
@@ -22,6 +25,8 @@ export const usePortfolioStore = create<PortfolioState>()(
       pending: [],
       role: "student",
       setRole: (role) => set({ role }),
+      roleChosen: false,
+      setRoleChosen: (roleChosen) => set({ roleChosen }),
       // A newer version of the same session replaces the queued one.
       addPending: (session) =>
         set((state) => ({
