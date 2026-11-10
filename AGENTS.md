@@ -465,7 +465,7 @@ Explain what changed and how to test.
 
 ## Important Constraints
 
-No database for this version.
+No other database for this version. The one exception (approved 2026-11-11) is Supabase Postgres for the Learning Portfolio, reached only through Expo API routes (`app/api/portfolio+api.ts`, `lib/supabase.ts`) with the service role key on the server; schema in `supabase/migrations/`.
 
 Use:
 

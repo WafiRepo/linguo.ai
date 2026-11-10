@@ -36,6 +36,7 @@ import {
   comicTopicToScenario,
 } from "@/lib/comicRoleplay";
 import { getInstructionLanguages } from "@/lib/instructionLanguage";
+import { recordSessionResult } from "@/lib/portfolio";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
@@ -346,6 +347,21 @@ function LiveRoleplayScreen() {
       router.back();
       return;
     }
+    // Learning Portfolio: keep this session's result and AI feedback.
+    if (comic) recordSessionResult(getToken, {
+      topicId: comic.id,
+      mode: isPractice ? "practice" : "roleplay",
+      completed: missionComplete,
+      objectivesDone: completedIds.length,
+      objectivesTotal: scenario?.objectives.length ?? 0,
+      xpEarned: missionComplete ? comic.xpReward : 0,
+      stars: isPractice ? stars.filter((value) => typeof value === "number") : [],
+      praise: feedback?.praise || null,
+      corrections: feedback?.corrections ?? [],
+      durationSeconds: startTimeRef.current
+        ? Math.floor((Date.now() - startTimeRef.current) / 1000)
+        : 0,
+    });
     posthog.capture("roleplay_review_shown", {
       scenario_id: scenario?.id ?? id,
       has_feedback: feedback !== null,

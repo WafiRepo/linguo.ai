@@ -1,4 +1,4 @@
-import { useUser } from "@clerk/expo";
+import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/constants/theme";
 import { LANGUAGES } from "@/data/languages";
 import { resetCurrentAccountData } from "@/lib/learningAccount";
+import { deletePortfolio } from "@/lib/portfolio";
 import { TUTOR_EMOTION_OPTIONS } from "@/lib/tutorEmotion";
 import { TUTOR_VOICE_OPTIONS } from "@/lib/instructionLanguage";
 import { useChildProfileStore } from "@/store/childProfileStore";
@@ -16,6 +17,7 @@ import { useT } from "@/lib/i18n";
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useUser();
+  const { getToken } = useAuth();
   const { t } = useT();
   const { selectedLanguage, tutorVoice, tutorEmotion, setTutorVoice, setTutorEmotion } =
     useLanguageStore();
@@ -32,7 +34,15 @@ export default function ProfileScreen() {
         {
           text: t("common.delete"),
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
+            // Delete the Learning Portfolio on the server first; keep the
+            // local data if that fails, so the guardian can try again.
+            try {
+              await deletePortfolio(getToken);
+            } catch {
+              Alert.alert(t("common.tryAgain"));
+              return;
+            }
             // Also resets the language selection, so send the guardian back
             // through the normal setup flow (index.tsx redirects from there
             // based on whatever state remains) rather than assuming they
@@ -89,6 +99,29 @@ export default function ProfileScreen() {
             ) : null}
           </View>
         </View>
+      </View>
+
+      <View className="px-5 mb-6">
+        <TouchableOpacity
+          activeOpacity={0.85}
+          testID="profile-open-portfolio"
+          onPress={() => router.push("/portfolio" as Href)}
+          className="flex-row items-center bg-[#f1ecff] rounded-[20px] px-4 py-4"
+          style={styles.cardShadow}
+        >
+          <View className="w-11 h-11 rounded-full bg-white items-center justify-center">
+            <Ionicons name="ribbon" size={22} color={colors.primary.purple} />
+          </View>
+          <View className="flex-1 ml-3">
+            <Text className="font-poppins-semibold text-base text-text-primary">
+              {t("portfolio.title")}
+            </Text>
+            <Text className="font-poppins text-sm text-text-secondary mt-0.5">
+              {t("portfolio.cardBody")}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.primary.purple} />
+        </TouchableOpacity>
       </View>
 
       <View className="px-5 mb-6">
