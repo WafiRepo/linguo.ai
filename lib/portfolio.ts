@@ -74,7 +74,25 @@ export function pendingAsResults(): SessionResult[] {
   return usePortfolioStore.getState().pending.map(({ nickname, classGroup, ...rest }) => rest);
 }
 
+/**
+ * Sessions that earned XP: only the first finished Practice and the first
+ * finished Role Play of each topic, like the app's own XP (repeats give 0).
+ */
+export function xpSessionIds(sessions: SessionResult[]): Set<string> {
+  const counted = new Set<string>();
+  const ids = new Set<string>();
+  const oldestFirst = [...sessions].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  for (const session of oldestFirst) {
+    const key = `${session.topicId}:${session.mode}`;
+    if (!session.completed || session.xpEarned <= 0 || counted.has(key)) continue;
+    counted.add(key);
+    ids.add(session.clientId);
+  }
+  return ids;
+}
+
 export interface PortfolioSummary {
+  /** XP from first completions only (see xpSessionIds). */
   totalXp: number;
   /** Topics where both Latihan and Role Play were finished at least once. */
   topicsCompleted: number;
@@ -89,6 +107,7 @@ export interface PortfolioSummary {
 }
 
 export function summarizePortfolio(sessions: SessionResult[]): PortfolioSummary {
+  const xpIds = xpSessionIds(sessions);
   const finished = new Set(
     sessions.filter((session) => session.completed).map((session) => `${session.topicId}:${session.mode}`),
   );
@@ -113,7 +132,9 @@ export function summarizePortfolio(sessions: SessionResult[]): PortfolioSummary 
     .slice(0, 3);
 
   return {
-    totalXp: sessions.reduce((sum, session) => sum + session.xpEarned, 0),
+    totalXp: sessions
+      .filter((session) => xpIds.has(session.clientId))
+      .reduce((sum, session) => sum + session.xpEarned, 0),
     topicsCompleted: completedTopicIds.length,
     totalTopics: ALL_CLASS_TOPICS.length,
     sessionsCount: sessions.length,

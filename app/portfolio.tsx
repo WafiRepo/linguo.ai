@@ -11,6 +11,7 @@ import {
   fetchPortfolio,
   pendingAsResults,
   summarizePortfolio,
+  xpSessionIds,
   uploadPendingSessions,
 } from "@/lib/portfolio";
 import { isNoAccessError } from "@/lib/api";
@@ -85,6 +86,7 @@ export default function PortfolioScreen() {
   );
 
   const summary = summarizePortfolio(sessions);
+  const earnedXpIds = xpSessionIds(sessions);
   const dateFormat = new Intl.DateTimeFormat(locale === "zh-TW" ? "zh-TW" : "en-US", {
     year: "numeric",
     month: "short",
@@ -247,6 +249,7 @@ export default function PortfolioScreen() {
                 key={session.clientId}
                 session={session}
                 pending={pendingIds.has(session.clientId)}
+                earnedXp={earnedXpIds.has(session.clientId)}
                 date={dateFormat.format(new Date(session.createdAt))}
                 t={t}
               />
@@ -288,11 +291,14 @@ function Correction({ said, better, tip, t }: { said: string; better: string; ti
 function SessionCard({
   session,
   pending,
+  earnedXp,
   date,
   t,
 }: {
   session: SessionResult;
   pending: boolean;
+  /** False for a repeat of a topic and mode: no XP. */
+  earnedXp: boolean;
   date: string;
   t: Translate;
 }) {
@@ -309,7 +315,8 @@ function SessionCard({
     session.completed
       ? t("portfolio.goals", { done: session.objectivesDone, total: session.objectivesTotal })
       : t("portfolio.notFinished"),
-    session.xpEarned ? `+${session.xpEarned} XP` : null,
+    // A repeat of a topic gives no XP, as in the app.
+    earnedXp ? `+${session.xpEarned} XP` : null,
     averageStars ? `${t("portfolio.stars")} ${averageStars}/3` : null,
     session.durationSeconds >= 60
       ? t("portfolio.minutes", { count: Math.round(session.durationSeconds / 60) })
