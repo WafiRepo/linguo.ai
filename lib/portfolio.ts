@@ -7,16 +7,23 @@ import { NewSessionResult, PortfolioResponse, SessionResult } from "@/types/port
 // Phone side of the Learning Portfolio: save results, load the portfolio.
 type GetToken = () => Promise<string | null>;
 
-/** Saves one finished session: queue it on the phone, then try to upload. */
+/** A new id for one session; saving again with it updates the same record. */
+export function newSessionClientId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * Saves a session result: queue it on the phone, then try to upload.
+ * Calling it again with the same clientId replaces the earlier version
+ * (e.g. first when the dialogues are done, then with the AI feedback).
+ */
 export function recordSessionResult(
   getToken: GetToken,
-  session: Omit<NewSessionResult, "clientId" | "createdAt" | "nickname" | "classGroup">,
+  session: Omit<NewSessionResult, "nickname" | "classGroup">,
 ) {
   const { nickname, classGroup } = useChildProfileStore.getState();
   usePortfolioStore.getState().addPending({
     ...session,
-    clientId: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-    createdAt: new Date().toISOString(),
     nickname: nickname ?? null,
     classGroup: classGroup ?? null,
   });
@@ -34,7 +41,8 @@ export async function uploadPendingSessions(getToken: GetToken) {
       body: JSON.stringify(session),
     });
     if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-    usePortfolioStore.getState().removePending(session.clientId);
+    // Only drop this exact version; a newer one may have been queued meanwhile.
+    usePortfolioStore.getState().removePending(session);
   }
 }
 

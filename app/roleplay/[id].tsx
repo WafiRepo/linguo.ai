@@ -36,7 +36,7 @@ import {
   comicTopicToScenario,
 } from "@/lib/comicRoleplay";
 import { getInstructionLanguages } from "@/lib/instructionLanguage";
-import { recordSessionResult } from "@/lib/portfolio";
+import { newSessionClientId, recordSessionResult } from "@/lib/portfolio";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
@@ -126,17 +126,21 @@ function LiveRoleplayScreen() {
   const missionComplete =
     !!scenario && completedIds.length === scenario.objectives.length;
 
-  // Learning Portfolio: save each session once, whether the student taps
-  // end/back or leaves with the Android back gesture (screen unmount).
-  const savedRef = useRef(false);
+  // Learning Portfolio: one record per session (same clientId). It is saved
+  // as soon as every dialogue is done, updated when the AI feedback arrives,
+  // and saved a last time when the student leaves (end button, back arrow or
+  // the Android back gesture), so a student who never taps "end" still has it.
+  const portfolioIdRef = useRef({ clientId: newSessionClientId(), createdAt: new Date().toISOString() });
+  const finalSavedRef = useRef(false);
   const latestResultRef = useRef({ completedIds, feedback, stars, missionComplete });
   latestResultRef.current = { completedIds, feedback, stars, missionComplete };
 
-  function saveSessionResult() {
-    if (savedRef.current || !comic || !studentSpokeRef.current) return;
-    savedRef.current = true;
+  function saveSessionResult(final: boolean) {
+    if (finalSavedRef.current || !comic || !studentSpokeRef.current) return;
+    if (final) finalSavedRef.current = true;
     const latest = latestResultRef.current;
     recordSessionResult(getToken, {
+      ...portfolioIdRef.current,
       topicId: comic.id,
       mode: isPractice ? "practice" : "roleplay",
       completed: latest.missionComplete,
@@ -156,7 +160,8 @@ function LiveRoleplayScreen() {
     if (!isLoaded || !user || !scenario) return;
 
     startTimeRef.current = Date.now();
-    savedRef.current = false;
+    portfolioIdRef.current = { clientId: newSessionClientId(), createdAt: new Date().toISOString() };
+    finalSavedRef.current = false;
     rewardedRef.current = false;
     studentSpokeRef.current = false;
     setCompletedIds([]);
@@ -175,7 +180,7 @@ function LiveRoleplayScreen() {
     startCall();
 
     return () => {
-      saveSessionResult();
+      saveSessionResult(true);
       const leaving = callRef.current?.leave() ?? Promise.resolve();
       leaving.catch(console.error).finally(resetPhoneAudioToMedia);
       clientRef.current?.disconnectUser().catch(console.error);
@@ -187,13 +192,21 @@ function LiveRoleplayScreen() {
     if (!missionComplete || !comic || rewardedRef.current) return;
     rewardedRef.current = true;
     completeClassTopic(comic.id, isPractice ? "practice" : "roleplay", comic.xpReward);
+    saveSessionResult(false);
     posthog.capture("roleplay_completed", {
       scenario_id: comic.id,
       duration_seconds: startTimeRef.current
         ? Math.floor((Date.now() - startTimeRef.current) / 1000)
         : 0,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [missionComplete, comic, isPractice, completeClassTopic]);
+
+  // The AI feedback can arrive after the dialogues are done: update the record.
+  useEffect(() => {
+    if (feedback && rewardedRef.current) saveSessionResult(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedback]);
 
   async function startCall() {
     if (!user || !comic) return;
@@ -375,7 +388,7 @@ function LiveRoleplayScreen() {
       router.back();
       return;
     }
-    saveSessionResult();
+    saveSessionResult(true);
     posthog.capture("roleplay_review_shown", {
       scenario_id: scenario?.id ?? id,
       has_feedback: feedback !== null,

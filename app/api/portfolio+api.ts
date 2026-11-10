@@ -62,9 +62,20 @@ function toStudent(row: ProfileRow | null, userId: string): StudentSummary {
   return { userId, nickname: row?.nickname ?? null, classGroup: row?.class_group ?? null };
 }
 
+// client_id is stored as "<clerk user id>:<phone id>" so one student can never
+// update another student's row, even with a guessed id.
+function toStoredClientId(userId: string, clientId: string): string {
+  return `${userId}:${clientId}`;
+}
+
+function fromStoredClientId(stored: string): string {
+  const separator = stored.indexOf(":");
+  return separator === -1 ? stored : stored.slice(separator + 1);
+}
+
 function toSession(row: SessionRow): SessionResult {
   return {
-    clientId: row.client_id,
+    clientId: fromStoredClientId(row.client_id),
     topicId: row.topic_id,
     mode: row.mode,
     completed: row.completed,
@@ -175,13 +186,14 @@ export async function POST(request: Request): Promise<Response> {
         updated_at: new Date().toISOString(),
       },
     });
-    // client_id is unique, so a retried upload is ignored instead of duplicated.
+    // client_id is unique: saving the same session again updates its row
+    // (first when the dialogues are done, then with the AI feedback).
     await supabaseRest("session_results?on_conflict=client_id", {
       method: "POST",
-      prefer: "resolution=ignore-duplicates",
+      prefer: "resolution=merge-duplicates",
       body: {
         user_id: auth,
-        client_id: input.clientId,
+        client_id: toStoredClientId(auth, input.clientId),
         topic_id: input.topicId,
         mode: input.mode,
         completed: !!input.completed,
