@@ -40,6 +40,7 @@ import { newSessionClientId, recordSessionResult } from "@/lib/portfolio";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
+import { usePortfolioStore } from "@/store/portfolioStore";
 import { ClassManagementTopic } from "@/types/classManagement";
 import {
   RoleplayCorrection,
@@ -135,8 +136,12 @@ function LiveRoleplayScreen() {
   const latestResultRef = useRef({ completedIds, feedback, stars, missionComplete });
   latestResultRef.current = { completedIds, feedback, stars, missionComplete };
 
+  // Teachers can try a lesson, but it is not saved to any portfolio.
+  const portfolioRole = usePortfolioStore((s) => s.role);
+  const isTeacherMode = portfolioRole === "teacher" || portfolioRole === "admin";
+
   function saveSessionResult(final: boolean) {
-    if (finalSavedRef.current || !comic || !studentSpokeRef.current) return;
+    if (finalSavedRef.current || !comic || !studentSpokeRef.current || isTeacherMode) return;
     if (final) finalSavedRef.current = true;
     const latest = latestResultRef.current;
     recordSessionResult(getToken, {
@@ -414,6 +419,7 @@ function LiveRoleplayScreen() {
         completedIds={completedIds}
         feedback={feedback}
         stars={isPractice ? stars : undefined}
+        teacherMode={isTeacherMode}
         onDone={() => router.back()}
       />
     );
@@ -1157,6 +1163,7 @@ function RoleplayReview({
   completedIds,
   feedback,
   stars,
+  teacherMode = false,
   onDone,
 }: {
   scenario: RoleplayScenario;
@@ -1164,6 +1171,8 @@ function RoleplayReview({
   feedback: RoleplayFeedback | null;
   /** Latihan only: stars earned per dialogue. */
   stars?: number[];
+  /** A teacher trying the lesson: nothing is saved to a portfolio. */
+  teacherMode?: boolean;
   onDone: () => void;
 }) {
   const { t } = useT();
@@ -1186,6 +1195,11 @@ function RoleplayReview({
         contentContainerStyle={styles.reviewContent}
         showsVerticalScrollIndicator={false}
       >
+        {teacherMode ? (
+          <View className="mx-4 mb-3 rounded-2xl border border-[#e4dcff] bg-[#f6f3ff] px-4 py-3">
+            <Text className="font-poppins text-[13px] leading-5 text-text-secondary">{t("roleplay.teacherMode")}</Text>
+          </View>
+        ) : null}
         <MissionCard scenario={scenario} completedIds={completedIds} />
 
         {stars && stars.length > 0 ? (

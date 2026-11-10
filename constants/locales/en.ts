@@ -219,6 +219,7 @@ export const en = {
   "roleplay.status.talking": "In conversation",
   "roleplay.student": "Student: ",
   "roleplay.tapRetry": "Tap here to try again",
+  "roleplay.teacherMode": "Teacher mode: this practice isn't saved to a portfolio.",
   "roleplay.thinkAgain": "Think again — what does the student say in the comic?",
   "roleplay.tooShort": "The conversation was too short for the AI to give feedback. Try saying a bit more next time!",
   "roleplay.tryAgain": "Try again",

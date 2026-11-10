@@ -210,6 +210,13 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
+    // Teachers may try lessons, but their practice is not student data:
+    // accept the upload (so the phone's queue clears) and store nothing.
+    const caller = await getProfile(auth);
+    if (caller?.role === "teacher" || caller?.role === "admin") {
+      return Response.json({ ok: true, skipped: "staff" });
+    }
+
     // Create the profile on first save; never touch `role` from the phone.
     await supabaseRest("profiles?on_conflict=user_id", {
       method: "POST",

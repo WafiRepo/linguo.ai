@@ -83,15 +83,17 @@ export async function GET(request: Request): Promise<Response> {
   // Teachers/admins may open a student's certificates with ?studentId=.
   const studentId = new URL(request.url).searchParams.get("studentId");
   let ownerId = userId;
+  const callers = await supabaseRest<{ role: string }[]>(
+    `profiles?user_id=eq.${encodeURIComponent(userId)}&select=role`,
+  ).catch(() => []);
+  const callerIsStaff = callers[0]?.role === "teacher" || callers[0]?.role === "admin";
   if (studentId && studentId !== userId) {
-    const callers = await supabaseRest<{ role: string }[]>(
-      `profiles?user_id=eq.${encodeURIComponent(userId)}&select=role`,
-    ).catch(() => []);
-    const role = callers[0]?.role;
-    if (role !== "teacher" && role !== "admin") {
-      return Response.json({ error: "Forbidden" }, { status: 403 });
-    }
+    if (!callerIsStaff) return Response.json({ error: "Forbidden" }, { status: 403 });
     ownerId = studentId;
+  } else if (callerIsStaff) {
+    // Certificates are for students only.
+    const body: CertificatesResponse = { parts: [] };
+    return Response.json(body);
   }
 
   const user = encodeURIComponent(ownerId);

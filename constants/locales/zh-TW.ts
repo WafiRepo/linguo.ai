@@ -220,6 +220,7 @@ export const zhTW: Record<TranslationKey, string> = {
   "roleplay.status.talking": "對話中",
   "roleplay.student": "學生：",
   "roleplay.tapRetry": "點這裡重試",
+  "roleplay.teacherMode": "教師模式：這次練習不會記錄到學習歷程。",
   "roleplay.thinkAgain": "再想想看，漫畫裡學生怎麼說？",
   "roleplay.tooShort": "這次對話太短，AI 還來不及整理回饋。下次多說幾句試試看！",
   "roleplay.tryAgain": "再試一次",
