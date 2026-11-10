@@ -20,9 +20,11 @@ export async function supabaseRest<T>(
 
   const headers: Record<string, string> = {
     apikey: key,
-    Authorization: `Bearer ${key}`,
     "Content-Type": "application/json",
   };
+  // Legacy service_role keys are JWTs and also go in Authorization;
+  // the newer `sb_secret_...` keys only belong in the apikey header.
+  if (!key.startsWith("sb_secret_")) headers.Authorization = `Bearer ${key}`;
   if (init.prefer) headers.Prefer = init.prefer;
 
   const res = await fetch(`${url}/rest/v1/${path}`, {
