@@ -52,6 +52,8 @@ export default function RootLayout() {
           <Stack.Screen name="roleplay/[id]" />
           <Stack.Screen name="learning-material/[id]" />
           <Stack.Screen name="today-plan" />
+          <Stack.Screen name="story" />
+          <Stack.Screen name="ebooks" />
         </Stack>
         </AccountStorageGate>
       </ClerkProvider>

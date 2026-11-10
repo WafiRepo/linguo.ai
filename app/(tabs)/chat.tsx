@@ -1,61 +1,91 @@
 import { Ionicons } from "@expo/vector-icons";
-import NetInfo from "@react-native-community/netinfo";
-import { useState } from "react";
-import { ActivityIndicator, Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Href, useRouter } from "expo-router";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+import { WaveHeader } from "@/components/WaveHeader";
 import { colors } from "@/constants/theme";
-import { INDONESIAN_EBOOK_URL } from "@/constants/resources";
-import { useT } from "@/lib/i18n";
+import { TranslationKey, useT } from "@/lib/i18n";
+
+type InfoCard = {
+  route: Href;
+  icon: keyof typeof Ionicons.glyphMap;
+  titleKey: TranslationKey;
+  bodyKey: TranslationKey;
+  highlighted?: boolean;
+  testID: string;
+};
+
+const CARDS: InfoCard[] = [
+  {
+    route: "/story" as Href,
+    icon: "people",
+    titleKey: "story.title",
+    bodyKey: "info.story.body",
+    highlighted: true,
+    testID: "information-open-story",
+  },
+  {
+    route: "/ebooks" as Href,
+    icon: "book-outline",
+    titleKey: "info.ebook.title",
+    bodyKey: "info.ebook.subtitle",
+    testID: "information-open-ebooks",
+  },
+];
 
 // Preserve the route so existing links to the fourth tab continue to work.
 export default function InformationScreen() {
-  const [opening, setOpening] = useState(false);
+  const router = useRouter();
   const { t } = useT();
-  const [error, setError] = useState(false);
-
-  // Opens the official e-book site directly; no guardian step (requirement F04/F19).
-  async function openBooks() {
-    setOpening(true);
-    setError(false);
-    try {
-      const network = await NetInfo.fetch();
-      if (network.isConnected === false || network.isInternetReachable === false) throw new Error("offline");
-      await Linking.openURL(INDONESIAN_EBOOK_URL);
-    } catch {
-      setError(true);
-    } finally {
-      setOpening(false);
-    }
-  }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutral.background }} edges={["top", "left", "right"]}>
-      <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 40 }}>
-        <Text accessibilityRole="header" className="text-2xl font-bold text-text-primary">{t("info.title")}</Text>
-        <View className="mt-6 rounded-3xl bg-purple-50 p-6">
-          <View className="mb-4 h-16 w-16 items-center justify-center rounded-2xl bg-white">
-            <Ionicons name="book-outline" size={34} color={colors.primary.purple} />
-          </View>
-          <Text accessibilityRole="header" className="text-2xl font-bold text-text-primary">{t("info.ebook.title")}</Text>
-          <Text className="mt-3 text-base leading-7 text-text-primary">{t("info.ebook.body")}</Text>
-        </View>
-        <View className="mt-5 rounded-3xl border border-border bg-white p-5">
-          <Text className="text-sm font-semibold text-lingua-purple">{t("info.site.org")}</Text>
-          <Text accessibilityRole="header" className="mt-2 text-xl font-bold text-text-primary">{t("info.site.name")}</Text>
-          <Text className="mt-3 text-base leading-7 text-text-primary">{t("info.site.body")}</Text>
-          <View className="mt-5 gap-3 rounded-2xl bg-purple-50 p-4">
-            <Text className="text-base leading-7 text-text-primary">{t("info.step1")}</Text>
-            <Text className="text-base leading-7 text-text-primary">{t("info.step2")}</Text>
-            <Text className="text-base leading-7 text-text-primary">{t("info.step3")}</Text>
-          </View>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("info.open")} accessibilityHint={t("info.openHint")} accessibilityState={{ disabled: opening, busy: opening }} disabled={opening} testID="information-open-ebooks" onPress={openBooks} className="mt-5 min-h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-lingua-purple px-4 py-4">
-            {opening ? <ActivityIndicator color="#fff" /> : <Ionicons name="open-outline" size={20} color="#fff" />}
-            <Text className="text-base font-bold text-white">{opening ? t("info.opening") : error ? t("common.retry") : t("info.open")}</Text>
+    <View style={{ flex: 1, backgroundColor: colors.neutral.background }}>
+      <WaveHeader title={t("info.title")} />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {CARDS.map((card) => (
+          <TouchableOpacity
+            key={card.testID}
+            accessibilityRole="button"
+            activeOpacity={0.85}
+            testID={card.testID}
+            onPress={() => router.push(card.route)}
+            className={`flex-row items-center rounded-[24px] px-5 py-6 ${
+              card.highlighted ? "bg-[#f1ecff]" : "bg-white border border-[#e4dcff]"
+            }`}
+            style={styles.softShadow}
+          >
+            <View
+              className={`w-14 h-14 rounded-full items-center justify-center ${
+                card.highlighted ? "" : "bg-[#ece6ff]"
+              }`}
+            >
+              <Ionicons name={card.icon} size={32} color={colors.primary.purple} />
+            </View>
+            <View className="flex-1 ml-4 mr-2">
+              <Text className="font-poppins-bold text-xl leading-7 text-text-primary">{t(card.titleKey)}</Text>
+              <Text className="font-poppins text-sm leading-5 text-text-secondary mt-1">{t(card.bodyKey)}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={colors.primary.purple} />
           </TouchableOpacity>
-          {error ? <Text accessibilityRole="alert" selectable className="mt-3 text-base leading-6 text-red-700">{t("info.error")}</Text> : null}
-          <Text className="mt-4 text-sm leading-6 text-text-secondary">{t("info.footer")}</Text>
-        </View>
+        ))}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
+
+// ScrollView contentContainerStyle and shadows must stay in StyleSheet.
+const styles = StyleSheet.create({
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 100,
+    gap: 16,
+  },
+  softShadow: {
+    shadowColor: "#6c4ef5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+});

@@ -4,6 +4,7 @@ import mascotWelcome from "@/assets/images/mascot-welcome.png";
 import mascotLogo from "@/assets/images/moscot-logo.png";
 import palace from "@/assets/images/palace.png";
 import treasure from "@/assets/images/treasure.png";
+import storyHero from "@/assets/images/story-hero.jpg";
 
 import topik1Panel1 from "@/assets/learning-management/bagian-a/topik-1/panel-1.png";
 import topik1Panel2 from "@/assets/learning-management/bagian-a/topik-1/panel-2.png";
@@ -161,6 +162,7 @@ export const images = {
   mascotLogo,
   palace,
   treasure,
+  storyHero,
   topik1Panel1,
   topik1Panel2,
   topik1Panel3,
