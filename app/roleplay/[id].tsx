@@ -126,10 +126,37 @@ function LiveRoleplayScreen() {
   const missionComplete =
     !!scenario && completedIds.length === scenario.objectives.length;
 
+  // Learning Portfolio: save each session once, whether the student taps
+  // end/back or leaves with the Android back gesture (screen unmount).
+  const savedRef = useRef(false);
+  const latestResultRef = useRef({ completedIds, feedback, stars, missionComplete });
+  latestResultRef.current = { completedIds, feedback, stars, missionComplete };
+
+  function saveSessionResult() {
+    if (savedRef.current || !comic || !studentSpokeRef.current) return;
+    savedRef.current = true;
+    const latest = latestResultRef.current;
+    recordSessionResult(getToken, {
+      topicId: comic.id,
+      mode: isPractice ? "practice" : "roleplay",
+      completed: latest.missionComplete,
+      objectivesDone: latest.completedIds.length,
+      objectivesTotal: scenario?.objectives.length ?? 0,
+      xpEarned: latest.missionComplete ? comic.xpReward : 0,
+      stars: isPractice ? latest.stars.filter((value) => typeof value === "number") : [],
+      praise: latest.feedback?.praise || null,
+      corrections: latest.feedback?.corrections ?? [],
+      durationSeconds: startTimeRef.current
+        ? Math.floor((Date.now() - startTimeRef.current) / 1000)
+        : 0,
+    });
+  }
+
   useEffect(() => {
     if (!isLoaded || !user || !scenario) return;
 
     startTimeRef.current = Date.now();
+    savedRef.current = false;
     rewardedRef.current = false;
     studentSpokeRef.current = false;
     setCompletedIds([]);
@@ -148,6 +175,7 @@ function LiveRoleplayScreen() {
     startCall();
 
     return () => {
+      saveSessionResult();
       const leaving = callRef.current?.leave() ?? Promise.resolve();
       leaving.catch(console.error).finally(resetPhoneAudioToMedia);
       clientRef.current?.disconnectUser().catch(console.error);
@@ -347,21 +375,7 @@ function LiveRoleplayScreen() {
       router.back();
       return;
     }
-    // Learning Portfolio: keep this session's result and AI feedback.
-    if (comic) recordSessionResult(getToken, {
-      topicId: comic.id,
-      mode: isPractice ? "practice" : "roleplay",
-      completed: missionComplete,
-      objectivesDone: completedIds.length,
-      objectivesTotal: scenario?.objectives.length ?? 0,
-      xpEarned: missionComplete ? comic.xpReward : 0,
-      stars: isPractice ? stars.filter((value) => typeof value === "number") : [],
-      praise: feedback?.praise || null,
-      corrections: feedback?.corrections ?? [],
-      durationSeconds: startTimeRef.current
-        ? Math.floor((Date.now() - startTimeRef.current) / 1000)
-        : 0,
-    });
+    saveSessionResult();
     posthog.capture("roleplay_review_shown", {
       scenario_id: scenario?.id ?? id,
       has_feedback: feedback !== null,
