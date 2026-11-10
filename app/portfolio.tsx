@@ -14,7 +14,7 @@ import {
   uploadPendingSessions,
 } from "@/lib/portfolio";
 import { usePortfolioStore } from "@/store/portfolioStore";
-import { PortfolioResponse, SessionResult, StudentSummary } from "@/types/portfolio";
+import { PortfolioResponse, SessionResult, StudentOverview } from "@/types/portfolio";
 
 const PURPLE = "#6c4ef5";
 
@@ -42,7 +42,9 @@ export default function PortfolioScreen() {
     // Upload anything saved while offline first, so the list is complete.
     if (!studentId) await uploadPendingSessions(token).catch(() => {});
     try {
-      setData(await fetchPortfolio(token, studentId));
+      const result = await fetchPortfolio(token, studentId);
+      if (!studentId) usePortfolioStore.getState().setRole(result.role);
+      setData(result);
       setOffline(false);
     } catch {
       setOffline(true);
@@ -83,6 +85,24 @@ export default function PortfolioScreen() {
   });
 
   const title = studentId ? data?.student.nickname ?? t("portfolio.unnamed") : t("portfolio.title");
+  const isStaff = data?.role === "teacher" || data?.role === "admin";
+  const openStudent = (id: string) => router.push(`/portfolio?studentId=${encodeURIComponent(id)}` as Href);
+
+  // Teachers: their own page is the list of students.
+  if (!studentId && isStaff && data?.students) {
+    return (
+      <View className="flex-1 bg-[#faf8ff]">
+        <WaveHeader
+          title={t("portfolio.students")}
+          onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/profile"))}
+          backLabel={t("common.back")}
+        />
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <StudentList students={data.students} t={t} dateFormat={dateFormat} onOpen={openStudent} />
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-[#faf8ff]">
@@ -103,13 +123,21 @@ export default function PortfolioScreen() {
           </View>
         ) : null}
 
-        {/* Teachers: pick a student */}
-        {!studentId && data?.students ? (
-          <StudentList
-            students={data.students}
-            t={t}
-            onOpen={(id) => router.push(`/portfolio?studentId=${encodeURIComponent(id)}` as Href)}
-          />
+        {/* Teacher looking at a student: open that student's certificates */}
+        {studentId && data ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            activeOpacity={0.85}
+            onPress={() =>
+              router.push(
+                `/certificates?studentId=${encodeURIComponent(studentId)}&name=${encodeURIComponent(title)}` as Href,
+              )
+            }
+            className="mt-2 flex-row items-center rounded-[20px] border border-[#e4dcff] bg-white px-4 py-3"
+          >
+            <Text className="flex-1 font-poppins-semibold text-[15px] text-text-primary">{t("certificates.title")}</Text>
+            <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
+          </TouchableOpacity>
         ) : null}
 
         {/* Overview */}
@@ -305,16 +333,24 @@ function SessionCard({
 function StudentList({
   students,
   t,
+  dateFormat,
   onOpen,
 }: {
-  students: StudentSummary[];
+  students: StudentOverview[];
   t: Translate;
+  dateFormat: Intl.DateTimeFormat;
   onOpen: (userId: string) => void;
 }) {
+  if (!students.length) {
+    return (
+      <View className="mt-4 rounded-[24px] border border-dashed border-[#c9b8ff] bg-white px-6 py-8">
+        <Text className="font-poppins text-sm leading-6 text-text-secondary text-center">{t("portfolio.noStudents")}</Text>
+      </View>
+    );
+  }
   return (
     <>
-      <SectionLabel label={t("portfolio.students")} />
-      <Text className="-mt-1 mb-3 font-poppins text-[13px] text-text-secondary">{t("portfolio.studentsHint")}</Text>
+      <Text className="mt-2 mb-3 font-poppins text-[13px] text-text-secondary">{t("portfolio.studentsHint")}</Text>
       <View className="gap-2">
         {students.map((student) => (
           <TouchableOpacity
@@ -322,14 +358,32 @@ function StudentList({
             activeOpacity={0.85}
             onPress={() => onOpen(student.userId)}
             className="flex-row items-center rounded-[20px] border border-[#e4dcff] bg-white px-4 py-3"
+            style={styles.softShadow}
           >
             <View className="flex-1">
               <Text className="font-poppins-semibold text-[15px] text-text-primary">
                 {student.nickname ?? t("portfolio.unnamed")}
+                {student.classGroup ? (
+                  <Text className="font-poppins text-[13px] text-text-secondary">
+                    {"  "}
+                    {t(`grade.${student.classGroup}` as TranslationKey)}
+                  </Text>
+                ) : null}
               </Text>
-              {student.classGroup ? (
+              <Text className="mt-0.5 font-poppins text-[13px] text-[#4a32c9]">
+                {[
+                  t("portfolio.studentTopics", { done: student.topicsCompleted }),
+                  t("portfolio.studentSessions", { count: student.sessionsCount }),
+                  student.certificateParts.length
+                    ? t("portfolio.studentCertificates", { parts: student.certificateParts.join(", ") })
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join("  ·  ")}
+              </Text>
+              {student.lastActiveAt ? (
                 <Text className="font-poppins text-xs text-text-secondary">
-                  {t(`grade.${student.classGroup}` as TranslationKey)}
+                  {t("portfolio.lastActive", { date: dateFormat.format(new Date(student.lastActiveAt)) })}
                 </Text>
               ) : null}
             </View>

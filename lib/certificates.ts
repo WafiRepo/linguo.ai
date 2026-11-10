@@ -10,10 +10,11 @@ import { Certificate, CertificatesResponse } from "@/types/certificate";
 // Digital Certificate: load from the API, turn into a PDF on the phone.
 type GetToken = () => Promise<string | null>;
 
-export async function fetchCertificates(getToken: GetToken): Promise<CertificatesResponse> {
+export async function fetchCertificates(getToken: GetToken, studentId?: string): Promise<CertificatesResponse> {
   const token = await getToken();
   if (!token) throw new Error("Not signed in");
-  const res = await fetch(apiUrl("/api/certificates"), {
+  const query = studentId ? `?studentId=${encodeURIComponent(studentId)}` : "";
+  const res = await fetch(apiUrl(`/api/certificates${query}`), {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error(`Load failed (${res.status})`);

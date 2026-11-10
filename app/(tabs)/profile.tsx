@@ -1,23 +1,37 @@
 import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
-import { type Href, useRouter } from "expo-router";
+import { type Href, useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useRef } from "react";
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/theme";
 import { LANGUAGES } from "@/data/languages";
 import { resetCurrentAccountData } from "@/lib/learningAccount";
-import { deletePortfolio } from "@/lib/portfolio";
+import { deletePortfolio, fetchPortfolio } from "@/lib/portfolio";
 import { TUTOR_EMOTION_OPTIONS } from "@/lib/tutorEmotion";
 import { TUTOR_VOICE_OPTIONS } from "@/lib/instructionLanguage";
 import { useChildProfileStore } from "@/store/childProfileStore";
 import { useLanguageStore } from "@/store/languageStore";
+import { usePortfolioStore } from "@/store/portfolioStore";
 import { useT } from "@/lib/i18n";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { getToken } = useAuth();
+  // Teachers (role set in Supabase) see "My students" instead of their own portfolio.
+  const role = usePortfolioStore((s) => s.role);
+  const isStaff = role === "teacher" || role === "admin";
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+  useFocusEffect(
+    useCallback(() => {
+      fetchPortfolio(() => getTokenRef.current())
+        .then((result) => usePortfolioStore.getState().setRole(result.role))
+        .catch(() => {});
+    }, []),
+  );
   const { t } = useT();
   const { selectedLanguage, tutorVoice, tutorEmotion, setTutorVoice, setTutorEmotion } =
     useLanguageStore();
@@ -110,18 +124,19 @@ export default function ProfileScreen() {
           style={styles.cardShadow}
         >
           <View className="w-11 h-11 rounded-full bg-white items-center justify-center">
-            <Ionicons name="ribbon" size={22} color={colors.primary.purple} />
+            <Ionicons name={isStaff ? "people" : "ribbon"} size={22} color={colors.primary.purple} />
           </View>
           <View className="flex-1 ml-3">
             <Text className="font-poppins-semibold text-base text-text-primary">
-              {t("portfolio.title")}
+              {t(isStaff ? "portfolio.students" : "portfolio.title")}
             </Text>
             <Text className="font-poppins text-sm text-text-secondary mt-0.5">
-              {t("portfolio.cardBody")}
+              {t(isStaff ? "portfolio.teacherCardBody" : "portfolio.cardBody")}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.primary.purple} />
         </TouchableOpacity>
+        {isStaff ? null : (
         <TouchableOpacity
           activeOpacity={0.85}
           testID="profile-open-certificates"
@@ -142,6 +157,7 @@ export default function ProfileScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
         </TouchableOpacity>
+        )}
       </View>
 
       <View className="px-5 mb-6">

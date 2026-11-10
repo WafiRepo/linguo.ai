@@ -45,11 +45,21 @@ export interface StudentSummary {
   classGroup: string | null;
 }
 
+/** One row of a teacher's "My students" list. */
+export interface StudentOverview extends StudentSummary {
+  sessionsCount: number;
+  /** Topics with both Practice and Role Play finished. */
+  topicsCompleted: number;
+  /** Parts (A, B, C) with an issued certificate. */
+  certificateParts: string[];
+  lastActiveAt: string | null;
+}
+
 /** GET /api/portfolio */
 export interface PortfolioResponse {
   role: PortfolioRole;
   student: StudentSummary;
   sessions: SessionResult[];
   /** Only for teachers/admins looking at their own portfolio page. */
-  students?: StudentSummary[];
+  students?: StudentOverview[];
 }

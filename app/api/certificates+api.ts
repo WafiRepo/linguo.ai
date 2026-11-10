@@ -80,7 +80,21 @@ export async function GET(request: Request): Promise<Response> {
   const userId = await verifyClerkToken(token, publishableKey);
   if (!userId) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const user = encodeURIComponent(userId);
+  // Teachers/admins may open a student's certificates with ?studentId=.
+  const studentId = new URL(request.url).searchParams.get("studentId");
+  let ownerId = userId;
+  if (studentId && studentId !== userId) {
+    const callers = await supabaseRest<{ role: string }[]>(
+      `profiles?user_id=eq.${encodeURIComponent(userId)}&select=role`,
+    ).catch(() => []);
+    const role = callers[0]?.role;
+    if (role !== "teacher" && role !== "admin") {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+    ownerId = studentId;
+  }
+
+  const user = encodeURIComponent(ownerId);
   try {
     const sessions = await supabaseRest<SessionRow[]>(
       `session_results?user_id=eq.${user}&completed=eq.true&select=topic_id,mode,created_at`,
@@ -100,7 +114,7 @@ export async function GET(request: Request): Promise<Response> {
         prefer: "resolution=ignore-duplicates",
         body: earned.map((part) => ({
           certificate_no: newCertificateNo(part),
-          user_id: userId,
+          user_id: ownerId,
           part,
           student_name: studentName,
           course_title: `${COURSE_TITLE.en} · ${PART_TITLES[part].en}`,

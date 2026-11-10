@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/expo";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -15,6 +15,8 @@ const PURPLE = "#6c4ef5";
 // finishing Latihan and Role Play for every topic in that part.
 export default function CertificatesScreen() {
   const router = useRouter();
+  // A teacher opens a student's certificates with ?studentId=&name=.
+  const { studentId, name } = useLocalSearchParams<{ studentId?: string; name?: string }>();
   const { getToken } = useAuth();
   const { t, locale } = useT();
   const [data, setData] = useState<CertificatesResponse | null>(null);
@@ -29,14 +31,14 @@ export default function CertificatesScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setData(await fetchCertificates(() => getTokenRef.current()));
+      setData(await fetchCertificates(() => getTokenRef.current(), studentId));
       setFailed(false);
     } catch {
       setFailed(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [studentId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -65,7 +67,7 @@ export default function CertificatesScreen() {
   return (
     <View className="flex-1 bg-[#faf8ff]">
       <WaveHeader
-        title={t("certificates.title")}
+        title={studentId && name ? `${name} · ${t("certificates.title")}` : t("certificates.title")}
         onBack={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/profile"))}
         backLabel={t("common.back")}
       />

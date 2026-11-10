@@ -5,6 +5,7 @@ import type {
   PortfolioResponse,
   PortfolioRole,
   SessionResult,
+  StudentOverview,
   StudentSummary,
 } from "../../types/portfolio";
 
@@ -98,12 +99,51 @@ async function getSessions(userId: string): Promise<SessionResult[]> {
   return rows.map(toSession);
 }
 
+/** Teacher's list: every student with a few progress numbers. */
+async function getStudentOverviews(): Promise<StudentOverview[]> {
+  const [students, sessions, certificates] = await Promise.all([
+    supabaseRest<ProfileRow[]>("profiles?role=eq.student&select=user_id,role,nickname,class_group"),
+    supabaseRest<{ user_id: string; topic_id: string; mode: string; completed: boolean; created_at: string }[]>(
+      "session_results?select=user_id,topic_id,mode,completed,created_at",
+    ),
+    supabaseRest<{ user_id: string; part: string }[]>("certificates?select=user_id,part"),
+  ]);
+  return students
+    .map((row) => {
+      const own = sessions.filter((session) => session.user_id === row.user_id);
+      const finished = new Set(own.filter((s) => s.completed).map((s) => `${s.topic_id}:${s.mode}`));
+      const topics = new Set(own.map((session) => session.topic_id));
+      return {
+        ...toStudent(row, row.user_id),
+        sessionsCount: own.length,
+        topicsCompleted: [...topics].filter((id) => finished.has(`${id}:practice`) && finished.has(`${id}:roleplay`))
+          .length,
+        certificateParts: certificates.filter((c) => c.user_id === row.user_id).map((c) => c.part).sort(),
+        lastActiveAt: own.map((session) => session.created_at).sort().at(-1) ?? null,
+      };
+    })
+    .sort(
+      (a, b) =>
+        (a.classGroup ?? "").localeCompare(b.classGroup ?? "") || (a.nickname ?? "").localeCompare(b.nickname ?? ""),
+    );
+}
+
 export async function GET(request: Request): Promise<Response> {
   const auth = await authenticate(request);
   if (auth instanceof Response) return auth;
 
   try {
-    const me = await getProfile(auth);
+    let me = await getProfile(auth);
+    if (!me) {
+      // First visit: create the profile row, so an admin can give this
+      // account the teacher role in Supabase before it has any sessions.
+      await supabaseRest("profiles?on_conflict=user_id", {
+        method: "POST",
+        prefer: "resolution=ignore-duplicates",
+        body: { user_id: auth },
+      });
+      me = await getProfile(auth);
+    }
     const role = me?.role ?? "student";
     const isStaff = role === "teacher" || role === "admin";
     const studentId = new URL(request.url).searchParams.get("studentId");
@@ -126,12 +166,7 @@ export async function GET(request: Request): Promise<Response> {
       student: toStudent(me, auth),
       sessions: await getSessions(auth),
     };
-    if (isStaff) {
-      const students = await supabaseRest<ProfileRow[]>(
-        "profiles?role=eq.student&select=user_id,role,nickname,class_group&order=nickname.asc",
-      );
-      body.students = students.map((row) => toStudent(row, row.user_id));
-    }
+    if (isStaff) body.students = await getStudentOverviews();
     return Response.json(body);
   } catch (error) {
     console.error("[portfolio] GET failed", error);
