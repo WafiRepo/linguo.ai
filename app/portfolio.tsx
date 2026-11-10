@@ -1,7 +1,7 @@
 import { useAuth } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { Href, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { WaveHeader } from "@/components/WaveHeader";
@@ -31,19 +31,25 @@ export default function PortfolioScreen() {
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
 
+  // Clerk's getToken changes identity on every render; keep it in a ref so
+  // `load` stays stable and the focus effect doesn't reload in a loop.
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+
   const load = useCallback(async () => {
+    const token = () => getTokenRef.current();
     setLoading(true);
     // Upload anything saved while offline first, so the list is complete.
-    if (!studentId) await uploadPendingSessions(getToken).catch(() => {});
+    if (!studentId) await uploadPendingSessions(token).catch(() => {});
     try {
-      setData(await fetchPortfolio(getToken, studentId));
+      setData(await fetchPortfolio(token, studentId));
       setOffline(false);
     } catch {
       setOffline(true);
     } finally {
       setLoading(false);
     }
-  }, [getToken, studentId]);
+  }, [studentId]);
 
   useFocusEffect(
     useCallback(() => {
