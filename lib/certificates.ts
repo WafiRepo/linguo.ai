@@ -1,8 +1,10 @@
+import { Asset } from "expo-asset";
 import { File, Paths } from "expo-file-system";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 
 import { CERTIFICATE_TITLES, COURSE_TITLE } from "@/constants/curriculumParts";
+import { images } from "@/constants/images";
 import { STORY } from "@/data/teamStory";
 import { ApiError, apiUrl } from "@/lib/api";
 import { Certificate, CertificatesResponse } from "@/types/certificate";
@@ -33,8 +35,20 @@ function formatDates(iso: string) {
   };
 }
 
+// The PDF is made from HTML, so the bundled logo is embedded as a data URI.
+let logoDataUri: string | null = null;
+async function getLogoDataUri(): Promise<string> {
+  if (logoDataUri) return logoDataUri;
+  // A bundled image is a module id (number) at runtime.
+  const asset = Asset.fromModule(images.logoCertificate as number);
+  await asset.downloadAsync();
+  if (!asset.localUri) throw new Error("Logo asset not available");
+  logoDataUri = `data:image/jpeg;base64,${await new File(asset.localUri).base64()}`;
+  return logoDataUri;
+}
+
 /** Landscape A4 certificate; the same bilingual layout for every app language. */
-export function certificateHtml(certificate: Certificate): string {
+export function certificateHtml(certificate: Certificate, logoSrc?: string): string {
   const part = CERTIFICATE_TITLES[certificate.part];
   // The full-course certificate names only the course.
   const courseZh = certificate.part === "FULL" ? COURSE_TITLE.zh : `${COURSE_TITLE.zh} · ${part.zh}`;
@@ -51,16 +65,17 @@ export function certificateHtml(certificate: Certificate): string {
   body { font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif; color: #1f1f2e; background: #fff; }
   .page { width: 297mm; height: 210mm; padding: 12mm; }
   .frame { height: 100%; border: 2.5mm solid #6c4ef5; border-radius: 6mm; padding: 4mm; }
-  .inner { height: 100%; border: 0.6mm solid #c9b8ff; border-radius: 3mm; padding: 14mm 22mm 12mm;
+  .inner { height: 100%; border: 0.6mm solid #c9b8ff; border-radius: 3mm; padding: 8mm 22mm 10mm;
            display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .logo { height: 21mm; margin-bottom: 3mm; }
   .eyebrow { font-size: 11pt; letter-spacing: 3pt; color: #6c4ef5; text-transform: uppercase; }
-  h1 { font-size: 30pt; color: #4a32c9; margin-top: 3mm; letter-spacing: 4pt; }
+  h1 { font-size: 28pt; color: #4a32c9; margin-top: 2mm; letter-spacing: 4pt; }
   .h1-en { font-size: 14pt; color: #5b3bf6; margin-top: 1mm; }
-  .lead { font-size: 12pt; color: #555; margin-top: 9mm; }
+  .lead { font-size: 12pt; color: #555; margin-top: 6mm; }
   .name { font-size: 30pt; font-weight: 700; margin-top: 3mm; padding: 0 12mm 2mm; border-bottom: 0.5mm solid #c9b8ff; }
   .course { font-size: 15pt; font-weight: 700; color: #4a32c9; margin-top: 4mm; }
   .course-en { font-size: 11pt; color: #555; margin-top: 1mm; }
-  .date { font-size: 11pt; color: #555; margin-top: 6mm; }
+  .date { font-size: 11pt; color: #555; margin-top: 5mm; }
   .footer { margin-top: auto; width: 100%; display: flex; justify-content: space-between; align-items: flex-end; }
   .org { width: 44%; text-align: left; font-size: 9.5pt; color: #444; line-height: 1.45; }
   .org.right { text-align: right; }
@@ -68,6 +83,7 @@ export function certificateHtml(certificate: Certificate): string {
   .no { font-size: 9pt; color: #777; margin-top: 5mm; letter-spacing: 0.5pt; }
 </style></head>
 <body><div class="page"><div class="frame"><div class="inner">
+  ${logoSrc ? `<img class="logo" src="${logoSrc}" alt="" />` : ""}
   <div class="eyebrow">Certificate of Completion</div>
   <h1>結業證書</h1>
   <div class="h1-en">Sertifikat Penyelesaian</div>
@@ -95,7 +111,9 @@ const PAGE = { width: 842, height: 595 }; // A4 landscape in points
 
 /** Writes the PDF to the cache as e.g. "Certificate-BI-A-7K3QX9MP.pdf". */
 async function makeCertificatePdf(certificate: Certificate): Promise<string> {
-  const { uri } = await Print.printToFileAsync({ html: certificateHtml(certificate), ...PAGE });
+  // Without the logo the certificate is still valid, so a logo error is not fatal.
+  const logo = await getLogoDataUri().catch(() => undefined);
+  const { uri } = await Print.printToFileAsync({ html: certificateHtml(certificate, logo), ...PAGE });
   const named = new File(Paths.cache, `Certificate-${certificate.certificateNo}.pdf`);
   if (named.exists) named.delete();
   new File(uri).move(named);
