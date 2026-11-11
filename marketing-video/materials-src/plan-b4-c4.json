@@ -1,0 +1,792 @@
+[
+ {
+  "id": "bagian-7",
+  "numeral": "VII",
+  "zhTitle": "玩骰子和字卡",
+  "idTitle": "Bermain Dadu dan Kartu Kata",
+  "words": [
+   {
+    "icon": "dadu",
+    "word": "dadu",
+    "zh": "骰子"
+   },
+   {
+    "icon": "kartu-kata",
+    "word": "kartu kata",
+    "zh": "字卡"
+   },
+   {
+    "icon": "lempar",
+    "word": "lempar",
+    "zh": "丟"
+   },
+   {
+    "icon": "ambil",
+    "word": "ambil",
+    "zh": "拿"
+   },
+   {
+    "icon": "jawab",
+    "word": "jawab",
+    "zh": "回答"
+   },
+   {
+    "icon": "pertanyaan",
+    "word": "pertanyaan",
+    "zh": "問題"
+   },
+   {
+    "icon": "angka",
+    "word": "angka",
+    "zh": "數字"
+   },
+   {
+    "icon": "tidak-tahu",
+    "word": "tidak tahu",
+    "zh": "不知道"
+   }
+  ],
+  "sentences": [
+   {
+    "scene": "s-bag7-1",
+    "id": "Ini dadu.",
+    "zh": "這是骰子。"
+   },
+   {
+    "scene": "s-bag7-2",
+    "id": "Pertama, lempar dadu.",
+    "zh": "首先，丟骰子。"
+   },
+   {
+    "scene": "s-bag7-3",
+    "id": "Kedua, ambil satu kartu kata.",
+    "zh": "第二，拿一張字卡。"
+   },
+   {
+    "scene": "s-bag7-4",
+    "id": "Ketiga, jawab pertanyaannya.",
+    "zh": "第三，回答問題。"
+   },
+   {
+    "scene": "s-bag7-5",
+    "id": "Angka lima.",
+    "zh": "五點。"
+   }
+  ]
+ },
+ {
+  "id": "bagian-8",
+  "numeral": "VIII",
+  "zhTitle": "確認理解",
+  "idTitle": "Memastikan Pemahaman",
+  "words": [
+   {
+    "icon": "jelas",
+    "word": "jelas",
+    "zh": "清楚"
+   },
+   {
+    "icon": "mengerti",
+    "word": "mengerti",
+    "zh": "了解"
+   },
+   {
+    "icon": "ya",
+    "word": "ya",
+    "zh": "是的"
+   },
+   {
+    "icon": "ada",
+    "word": "ada",
+    "zh": "有"
+   },
+   {
+    "icon": "tidak-ada",
+    "word": "tidak ada",
+    "zh": "沒有"
+   },
+   {
+    "icon": "pertanyaan",
+    "word": "pertanyaan",
+    "zh": "問題"
+   }
+  ],
+  "sentences": [
+   {
+    "scene": "s-bag8-1",
+    "id": "Apakah sudah jelas? Ya, sudah jelas.",
+    "zh": "清楚了嗎？是的，清楚了。"
+   },
+   {
+    "scene": "s-bag8-2",
+    "id": "Apakah sudah mengerti? Ya, saya mengerti.",
+    "zh": "了解了嗎？是的，我了解了。"
+   },
+   {
+    "scene": "s-bag8-3",
+    "id": "Ada pertanyaan? Tidak ada.",
+    "zh": "有問題嗎？沒有。"
+   }
+  ]
+ },
+ {
+  "id": "bagian-9",
+  "numeral": "IX",
+  "zhTitle": "分組學習",
+  "idTitle": "Membagi Kelompok Belajar",
+  "words": [
+   {
+    "icon": "kelompok",
+    "word": "kelompok",
+    "zh": "小組"
+   },
+   {
+    "icon": "bekerja",
+    "word": "bekerja",
+    "zh": "活動"
+   },
+   {
+    "icon": "tiga",
+    "word": "tiga (3)",
+    "zh": "三"
+   },
+   {
+    "icon": "orang",
+    "word": "orang",
+    "zh": "人"
+   },
+   {
+    "icon": "setiap",
+    "word": "setiap",
+    "zh": "每個"
+   },
+   {
+    "icon": "berbicara",
+    "word": "berbicara",
+    "zh": "發言"
+   },
+   {
+    "icon": "lima-menit",
+    "word": "lima menit",
+    "zh": "五分鐘"
+   },
+   {
+    "icon": "siap",
+    "word": "siap",
+    "zh": "準備好"
+   }
+  ],
+  "sentences": [
+   {
+    "scene": "s-bag9-1",
+    "id": "Sekarang kita akan bekerja dalam kelompok.",
+    "zh": "現在我們要分組活動。"
+   },
+   {
+    "scene": "s-bag9-2",
+    "id": "Satu kelompok tiga orang.",
+    "zh": "三人一組。"
+   },
+   {
+    "scene": "s-bag9-3",
+    "id": "Setiap orang harus berbicara.",
+    "zh": "每個人都要發言。"
+   },
+   {
+    "scene": "s-bag9-4",
+    "id": "Kalian punya lima menit.",
+    "zh": "你們有五分鐘。"
+   },
+   {
+    "scene": "s-bag9-5",
+    "id": "Kami siap.",
+    "zh": "我們準備好了。"
+   }
+  ]
+ },
+ {
+  "id": "bagian-10",
+  "numeral": "X",
+  "zhTitle": "在課堂上自我介紹",
+  "idTitle": "Berkenalan di Kelas",
+  "words": [
+   {
+    "icon": "halo",
+    "word": "halo",
+    "zh": "你好"
+   },
+   {
+    "icon": "nama",
+    "word": "nama",
+    "zh": "名字"
+   },
+   {
+    "icon": "saya",
+    "word": "saya",
+    "zh": "我"
+   },
+   {
+    "icon": "contoh",
+    "word": "contoh",
+    "zh": "例子"
+   },
+   {
+    "icon": "sederhana",
+    "word": "sederhana",
+    "zh": "簡單"
+   },
+   {
+    "icon": "memberikan",
+    "word": "memberikan",
+    "zh": "給"
+   },
+   {
+    "icon": "kami",
+    "word": "kami",
+    "zh": "我們"
+   },
+   {
+    "icon": "mengerti",
+    "word": "mengerti",
+    "zh": "了解"
+   }
+  ],
+  "sentences": [
+   {
+    "scene": "s-bag10-1",
+    "id": "Mari kita lihat contoh.",
+    "zh": "我們來看例子。"
+   },
+   {
+    "scene": "s-bag10-2",
+    "id": "Nama saya Budi.",
+    "zh": "我的名字是 Budi。"
+   },
+   {
+    "scene": "s-bag10-3",
+    "id": "Halo, Pak Budi. Nama saya Andi.",
+    "zh": "您好，Budi老師。我的名字是 Andi。"
+   },
+   {
+    "scene": "s-bag10-4",
+    "id": "Ya, kami mengerti.",
+    "zh": "是的，我們了解了。"
+   }
+  ]
+ },
+ {
+  "id": "bagian-11",
+  "numeral": "XI",
+  "zhTitle": "回答詞彙並獲得稱讚",
+  "idTitle": "Menjawab Kosakata dan Mendapat Pujian",
+  "words": [
+   {
+    "icon": "guru",
+    "word": "guru",
+    "zh": "老師"
+   },
+   {
+    "icon": "siswa",
+    "word": "siswa",
+    "zh": "學生"
+   },
+   {
+    "icon": "coba",
+    "word": "coba",
+    "zh": "試試看"
+   },
+   {
+    "icon": "sekali-lagi",
+    "word": "sekali lagi",
+    "zh": "再一次"
+   },
+   {
+    "icon": "betul",
+    "word": "betul",
+    "zh": "正確"
+   },
+   {
+    "icon": "jawaban",
+    "word": "jawaban",
+    "zh": "答案"
+   },
+   {
+    "icon": "sangat-bagus",
+    "word": "sangat bagus",
+    "zh": "很棒"
+   },
+   {
+    "icon": "terima-kasih",
+    "word": "terima kasih",
+    "zh": "謝謝"
+   }
+  ],
+  "sentences": [
+   {
+    "scene": "s-bag11-1",
+    "id": "Belum tepat. Coba sekali lagi.",
+    "zh": "還不正確。再試一次。"
+   },
+   {
+    "scene": "s-bag11-2",
+    "id": "Betul! Jawabanmu benar.",
+    "zh": "正確！你的答案正確。"
+   },
+   {
+    "scene": "s-bag11-3",
+    "id": "Sangat bagus!",
+    "zh": "很棒！"
+   },
+   {
+    "scene": "s-bag11-4",
+    "id": "Terima kasih, Bu Guru.",
+    "zh": "謝謝老師。"
+   }
+  ]
+ },
+ {
+  "id": "bagian-12",
+  "numeral": "XII",
+  "zhTitle": "課堂討論",
+  "idTitle": "Diskusi di Kelas",
+  "words": [
+   {
+    "icon": "membaca",
+    "word": "membaca",
+    "zh": "閱讀"
+   },
+   {
+    "icon": "teks",
+    "word": "teks",
+    "zh": "文章"
+   },
+   {
+    "icon": "pendapat",
+    "word": "pendapat",
+    "zh": "看法"
+   },
+   {
+    "icon": "menarik",
+    "word": "menarik",
+    "zh": "有趣"
+   },
+   {
+    "icon": "pelajaran",
+    "word": "pelajaran",
+    "zh": "課程"
+   },
+   {
+    "icon": "lebih-keras",
+    "word": "lebih keras",
+    "zh": "大聲一點"
+   },
+   {
+    "icon": "setuju",
+    "word": "setuju",
+    "zh": "同意"
+   },
+   {
+    "icon": "teman-teman",
+    "word": "teman-teman",
+    "zh": "同學們"
+   }
+  ],
+  "sentences": [
+   {
+    "scene": "s-bag12-1",
+    "id": "Setelah membaca teks ini, apa pendapatmu?",
+    "zh": "讀完這篇文章後，你的看法是什麼？"
+   },
+   {
+    "scene": "s-bag12-2",
+    "id": "Menurut saya, pelajaran hari ini sangat menarik.",
+    "zh": "我覺得今天的課程非常有趣。"
+   },
+   {
+    "scene": "s-bag12-3",
+    "id": "Bisa bicara lebih keras?",
+    "zh": "可以說大聲一點嗎？"
+   },
+   {
+    "scene": "s-bag12-4",
+    "id": "Ya, kami setuju.",
+    "zh": "是的，我們同意。"
+   }
+  ]
+ },
+ {
+  "id": "bagian-13",
+  "numeral": "XIII",
+  "zhTitle": "寫下主題與重要詞彙",
+  "idTitle": "Menulis Tema dan Kosakata Penting",
+  "words": [
+   {
+    "icon": "tulis",
+    "word": "tulis",
+    "zh": "寫"
+   },
+   {
+    "icon": "tema",
+    "word": "tema",
+    "zh": "主題"
+   },
+   {
+    "icon": "kosakata",
+    "word": "kosakata",
+    "zh": "詞彙"
+   },
+   {
+    "icon": "penting",
+    "word": "penting",
+    "zh": "重要"
+   },
+   {
+    "icon": "selesai",
+    "word": "selesai",
+    "zh": "完成"
+   }
+  ],
+  "sentences": [
+   {
+    "scene": "s-bag13-1",
+    "id": "Tulis temanya.",
+    "zh": "寫下主題。"
+   },
+   {
+    "scene": "s-bag13-2",
+    "id": "Tulis kosakata penting.",
+    "zh": "寫下重要詞彙。"
+   },
+   {
+    "scene": "s-bag13-3",
+    "id": "Sudah selesai.",
+    "zh": "完成了。"
+   }
+  ]
+ },
+ {
+  "id": "bagian-14",
+  "numeral": "XIV",
+  "zhTitle": "說明家庭主題",
+  "idTitle": "Menjelaskan Topik Keluarga",
+  "words": [
+   {
+    "icon": "topik",
+    "word": "topik",
+    "zh": "主題"
+   },
+   {
+    "icon": "keluarga",
+    "word": "keluarga",
+    "zh": "家庭"
+   },
+   {
+    "icon": "hari-ini",
+    "word": "hari ini",
+    "zh": "今天"
+   },
+   {
+    "icon": "menjelaskan",
+    "word": "menjelaskan",
+    "zh": "說明"
+   },
+   {
+    "icon": "belum-paham",
+    "word": "belum paham",
+    "zh": "還不懂"
+   },
+   {
+    "icon": "lagi",
+    "word": "lagi",
+    "zh": "再"
+   },
+   {
+    "icon": "ayah",
+    "word": "ayah",
+    "zh": "爸爸"
+   },
+   {
+    "icon": "ibu",
+    "word": "ibu",
+    "zh": "媽媽"
+   }
+  ],
+  "sentences": [
+   {
+    "scene": "s-bag14-1",
+    "id": "Topik hari ini adalah keluarga.",
+    "zh": "今天的主題是家庭。"
+   },
+   {
+    "scene": "s-bag14-2",
+    "id": "Saya akan menjelaskan kosakata keluarga.",
+    "zh": "我要介紹家庭詞彙。"
+   },
+   {
+    "scene": "s-bag14-3",
+    "id": "Jika belum paham, saya akan menjelaskan lagi.",
+    "zh": "如果還不懂，我再說明一次。"
+   },
+   {
+    "scene": "s-bag14-4",
+    "id": "Terima kasih.",
+    "zh": "謝謝。"
+   }
+  ]
+ },
+ {
+  "id": "bagian-15",
+  "numeral": "XV",
+  "zhTitle": "交代作業",
+  "idTitle": "Memberikan Tugas dan PR",
+  "words": [
+   {
+    "icon": "pekerjaan-rumah",
+    "word": "pekerjaan rumah (PR)",
+    "zh": "課後作業"
+   },
+   {
+    "icon": "minggu-depan",
+    "word": "minggu depan",
+    "zh": "下週"
+   },
+   {
+    "icon": "baca",
+    "word": "baca",
+    "zh": "讀"
+   },
+   {
+    "icon": "hafalkan",
+    "word": "hafalkan",
+    "zh": "背誦"
+   },
+   {
+    "icon": "latihan",
+    "word": "latihan",
+    "zh": "練習"
+   },
+   {
+    "icon": "nomor",
+    "word": "nomor",
+    "zh": "題號"
+   },
+   {
+    "icon": "kumpulkan",
+    "word": "kumpulkan",
+    "zh": "繳交"
+   },
+   {
+    "icon": "jangan-lupa",
+    "word": "jangan lupa",
+    "zh": "不要忘記"
+   }
+  ],
+  "sentences": [
+   {
+    "scene": "s-bag15-1",
+    "id": "Ini pekerjaan rumah untuk minggu depan.",
+    "zh": "這是下週的課後作業。"
+   },
+   {
+    "scene": "s-bag15-2",
+    "id": "Bacalah halaman 20 sampai 25.",
+    "zh": "請閱讀第20頁到第25頁。"
+   },
+   {
+    "scene": "s-bag15-3",
+    "id": "Hafalkan kosakata baru.",
+    "zh": "請背誦新詞彙。"
+   },
+   {
+    "scene": "s-bag15-4",
+    "id": "Kerjakan latihan nomor 1 sampai 5.",
+    "zh": "請完成第一題到第五題。"
+   },
+   {
+    "scene": "s-bag15-5",
+    "id": "Jangan lupa mengerjakan PR. Kumpulkan minggu depan.",
+    "zh": "不要忘記寫課後作業。下週繳交。"
+   }
+  ]
+ },
+ {
+  "id": "bagian-16",
+  "numeral": "XVI",
+  "zhTitle": "下課用語",
+  "idTitle": "Ungkapan Penutupan Kelas",
+  "words": [
+   {
+    "icon": "sampai-di-sini",
+    "word": "sampai di sini",
+    "zh": "到這裡"
+   },
+   {
+    "icon": "sampai-jumpa",
+    "word": "sampai jumpa",
+    "zh": "再見"
+   },
+   {
+    "icon": "hati-hati",
+    "word": "hati-hati",
+    "zh": "小心"
+   },
+   {
+    "icon": "jalan",
+    "word": "jalan",
+    "zh": "路"
+   },
+   {
+    "icon": "minggu-depan",
+    "word": "minggu depan",
+    "zh": "下週"
+   },
+   {
+    "icon": "terima-kasih",
+    "word": "terima kasih",
+    "zh": "謝謝"
+   }
+  ],
+  "sentences": [
+   {
+    "scene": "s-bag16-1",
+    "id": "Pelajaran hari ini sampai di sini.",
+    "zh": "今天的課程到這裡。"
+   },
+   {
+    "scene": "s-bag16-2",
+    "id": "Sampai jumpa minggu depan.",
+    "zh": "下週見。"
+   },
+   {
+    "scene": "s-bag16-3",
+    "id": "Hati-hati di jalan.",
+    "zh": "路上小心。"
+   }
+  ]
+ },
+ {
+  "id": "bagian-17",
+  "numeral": "XVII",
+  "zhTitle": "下次上課的主題",
+  "idTitle": "Topik Pertemuan Berikutnya",
+  "words": [
+   {
+    "icon": "belajar",
+    "word": "belajar",
+    "zh": "學習"
+   },
+   {
+    "icon": "tentang",
+    "word": "tentang",
+    "zh": "關於"
+   },
+   {
+    "icon": "menarik-sekali",
+    "word": "menarik sekali",
+    "zh": "很有趣"
+   },
+   {
+    "icon": "persiapkan",
+    "word": "persiapkan",
+    "zh": "準備"
+   },
+   {
+    "icon": "minggu-depan",
+    "word": "minggu depan",
+    "zh": "下週"
+   },
+   {
+    "icon": "keluarga",
+    "word": "keluarga",
+    "zh": "家庭"
+   }
+  ],
+  "sentences": [
+   {
+    "scene": "s-bag17-1",
+    "id": "Minggu depan kita akan belajar tentang keluarga.",
+    "zh": "下週我們要學習家庭主題。"
+   },
+   {
+    "scene": "s-bag17-2",
+    "id": "Menarik sekali.",
+    "zh": "很有趣。"
+   },
+   {
+    "scene": "s-bag17-3",
+    "id": "Tolong persiapkan diri kalian.",
+    "zh": "請做好準備。"
+   }
+  ]
+ },
+ {
+  "id": "bagian-18",
+  "numeral": "XVIII",
+  "zhTitle": "學習後的反思",
+  "idTitle": "Refleksi Setelah Belajar",
+  "words": [
+   {
+    "icon": "perasaan",
+    "word": "perasaan",
+    "zh": "感覺"
+   },
+   {
+    "icon": "senang",
+    "word": "senang",
+    "zh": "開心"
+   },
+   {
+    "icon": "banyak",
+    "word": "banyak",
+    "zh": "很多"
+   },
+   {
+    "icon": "baru",
+    "word": "baru",
+    "zh": "新的"
+   },
+   {
+    "icon": "paling-suka",
+    "word": "paling suka",
+    "zh": "最喜歡"
+   },
+   {
+    "icon": "sulit",
+    "word": "sulit",
+    "zh": "困難"
+   },
+   {
+    "icon": "pengucapan",
+    "word": "pengucapan",
+    "zh": "發音"
+   },
+   {
+    "icon": "berlatih",
+    "word": "berlatih",
+    "zh": "練習"
+   }
+  ],
+  "sentences": [
+   {
+    "scene": "s-bag18-1",
+    "id": "Saya senang karena belajar banyak kosakata baru.",
+    "zh": "我很開心，因為學到了很多新詞彙。"
+   },
+   {
+    "scene": "s-bag18-2",
+    "id": "Saya paling suka kata \"keluarga\".",
+    "zh": "我最喜歡「keluarga」這個詞彙。"
+   },
+   {
+    "scene": "s-bag18-3",
+    "id": "Pengucapan beberapa kosakata masih sulit.",
+    "zh": "有些詞彙的發音還是很難。"
+   },
+   {
+    "scene": "s-bag18-4",
+    "id": "Tidak apa-apa. Teruslah berlatih.",
+    "zh": "沒關係，繼續練習。"
+   }
+  ]
+ }
+]

@@ -22,6 +22,18 @@ SHEETS = {
     "icons-b1": (3, ["silakan", "duduk", "perhatikan", "lihat", "depan", "keluarkan", "buku", "pensil"]),
     "icons-b2": (3, ["gambar", "melihat", "apa", "kalian", "sekolah", "bagus-sekali", "mari", "video"]),
     "icons-b3": (2, ["buka", "halaman", "sepuluh", "sudah"]),
+    "icons-bag7": (3, ["dadu", "kartu-kata", "lempar", "ambil", "jawab", "pertanyaan", "angka", "tidak-tahu"]),
+    "icons-bag8": (3, ["jelas", "mengerti", "ya", "ada", "tidak-ada"]),
+    "icons-bag9": (3, ["kelompok", "bekerja", "tiga", "orang", "setiap", "berbicara", "lima-menit", "siap"]),
+    "icons-bag10": (3, ["halo", "nama", "saya", "contoh", "sederhana", "memberikan", "kami"]),
+    "icons-bag11": (3, ["guru", "siswa", "coba", "sekali-lagi", "betul", "jawaban", "sangat-bagus", "terima-kasih"]),
+    "icons-bag12": (3, ["membaca", "teks", "pendapat", "menarik", "pelajaran", "lebih-keras", "setuju", "teman-teman"]),
+    "icons-bag13": (3, ["tulis", "tema", "kosakata", "penting", "selesai"]),
+    "icons-bag14": (3, ["topik", "keluarga", "hari-ini", "menjelaskan", "belum-paham", "lagi", "ayah", "ibu"]),
+    "icons-bag15": (3, ["pekerjaan-rumah", "minggu-depan", "baca", "hafalkan", "latihan", "nomor", "kumpulkan", "jangan-lupa"]),
+    "icons-bag16": (2, ["sampai-di-sini", "sampai-jumpa", "hati-hati", "jalan"]),
+    "icons-bag17": (2, ["belajar", "tentang", "menarik-sekali", "persiapkan"]),
+    "icons-bag18": (3, ["perasaan", "senang", "banyak", "baru", "paling-suka", "sulit", "pengucapan", "berlatih"]),
 }
 
 

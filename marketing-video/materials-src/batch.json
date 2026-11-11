@@ -144,6 +144,714 @@
    "ref": [
     "../../assets/learning-materials/bagian-2.jpg"
    ]
+  },
+  {
+   "id": "icons-bag7",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-bag7.md"
+   ],
+   "image": "raw/icons-bag7.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag7-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag7-1.md"
+   ],
+   "image": "raw/s-bag7-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag7-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag7-2.md"
+   ],
+   "image": "raw/s-bag7-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag7-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag7-3.md"
+   ],
+   "image": "raw/s-bag7-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag7-4",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag7-4.md"
+   ],
+   "image": "raw/s-bag7-4.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag7-5",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag7-5.md"
+   ],
+   "image": "raw/s-bag7-5.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "icons-bag8",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-bag8.md"
+   ],
+   "image": "raw/icons-bag8.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag8-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag8-1.md"
+   ],
+   "image": "raw/s-bag8-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag8-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag8-2.md"
+   ],
+   "image": "raw/s-bag8-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag8-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag8-3.md"
+   ],
+   "image": "raw/s-bag8-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "icons-bag9",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-bag9.md"
+   ],
+   "image": "raw/icons-bag9.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag9-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag9-1.md"
+   ],
+   "image": "raw/s-bag9-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag9-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag9-2.md"
+   ],
+   "image": "raw/s-bag9-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag9-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag9-3.md"
+   ],
+   "image": "raw/s-bag9-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag9-4",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag9-4.md"
+   ],
+   "image": "raw/s-bag9-4.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag9-5",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag9-5.md"
+   ],
+   "image": "raw/s-bag9-5.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "icons-bag10",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-bag10.md"
+   ],
+   "image": "raw/icons-bag10.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag10-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag10-1.md"
+   ],
+   "image": "raw/s-bag10-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag10-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag10-2.md"
+   ],
+   "image": "raw/s-bag10-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag10-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag10-3.md"
+   ],
+   "image": "raw/s-bag10-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag10-4",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag10-4.md"
+   ],
+   "image": "raw/s-bag10-4.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "icons-bag11",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-bag11.md"
+   ],
+   "image": "raw/icons-bag11.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag11-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag11-1.md"
+   ],
+   "image": "raw/s-bag11-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag11-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag11-2.md"
+   ],
+   "image": "raw/s-bag11-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag11-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag11-3.md"
+   ],
+   "image": "raw/s-bag11-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag11-4",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag11-4.md"
+   ],
+   "image": "raw/s-bag11-4.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "icons-bag12",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-bag12.md"
+   ],
+   "image": "raw/icons-bag12.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag12-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag12-1.md"
+   ],
+   "image": "raw/s-bag12-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag12-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag12-2.md"
+   ],
+   "image": "raw/s-bag12-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag12-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag12-3.md"
+   ],
+   "image": "raw/s-bag12-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag12-4",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag12-4.md"
+   ],
+   "image": "raw/s-bag12-4.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "icons-bag13",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-bag13.md"
+   ],
+   "image": "raw/icons-bag13.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag13-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag13-1.md"
+   ],
+   "image": "raw/s-bag13-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag13-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag13-2.md"
+   ],
+   "image": "raw/s-bag13-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag13-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag13-3.md"
+   ],
+   "image": "raw/s-bag13-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "icons-bag14",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-bag14.md"
+   ],
+   "image": "raw/icons-bag14.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag14-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag14-1.md"
+   ],
+   "image": "raw/s-bag14-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag14-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag14-2.md"
+   ],
+   "image": "raw/s-bag14-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag14-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag14-3.md"
+   ],
+   "image": "raw/s-bag14-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag14-4",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag14-4.md"
+   ],
+   "image": "raw/s-bag14-4.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "icons-bag15",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-bag15.md"
+   ],
+   "image": "raw/icons-bag15.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag15-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag15-1.md"
+   ],
+   "image": "raw/s-bag15-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag15-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag15-2.md"
+   ],
+   "image": "raw/s-bag15-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag15-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag15-3.md"
+   ],
+   "image": "raw/s-bag15-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag15-4",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag15-4.md"
+   ],
+   "image": "raw/s-bag15-4.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag15-5",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag15-5.md"
+   ],
+   "image": "raw/s-bag15-5.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "icons-bag16",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-bag16.md"
+   ],
+   "image": "raw/icons-bag16.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag16-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag16-1.md"
+   ],
+   "image": "raw/s-bag16-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag16-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag16-2.md"
+   ],
+   "image": "raw/s-bag16-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag16-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag16-3.md"
+   ],
+   "image": "raw/s-bag16-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "icons-bag17",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-bag17.md"
+   ],
+   "image": "raw/icons-bag17.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag17-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag17-1.md"
+   ],
+   "image": "raw/s-bag17-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag17-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag17-2.md"
+   ],
+   "image": "raw/s-bag17-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag17-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag17-3.md"
+   ],
+   "image": "raw/s-bag17-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "icons-bag18",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/icons-bag18.md"
+   ],
+   "image": "raw/icons-bag18.png",
+   "ar": "1:1",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag18-1",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag18-1.md"
+   ],
+   "image": "raw/s-bag18-1.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag18-2",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag18-2.md"
+   ],
+   "image": "raw/s-bag18-2.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag18-3",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag18-3.md"
+   ],
+   "image": "raw/s-bag18-3.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
+  },
+  {
+   "id": "s-bag18-4",
+   "promptFiles": [
+    "prompts/style.md",
+    "prompts/s-bag18-4.md"
+   ],
+   "image": "raw/s-bag18-4.png",
+   "ar": "4:3",
+   "ref": [
+    "../../assets/learning-materials/bagian-2.jpg"
+   ]
   }
  ]
 }
