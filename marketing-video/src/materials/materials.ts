@@ -8,7 +8,7 @@ export type MaterialSentence = { scene: string; id: string; zh: string };
 
 export type MaterialPage = {
   id: string;
-  numeral: string;
+  number: number;
   zhTitle: string;
   idTitle: string;
   words: MaterialWord[];
@@ -18,7 +18,7 @@ export type MaterialPage = {
 export const MATERIAL_PAGES: MaterialPage[] = [
   {
     id: "bagian-4",
-    numeral: "IV",
+    number: 4,
     zhTitle: "準備開始上課",
     idTitle: "Bersiap Memulai Pelajaran",
     words: [
@@ -41,7 +41,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-5",
-    numeral: "V",
+    number: 5,
     zhTitle: "展示圖片與影片",
     idTitle: "Menunjukkan Gambar dan Video",
     words: [
@@ -62,7 +62,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-6",
-    numeral: "VI",
+    number: 6,
     zhTitle: "打開課本與翻頁",
     idTitle: "Membuka Buku dan Halaman",
     words: [
@@ -80,7 +80,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-7",
-    numeral: "VII",
+    number: 7,
     zhTitle: "玩骰子和字卡",
     idTitle: "Bermain Dadu dan Kartu Kata",
     words: [
@@ -103,7 +103,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-8",
-    numeral: "VIII",
+    number: 8,
     zhTitle: "確認理解",
     idTitle: "Memastikan Pemahaman",
     words: [
@@ -122,7 +122,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-9",
-    numeral: "IX",
+    number: 9,
     zhTitle: "分組學習",
     idTitle: "Membagi Kelompok Belajar",
     words: [
@@ -145,7 +145,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-10",
-    numeral: "X",
+    number: 10,
     zhTitle: "在課堂上自我介紹",
     idTitle: "Berkenalan di Kelas",
     words: [
@@ -167,7 +167,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-11",
-    numeral: "XI",
+    number: 11,
     zhTitle: "回答詞彙並獲得稱讚",
     idTitle: "Menjawab Kosakata dan Mendapat Pujian",
     words: [
@@ -189,7 +189,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-12",
-    numeral: "XII",
+    number: 12,
     zhTitle: "課堂討論",
     idTitle: "Diskusi di Kelas",
     words: [
@@ -211,7 +211,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-13",
-    numeral: "XIII",
+    number: 13,
     zhTitle: "寫下主題與重要詞彙",
     idTitle: "Menulis Tema dan Kosakata Penting",
     words: [
@@ -229,7 +229,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-14",
-    numeral: "XIV",
+    number: 14,
     zhTitle: "說明家庭主題",
     idTitle: "Menjelaskan Topik Keluarga",
     words: [
@@ -251,7 +251,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-15",
-    numeral: "XV",
+    number: 15,
     zhTitle: "交代作業",
     idTitle: "Memberikan Tugas dan PR",
     words: [
@@ -274,7 +274,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-16",
-    numeral: "XVI",
+    number: 16,
     zhTitle: "下課用語",
     idTitle: "Ungkapan Penutupan Kelas",
     words: [
@@ -293,7 +293,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-17",
-    numeral: "XVII",
+    number: 17,
     zhTitle: "下次上課的主題",
     idTitle: "Topik Pertemuan Berikutnya",
     words: [
@@ -312,7 +312,7 @@ export const MATERIAL_PAGES: MaterialPage[] = [
   },
   {
     id: "bagian-18",
-    numeral: "XVIII",
+    number: 18,
     zhTitle: "學習後的反思",
     idTitle: "Refleksi Setelah Belajar",
     words: [

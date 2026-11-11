@@ -63,7 +63,7 @@ export const MaterialPageStill: React.FC<{ page: MaterialPage }> = ({
             lineHeight: 1.15,
           }}
         >
-          {page.numeral}. {page.zhTitle}
+          {page.number}. {page.zhTitle}
         </div>
         <div
           style={{

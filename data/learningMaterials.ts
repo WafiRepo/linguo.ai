@@ -3,7 +3,7 @@ import { LearningMaterial } from "@/types/learningMaterial";
 export const LEARNING_MATERIALS: LearningMaterial[] = [
   {
     id: "bagian-1",
-    title: "Bagian I",
+    title: "Bagian 1",
     subtitle: "Pengaturan Peralatan Kelas",
     imageKey: "learningMaterialBagian1",
     aspectRatio: 1024 / 1536,
@@ -44,7 +44,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-2",
-    title: "Bagian II",
+    title: "Bagian 2",
     subtitle: "Pengantar Aktivitas Sebelum Pelajaran",
     imageKey: "learningMaterialBagian2",
     aspectRatio: 1086 / 1448,
@@ -58,7 +58,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-3",
-    title: "Bagian III",
+    title: "Bagian 3",
     subtitle: "Salam dan Absensi",
     imageKey: "learningMaterialBagian3",
     aspectRatio: 1086 / 1448,
@@ -81,7 +81,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   // Bagian IV–VI follow AI Teacher Part B, topics 1–3 (same comic dialogues).
   {
     id: "bagian-4",
-    title: "Bagian IV",
+    title: "Bagian 4",
     subtitle: "Bersiap Memulai Pelajaran",
     imageKey: "learningMaterialBagian4",
     aspectRatio: 1086 / 1448,
@@ -98,7 +98,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-5",
-    title: "Bagian V",
+    title: "Bagian 5",
     subtitle: "Menunjukkan Gambar dan Video",
     imageKey: "learningMaterialBagian5",
     aspectRatio: 1086 / 1448,
@@ -115,7 +115,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-6",
-    title: "Bagian VI",
+    title: "Bagian 6",
     subtitle: "Membuka Buku dan Halaman",
     imageKey: "learningMaterialBagian6",
     aspectRatio: 1086 / 1448,
@@ -130,7 +130,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-7",
-    title: "Bagian VII",
+    title: "Bagian 7",
     subtitle: "Bermain Dadu dan Kartu Kata",
     imageKey: "learningMaterialBagian7",
     aspectRatio: 1086 / 1448,
@@ -147,7 +147,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-8",
-    title: "Bagian VIII",
+    title: "Bagian 8",
     subtitle: "Memastikan Pemahaman",
     imageKey: "learningMaterialBagian8",
     aspectRatio: 1086 / 1448,
@@ -162,7 +162,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-9",
-    title: "Bagian IX",
+    title: "Bagian 9",
     subtitle: "Membagi Kelompok Belajar",
     imageKey: "learningMaterialBagian9",
     aspectRatio: 1086 / 1448,
@@ -179,7 +179,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-10",
-    title: "Bagian X",
+    title: "Bagian 10",
     subtitle: "Berkenalan di Kelas",
     imageKey: "learningMaterialBagian10",
     aspectRatio: 1086 / 1448,
@@ -196,7 +196,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-11",
-    title: "Bagian XI",
+    title: "Bagian 11",
     subtitle: "Menjawab Kosakata dan Mendapat Pujian",
     imageKey: "learningMaterialBagian11",
     aspectRatio: 1086 / 1448,
@@ -213,7 +213,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-12",
-    title: "Bagian XII",
+    title: "Bagian 12",
     subtitle: "Diskusi di Kelas",
     imageKey: "learningMaterialBagian12",
     aspectRatio: 1086 / 1448,
@@ -230,7 +230,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-13",
-    title: "Bagian XIII",
+    title: "Bagian 13",
     subtitle: "Menulis Tema dan Kosakata Penting",
     imageKey: "learningMaterialBagian13",
     aspectRatio: 1086 / 1448,
@@ -244,7 +244,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-14",
-    title: "Bagian XIV",
+    title: "Bagian 14",
     subtitle: "Menjelaskan Topik Keluarga",
     imageKey: "learningMaterialBagian14",
     aspectRatio: 1086 / 1448,
@@ -261,7 +261,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-15",
-    title: "Bagian XV",
+    title: "Bagian 15",
     subtitle: "Memberikan Tugas dan PR",
     imageKey: "learningMaterialBagian15",
     aspectRatio: 1086 / 1448,
@@ -278,7 +278,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-16",
-    title: "Bagian XVI",
+    title: "Bagian 16",
     subtitle: "Ungkapan Penutupan Kelas",
     imageKey: "learningMaterialBagian16",
     aspectRatio: 1086 / 1448,
@@ -293,7 +293,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-17",
-    title: "Bagian XVII",
+    title: "Bagian 17",
     subtitle: "Topik Pertemuan Berikutnya",
     imageKey: "learningMaterialBagian17",
     aspectRatio: 1086 / 1448,
@@ -308,7 +308,7 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   },
   {
     id: "bagian-18",
-    title: "Bagian XVIII",
+    title: "Bagian 18",
     subtitle: "Refleksi Setelah Belajar",
     imageKey: "learningMaterialBagian18",
     aspectRatio: 1086 / 1448,
