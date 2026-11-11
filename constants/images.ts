@@ -155,6 +155,18 @@ import learningMaterialBagian3 from "@/assets/learning-materials/bagian-3.jpg";
 import learningMaterialBagian4 from "@/assets/learning-materials/bagian-4.jpg";
 import learningMaterialBagian5 from "@/assets/learning-materials/bagian-5.jpg";
 import learningMaterialBagian6 from "@/assets/learning-materials/bagian-6.jpg";
+import learningMaterialBagian7 from "@/assets/learning-materials/bagian-7.jpg";
+import learningMaterialBagian8 from "@/assets/learning-materials/bagian-8.jpg";
+import learningMaterialBagian9 from "@/assets/learning-materials/bagian-9.jpg";
+import learningMaterialBagian10 from "@/assets/learning-materials/bagian-10.jpg";
+import learningMaterialBagian11 from "@/assets/learning-materials/bagian-11.jpg";
+import learningMaterialBagian12 from "@/assets/learning-materials/bagian-12.jpg";
+import learningMaterialBagian13 from "@/assets/learning-materials/bagian-13.jpg";
+import learningMaterialBagian14 from "@/assets/learning-materials/bagian-14.jpg";
+import learningMaterialBagian15 from "@/assets/learning-materials/bagian-15.jpg";
+import learningMaterialBagian16 from "@/assets/learning-materials/bagian-16.jpg";
+import learningMaterialBagian17 from "@/assets/learning-materials/bagian-17.jpg";
+import learningMaterialBagian18 from "@/assets/learning-materials/bagian-18.jpg";
 
 export const images = {
   /** HLAG logo, cropped and compressed for the certificate PDF. */
@@ -296,4 +308,16 @@ export const images = {
   learningMaterialBagian4,
   learningMaterialBagian5,
   learningMaterialBagian6,
+  learningMaterialBagian7,
+  learningMaterialBagian8,
+  learningMaterialBagian9,
+  learningMaterialBagian10,
+  learningMaterialBagian11,
+  learningMaterialBagian12,
+  learningMaterialBagian13,
+  learningMaterialBagian14,
+  learningMaterialBagian15,
+  learningMaterialBagian16,
+  learningMaterialBagian17,
+  learningMaterialBagian18,
 } as const;
