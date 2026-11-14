@@ -238,7 +238,7 @@ class ConfirmMatchTest(unittest.IsolatedAsyncioTestCase):
         async def send(payload):
             self.events.append(payload)
 
-        async def confirm(said, index, started_at):
+        async def confirm(said, index, started_at, count):
             self.asked.append((said, index))
             return verdict
 

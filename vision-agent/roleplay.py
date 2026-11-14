@@ -276,6 +276,11 @@ PRAISE_WORDS_ZH = ("很好", "很棒", "好棒", "太棒", "答對", "正確", "
 CORRECTION_WORDS_ZH = ("差一點", "再試", "再說一次", "應該", "不是", "跟著我說")
 
 
+def says_line(agent_text: str, line: str) -> bool:
+    """True when the AI's speech contains this (comic) line."""
+    return bool(_normalize(line)) and _normalize(line) in _normalize(agent_text)
+
+
 def ai_corrected_answer(agent_text: str) -> bool:
     """True when the AI's reaction contains a correction ("差一點", "Hampir")."""
     text = _normalize(agent_text)
@@ -539,9 +544,10 @@ class RoleplayController:
     status_text: Callable[[RoleplayTracker, str], Optional[str]] = lambda tracker, recent: None
     # Called when a student answer completes nothing: (answer, recent AI speech).
     on_unmatched: Optional[Callable[[str, str], Awaitable[None]]] = None
-    # Comic Role Play: (answer, first matched objective index, answer start time).
-    # A keyword match only counts once this says Bu Guru didn't correct it.
-    confirm_match: Optional[Callable[[str, int, float], Awaitable[bool]]] = None
+    # Comic Role Play: (answer, first matched objective index, answer start
+    # time, how many dialogues it would finish). A keyword match only counts
+    # once this says Bu Guru didn't correct it.
+    confirm_match: Optional[Callable[[str, int, float, int], Awaitable[bool]]] = None
     # When set, it evaluates every student answer instead of the mission tracker
     # (Latihan's step-by-step practice owns its own flow).
     on_user_answer: Optional[Callable[[str], Awaitable[None]]] = None
@@ -611,7 +617,9 @@ class RoleplayController:
     async def _confirm(
         self, text: str, objectives: list[RoleplayObjective], index: int, started_at: float
     ) -> None:
-        if self.confirm_match is None or not await self.confirm_match(text, index, started_at):
+        if self.confirm_match is None or not await self.confirm_match(
+            text, index, started_at, len(objectives)
+        ):
             return
         # Still the next dialogue(s)? A later answer may have finished them meanwhile.
         remaining = self.tracker.remaining

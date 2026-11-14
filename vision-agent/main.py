@@ -43,6 +43,7 @@ from roleplay import (  # noqa: E402
     RoleplayTracker,
     ai_accepted_answer,
     ai_corrected_answer,
+    says_line,
     build_comic_roleplay_prompt,
     comic_correction_note,
     comic_move_on_line,
@@ -66,6 +67,8 @@ from tutor_emotion import (  # noqa: E402
 AGENT_USER_ID = "ai-teacher"
 # gpt-live-1 voice for comics whose teacher is "Pak Guru" (default voice is female).
 MALE_TEACHER_VOICE = "cedar"
+# Longest wait for Bu Guru's reaction before a matched answer counts.
+CONFIRM_MAX_WAIT_SECONDS = 6.0
 
 LANGUAGE_NAMES: dict[str, str] = {
     "es": "Spanish",
@@ -448,12 +451,31 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
 
             roleplay.on_unmatched = on_comic_miss
 
-            async def confirm_comic_match(said: str, index: int, started_at: float) -> bool:
+            async def confirm_comic_match(
+                said: str, index: int, started_at: float, count: int
+            ) -> bool:
                 """The answer matched the script; it counts unless Bu Guru (who
                 hears the audio) corrected it instead of moving on."""
-                await asyncio.sleep(CORRECTION_GRACE_SECONDS)
-                agent_text = roleplay.agent_text_since(started_at)
                 next_line = turns[index + 1]["guru"] if index + 1 < len(turns) else ""
+                # An answer that also finishes the NEXT dialogue ("Baik" fits
+                # several) only skips ahead if Bu Guru had already moved on to it.
+                if count > 1 and not says_line(roleplay.agent_text_since(started_at - 60), next_line):
+                    count = 1
+                    if index + 1 < len(turns):
+                        _safe_log(f"[roleplay] {said!r} fits a later dialogue; not skipping {index}")
+                        await record_comic_miss(said, index, roleplay.agent_text_since(started_at))
+                        return False
+                # Wait for her actual reaction (it can take a few seconds to
+                # start), then a little longer so "差一點…" / "很好…" is in.
+                deadline = time.monotonic() + CONFIRM_MAX_WAIT_SECONDS
+                await asyncio.sleep(1.0)
+                while (
+                    time.monotonic() < deadline
+                    and len(roleplay.agent_text_since(started_at).strip()) < 4
+                ):
+                    await asyncio.sleep(0.25)
+                await asyncio.sleep(0.8)
+                agent_text = roleplay.agent_text_since(started_at)
                 if not ai_corrected_answer(agent_text) or ai_accepted_answer(agent_text, next_line):
                     return True
                 _safe_log(f"[roleplay] Bu Guru corrected {said!r} for dialogue {index}; not done yet")
