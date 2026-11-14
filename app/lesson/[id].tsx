@@ -6,11 +6,12 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   Call,
   CallClosedCaption,
+  RemoteAudio,
   StreamCall,
   StreamVideo,
   StreamVideoClient,
   useCallStateHooks,
-} from "@stream-io/video-react-native-sdk";
+} from "@/lib/stream";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -356,6 +357,7 @@ function LiveLessonScreen() {
       {callStatus === "joined" && client && call ? (
         <StreamVideo client={client}>
           <StreamCall call={call}>
+            <RemoteAudio />
             <ActiveCallContent
               agentStatus={agentStatus}
               lesson={lesson}

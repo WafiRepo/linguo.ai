@@ -3,11 +3,12 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   Call,
   callManager,
+  RemoteAudio,
   StreamCall,
   StreamVideo,
   StreamVideoClient,
   useCallStateHooks,
-} from "@stream-io/video-react-native-sdk";
+} from "@/lib/stream";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -621,6 +622,7 @@ function LiveRoleplayScreen() {
       {callStatus === "joined" && client && call ? (
         <StreamVideo client={client}>
           <StreamCall call={call}>
+            <RemoteAudio />
             <ActiveRoleplayContent
               scenario={scenario}
               agentStatus={agentStatus}

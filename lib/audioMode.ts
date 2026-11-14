@@ -1,4 +1,4 @@
-import { callManager } from "@stream-io/video-react-native-sdk";
+import { callManager } from "@/lib/stream";
 
 // A Stream call puts Android into call-audio mode (MODE_IN_COMMUNICATION),
 // and the SDK's stop() never switches it back — later sounds, like the
