@@ -181,8 +181,12 @@ function LiveRoleplayScreen() {
     });
   }
 
+  // Only a different person restarts the call. Clerk hands out a new `user`
+  // object when it refreshes the session (e.g. on web when the result is
+  // saved at the end), which restarted the lesson from dialogue 1.
+  const userId = user?.id;
   useEffect(() => {
-    if (!isLoaded || !user || !scenario) return;
+    if (!isLoaded || !userId || !scenario) return;
 
     startTimeRef.current = Date.now();
     portfolioIdRef.current = { clientId: newSessionClientId(), createdAt: new Date().toISOString() };
@@ -219,7 +223,7 @@ function LiveRoleplayScreen() {
       clientRef.current?.disconnectUser().catch(console.error);
       stopAgentSession(callRef.current?.id ?? null, agentSessionRef.current);
     };
-  }, [isLoaded, user, scenario, comic, isPractice, tutorVoice, tutorEmotion]);
+  }, [isLoaded, userId, scenario, comic, isPractice, tutorVoice, tutorEmotion]);
 
   useEffect(() => {
     if (!missionComplete || !comic || rewardedRef.current) return;
