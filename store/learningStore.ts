@@ -27,6 +27,8 @@ interface LearningState {
   completeClassTopic: (topicId: string, mode: ClassTopicMode, xpReward?: number) => void;
   markClassTopicStarted: (topicId: string) => void;
   markRolePlayPassed: (topicId: string) => void;
+  /** Adds stamps saved on the server (earned on another device). */
+  mergePassedRolePlayTopics: (topicIds: string[]) => void;
   recordRolePlayScore: (topicId: string, score: number) => void;
   setActiveLesson: (languageCode: LanguageCode, lessonId: string) => void;
   getActiveLessonId: (languageCode: LanguageCode) => string | undefined;
@@ -107,6 +109,12 @@ export const useLearningStore = create<LearningState>()(
         set((state) => ({
           passedRolePlayTopicIds: [...state.passedRolePlayTopicIds, topicId],
         }));
+      },
+
+      mergePassedRolePlayTopics: (topicIds) => {
+        const current = get().passedRolePlayTopicIds;
+        const added = topicIds.filter((id) => !current.includes(id));
+        if (added.length) set({ passedRolePlayTopicIds: [...current, ...added] });
       },
 
       recordRolePlayScore: (topicId, score) => {

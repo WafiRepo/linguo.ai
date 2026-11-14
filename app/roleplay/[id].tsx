@@ -292,6 +292,10 @@ function LiveRoleplayScreen() {
       const streamCall = streamClient.call("default", callId);
       // Play the teacher through the speaker, not the earpiece.
       callManager.start({ audioRole: "communicator", deviceEndpointType: "speaker" });
+      // Voice only: never ask for the camera (browsers would show a camera prompt).
+      try {
+        await streamCall.camera.disable();
+      } catch {}
       await streamCall.join({ create: true });
 
       // Stays off until the AI has joined, then opens for the whole conversation.

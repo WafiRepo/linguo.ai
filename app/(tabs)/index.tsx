@@ -1,9 +1,10 @@
 import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
-import { Href, useRouter } from "expo-router";
-import { useMemo, useState, useEffect } from "react";
+import { Href, useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -32,6 +33,7 @@ import {
   classTopicRoute,
   getNextClassTopic,
 } from "@/lib/topicProgress";
+import { syncPassedTopics } from "@/lib/portfolio";
 import { posthog } from "@/lib/posthog";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
@@ -58,7 +60,15 @@ function getGreeting(langCode: LanguageCode | null): string {
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useUser();
-  const { signOut } = useAuth();
+  const { signOut, getToken } = useAuth();
+  // Stamps earned on another device (phone, iPad, web) count here too.
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+  useFocusEffect(
+    useCallback(() => {
+      syncPassedTopics(() => getTokenRef.current()).catch(() => {});
+    }, []),
+  );
   const { t, locale } = useT();
   const setAppLocale = useSettingsStore((s) => s.setAppLocale);
   const selectedLanguage = useLanguageStore((s) => s.selectedLanguage);
@@ -251,7 +261,11 @@ export default function HomeScreen() {
             ]}
             hitSlop={8}
           >
-            <Text style={styles.localeEmoji}>{currentLocaleOption.emoji}</Text>
+            {Platform.OS === "web" ? (
+              <Text style={styles.localeLabel}>{currentLocaleOption.label}</Text>
+            ) : (
+              <Text style={styles.localeEmoji}>{currentLocaleOption.emoji}</Text>
+            )}
           </Pressable>
           <Pressable
             testID="notifications-button"
@@ -457,6 +471,11 @@ const styles = StyleSheet.create({
   },
   localeEmoji: {
     fontSize: 20,
+  },
+  localeLabel: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 12,
+    color: colors.primary.purple,
   },
   scrollContent: {
     paddingHorizontal: 20,

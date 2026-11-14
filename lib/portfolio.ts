@@ -3,6 +3,7 @@ import { ApiError, apiUrl } from "@/lib/api";
 import { isPassedRolePlay } from "@/lib/rolePlayScore";
 import { ALL_CLASS_TOPICS } from "@/lib/topicProgress";
 import { useChildProfileStore } from "@/store/childProfileStore";
+import { useLearningStore } from "@/store/learningStore";
 import { usePortfolioStore } from "@/store/portfolioStore";
 import { NewSessionResult, PortfolioResponse, SessionResult } from "@/types/portfolio";
 
@@ -57,6 +58,20 @@ export async function fetchPortfolio(getToken: GetToken, studentId?: string): Pr
   });
   if (!res.ok) throw new ApiError(res.status);
   return res.json();
+}
+
+/** Topics with a PASS stamp in the saved sessions (from any device). */
+export function passedTopicIdsFrom(sessions: SessionResult[]): string[] {
+  return [...new Set(sessions.filter(isPassedRolePlay).map((session) => session.topicId))];
+}
+
+/**
+ * Brings this device in line with the Learning Portfolio: stamps earned on
+ * another phone, an iPad or the web app show up here too.
+ */
+export async function syncPassedTopics(getToken: GetToken) {
+  const { sessions } = await fetchPortfolio(getToken);
+  useLearningStore.getState().mergePassedRolePlayTopics(passedTopicIdsFrom(sessions));
 }
 
 export async function deletePortfolio(getToken: GetToken) {

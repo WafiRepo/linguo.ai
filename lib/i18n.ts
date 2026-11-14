@@ -14,9 +14,11 @@ const DICTIONARIES: Record<AppLocale, Record<TranslationKey, string>> = {
   en,
 };
 
-export const APP_LOCALE_OPTIONS: { code: AppLocale; emoji: string }[] = [
-  { code: "zh-TW", emoji: "🇹🇼" },
-  { code: "en", emoji: "🇺🇸" },
+// Windows browsers can't draw flag emoji (they show "US"), so the web app
+// shows the short label instead.
+export const APP_LOCALE_OPTIONS: { code: AppLocale; emoji: string; label: string }[] = [
+  { code: "zh-TW", emoji: "🇹🇼", label: "中文" },
+  { code: "en", emoji: "🇺🇸", label: "EN" },
 ];
 
 export function translate(locale: AppLocale, key: TranslationKey, params?: TranslateParams): string {
