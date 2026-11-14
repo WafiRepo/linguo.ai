@@ -1153,16 +1153,14 @@ function ActiveRoleplayContent({
           ? "thinking" // the student finished; her answer is on its way
           : "neutral");
 
+  // Bu Guru's face sits next to the mic (or above Done), never above the
+  // transcript: there it took the room the conversation needs.
+  const face = (size: number) => (
+    <TeacherFace mood={faceMood} speaking={teacherSpeaking} audioLevel={teacher?.audioLevel ?? 0} size={size} />
+  );
+
   return (
     <View className="flex-1">
-      <View className="items-center pb-3">
-        <TeacherFace
-          mood={faceMood}
-          speaking={teacherSpeaking}
-          audioLevel={teacher?.audioLevel ?? 0}
-          size={56}
-        />
-      </View>
       <ScrollView
         ref={scrollRef}
         className="flex-1 mx-4 rounded-3xl bg-[#F4F2FF]"
@@ -1221,7 +1219,8 @@ function ActiveRoleplayContent({
       </ScrollView>
 
       {missionComplete ? (
-        <View className="px-6 pt-4 pb-6">
+        <View className="px-6 pt-2 pb-6">
+          <View className="items-center">{face(44)}</View>
           <Text className="mb-3 text-center font-poppins-medium text-[13px] text-text-secondary">
             {resultsReady
               ? t("roleplay.finishedBody")
@@ -1306,7 +1305,10 @@ function ActiveRoleplayContent({
               </Text>
             </View>
 
-            <View className="w-14 h-14" />
+            {/* The face is wider than the slot; it overflows to the right edge. */}
+            <View className="w-14 h-14">
+              <View style={styles.faceSlot}>{face(38)}</View>
+            </View>
           </View>
         </>
       )}
@@ -1542,6 +1544,11 @@ const styles = StyleSheet.create({
   transcriptContent: {
     flexGrow: 1,
     padding: 14,
+  },
+  faceSlot: {
+    position: "absolute",
+    right: -22,
+    bottom: -6,
   },
   reviewStamp: {
     width: 64,
