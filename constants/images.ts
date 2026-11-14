@@ -1,5 +1,6 @@
 import earth from "@/assets/images/earth.png";
 import logoCertificate from "@/assets/images/logo-certificate.jpg";
+import stampPass from "@/assets/images/stamp-pass.png";
 import mascotAuth from "@/assets/images/mascot-auth.png";
 import mascotWelcome from "@/assets/images/mascot-welcome.png";
 import mascotLogo from "@/assets/images/moscot-logo.png";
@@ -171,6 +172,7 @@ import learningMaterialBagian18 from "@/assets/learning-materials/bagian-18.jpg"
 export const images = {
   /** HLAG logo, cropped and compressed for the certificate PDF. */
   logoCertificate,
+  stampPass,
   earth,
   mascotAuth,
   mascotWelcome,

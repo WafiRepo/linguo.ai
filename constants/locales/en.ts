@@ -255,6 +255,7 @@ export const en = {
   "todayPlan.tasksDone": "{done}/{total} tasks done today",
   "todayPlan.title": "Today's plan",
   "topicCard.meta": "{count} dialogues · {xp} XP",
+  "topicCard.rolePlayPassed": "Role Play passed",
   "tutorEmotion.calm.description": "Soft voice, slow pace",
   "tutorEmotion.calm.name": "Calm",
   "tutorEmotion.encouraging.description": "Lots of praise, gentle corrections",

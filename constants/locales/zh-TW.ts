@@ -256,6 +256,7 @@ export const zhTW: Record<TranslationKey, string> = {
   "todayPlan.tasksDone": "今天完成 {done}/{total} 項",
   "todayPlan.title": "今日學習計畫",
   "topicCard.meta": "{count} 段對話 · {xp} XP",
+  "topicCard.rolePlayPassed": "角色扮演通過",
   "tutorEmotion.calm.description": "聲音輕柔，速度較慢",
   "tutorEmotion.calm.name": "沉穩",
   "tutorEmotion.encouraging.description": "常常稱讚，溫和糾正",
