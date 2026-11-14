@@ -361,11 +361,22 @@ export default function HomeScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-          <Image
-            source={images.palace}
-            className="w-[130px] h-[160px]"
-            resizeMode="cover"
-          />
+          {/* The same comic thumbnail as the topic card on the AI Teacher tab. */}
+          {nextTopic ? (
+            <View className="justify-center pr-4">
+              <Image
+                source={images[nextTopic.imageKey]}
+                className="w-[112px] h-[112px] rounded-2xl border-2 border-white/80"
+                resizeMode="cover"
+              />
+            </View>
+          ) : (
+            <Image
+              source={images.palace}
+              className="w-[130px] h-[160px]"
+              resizeMode="cover"
+            />
+          )}
         </View>
 
         {/* ── Today's Plan Header ── */}
