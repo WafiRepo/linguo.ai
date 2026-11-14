@@ -22,6 +22,7 @@ interface TalkStageProps {
   studentLevel: number;
   holding: boolean;
   canTalk: boolean;
+  /** Empty once the conversation is over: no voice bars or hint then. */
   status: string;
   lines: TalkLine[];
   teacherName: string;
@@ -108,9 +109,12 @@ export function TalkStage({
         </Pressable>
       </View>
 
-      <VoiceBars active={holding} level={studentLevel} />
-
-      <Text className="mt-1 font-poppins-medium text-[13px] text-text-secondary text-center px-6">{status}</Text>
+      {status ? (
+        <>
+          <VoiceBars active={holding} level={studentLevel} />
+          <Text className="mt-1 font-poppins-medium text-[13px] text-text-secondary text-center px-6">{status}</Text>
+        </>
+      ) : null}
 
       <View className="mt-2 px-8 w-full items-center min-h-[40px]">
         {lines.map((line, index) => (

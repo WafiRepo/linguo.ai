@@ -1218,7 +1218,11 @@ function ActiveRoleplayContent({
   // In Practice only during the student's step (repeat / answer).
   {
     const canTalk = isReady && !missionComplete && (!practice || canSpeak);
-    const talkStatus = !isReady
+    // Once every dialogue is done there is nothing to hold any more: the
+    // Done panel below says what to do.
+    const talkStatus = missionComplete
+      ? ""
+      : !isReady
       ? t("roleplay.ptt.connecting", { name: scenario.aiName })
       : holding
         ? t("roleplay.ptt.listening")
