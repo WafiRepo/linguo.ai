@@ -1,7 +1,9 @@
+import { useAuth } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,6 +21,7 @@ import {
   useChildProfileStore,
 } from "@/store/childProfileStore";
 import { useT } from "@/lib/i18n";
+import { fetchPortfolio, saveChildProfile } from "@/lib/portfolio";
 
 // F03: minimal profile only — nickname + class group, filled in by a
 // guardian. No email, national ID, birth date, photo, or location.
@@ -32,16 +35,47 @@ export default function ChildProfileSetupScreen() {
     classGroup,
   );
 
+  const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+  // A child profile saved before (other phone, iPad, web) is loaded instead of
+  // asking the guardian again. Editing always shows the form.
+  const [checking, setChecking] = useState(!isEditMode);
+  useEffect(() => {
+    if (isEditMode) return;
+    fetchPortfolio(() => getTokenRef.current())
+      .then(({ student }) => {
+        const group = student.classGroup as ChildClassGroup | null;
+        if (student.nickname && group && CHILD_CLASS_GROUPS.includes(group)) {
+          setChildProfile(student.nickname, group);
+          router.replace("/(tabs)" as Href);
+        } else {
+          setChecking(false);
+        }
+      })
+      .catch(() => setChecking(false));
+  }, [isEditMode, setChildProfile]);
+
   const canSubmit = nicknameInput.trim().length > 0 && classGroupInput !== null;
 
   function handleSubmit() {
     if (!canSubmit || !classGroupInput) return;
     setChildProfile(nicknameInput, classGroupInput);
+    // Also on the server, so other devices get it (errors: sessions carry it later).
+    saveChildProfile(() => getTokenRef.current(), nicknameInput.trim(), classGroupInput).catch(() => {});
     if (isEditMode) {
       router.back();
     } else {
       router.replace("/(tabs)" as Href);
     }
+  }
+
+  if (checking) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator size="large" color={colors.primary.purple} />
+      </View>
+    );
   }
 
   return (

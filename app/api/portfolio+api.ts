@@ -15,6 +15,7 @@ import type {
 //   GET    /api/portfolio               → my portfolio (+ student list for teachers)
 //   GET    /api/portfolio?studentId=... → a student's portfolio (teachers only)
 //   POST   /api/portfolio               → save one finished session
+//   PUT    /api/portfolio { nickname, classGroup } → save my child profile now
 //   DELETE /api/portfolio               → delete all my records
 
 type ProfileRow = {
@@ -261,6 +262,40 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     console.error("[portfolio] POST failed", error);
     return Response.json({ error: "Could not save session" }, { status: 502 });
+  }
+}
+
+const CLASS_GROUPS = ["1", "2", "3", "4", "5", "6"];
+
+/** Child profile (nickname + grade), saved as soon as it is filled in, so a
+ *  new phone, an iPad or the web app can load it instead of asking again. */
+export async function PUT(request: Request): Promise<Response> {
+  const auth = await authenticate(request);
+  if (auth instanceof Response) return auth;
+
+  let input: { nickname?: unknown; classGroup?: unknown };
+  try {
+    input = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  const nickname = typeof input.nickname === "string" ? input.nickname.trim().slice(0, 20) : "";
+  const classGroup = typeof input.classGroup === "string" ? input.classGroup : "";
+  if (!nickname || !CLASS_GROUPS.includes(classGroup)) {
+    return Response.json({ error: "Invalid child profile" }, { status: 400 });
+  }
+
+  try {
+    // Never touches `role`.
+    await supabaseRest("profiles?on_conflict=user_id", {
+      method: "POST",
+      prefer: "resolution=merge-duplicates",
+      body: { user_id: auth, nickname, class_group: classGroup, updated_at: new Date().toISOString() },
+    });
+    return Response.json({ ok: true });
+  } catch (error) {
+    console.error("[portfolio] PUT failed", error);
+    return Response.json({ error: "Could not save child profile" }, { status: 502 });
   }
 }
 

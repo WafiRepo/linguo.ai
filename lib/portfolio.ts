@@ -74,6 +74,18 @@ export async function syncPassedTopics(getToken: GetToken) {
   useLearningStore.getState().mergePassedRolePlayTopics(passedTopicIdsFrom(sessions));
 }
 
+/** Saves the child profile on the server (best effort; sessions also carry it). */
+export async function saveChildProfile(getToken: GetToken, nickname: string, classGroup: string) {
+  const token = await getToken();
+  if (!token) return;
+  const res = await fetch(apiUrl("/api/portfolio"), {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ nickname, classGroup }),
+  });
+  if (!res.ok) throw new ApiError(res.status);
+}
+
 export async function deletePortfolio(getToken: GetToken) {
   const token = await getToken();
   if (!token) return;
