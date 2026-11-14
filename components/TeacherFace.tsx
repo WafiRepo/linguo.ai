@@ -265,11 +265,11 @@ export function TeacherFace({ mood, speaking, audioLevel = 0, size = 64 }: Teach
         {[-1, 1].map((side) => (
           <View key={side} style={{ position: "absolute", left: eyeLeft(side), top: eyeTop, width: eyeW, height: eyeH }}>
             {look.eyes === "round" || look.eyes === "closed" ? (
-              <Animated.View
-                entering={FadeIn.duration(120)}
-                exiting={FadeOut.duration(100)}
-                style={[styles.ink, { width: eyeW, height: eyeH, borderRadius: eyeW / 2 }, roundEyeStyle]}
-              />
+              <Animated.View entering={FadeIn.duration(120)} exiting={FadeOut.duration(100)}>
+                <Animated.View
+                  style={[styles.ink, { width: eyeW, height: eyeH, borderRadius: eyeW / 2 }, roundEyeStyle]}
+                />
+              </Animated.View>
             ) : null}
             {look.eyes === "happy" ? (
               <Animated.View
@@ -310,19 +310,22 @@ export function TeacherFace({ mood, speaking, audioLevel = 0, size = 64 }: Teach
                 key={side}
                 entering={FadeIn.duration(140)}
                 exiting={FadeOut.duration(100)}
-                style={[
-                  styles.ink,
-                  {
-                    position: "absolute",
-                    left: eyeLeft(side) - 6 * s,
-                    top: eyeTop - 30 * s,
-                    width: eyeW + 12 * s,
-                    height: 12 * s,
-                    borderRadius: 6 * s,
-                  },
-                  side < 0 ? leftBrowStyle : rightBrowStyle,
-                ]}
-              />
+                style={{
+                  position: "absolute",
+                  left: eyeLeft(side) - 6 * s,
+                  top: eyeTop - 30 * s,
+                  width: eyeW + 12 * s,
+                  height: 12 * s,
+                }}
+              >
+                <Animated.View
+                  style={[
+                    styles.ink,
+                    { width: eyeW + 12 * s, height: 12 * s, borderRadius: 6 * s },
+                    side < 0 ? leftBrowStyle : rightBrowStyle,
+                  ]}
+                />
+              </Animated.View>
             ))}
           </>
         ) : null}
@@ -334,17 +337,14 @@ export function TeacherFace({ mood, speaking, audioLevel = 0, size = 64 }: Teach
                 key={side}
                 entering={FadeIn.duration(200)}
                 exiting={FadeOut.duration(150)}
-                style={[
-                  styles.blush,
-                  {
-                    left: centerX + side * (eyeGap / 2 + 34 * s) - 27 * s,
-                    top: eyeTop + eyeH - 4 * s,
-                    width: 54 * s,
-                    height: 24 * s,
-                    borderRadius: 12 * s,
-                  },
-                ]}
-              />
+                style={{
+                  position: "absolute",
+                  left: centerX + side * (eyeGap / 2 + 34 * s) - 27 * s,
+                  top: eyeTop + eyeH - 4 * s,
+                }}
+              >
+                <View style={[styles.blushShape, { width: 54 * s, height: 24 * s, borderRadius: 12 * s }]} />
+              </Animated.View>
             ))
           : null}
 
@@ -452,10 +452,12 @@ function SweatDrop({ left, top, s }: { left: number; top: number; s: number }) {
     transform: [{ translateY: slide.value * 14 * s }],
   }));
   return (
-    <Animated.View entering={ZoomIn.duration(160)} exiting={FadeOut.duration(120)} style={[{ position: "absolute", left, top, width: 30 * s, height: 42 * s }, style]}>
-      <Svg width="100%" height="100%" viewBox="0 0 40 56">
-        <Path d={DROP} fill={SWEAT} />
-      </Svg>
+    <Animated.View entering={ZoomIn.duration(160)} exiting={FadeOut.duration(120)} style={{ position: "absolute", left, top }}>
+      <Animated.View style={[{ width: 30 * s, height: 42 * s }, style]}>
+        <Svg width="100%" height="100%" viewBox="0 0 40 56">
+          <Path d={DROP} fill={SWEAT} />
+        </Svg>
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -521,10 +523,12 @@ function Sparkle({ left, top, size, delay }: { left: number; top: number; size: 
     transform: [{ scale: 0.6 + twinkle.value * 0.5 }, { rotate: `${twinkle.value * 30}deg` }],
   }));
   return (
-    <Animated.View entering={ZoomIn.duration(200)} exiting={FadeOut.duration(120)} style={[{ position: "absolute", left, top, width: size, height: size }, style]}>
-      <Svg width="100%" height="100%" viewBox="0 0 100 100">
-        <Path d={SPARKLE} fill={GOLD} />
-      </Svg>
+    <Animated.View entering={ZoomIn.duration(200)} exiting={FadeOut.duration(120)} style={{ position: "absolute", left, top }}>
+      <Animated.View style={[{ width: size, height: size }, style]}>
+        <Svg width="100%" height="100%" viewBox="0 0 100 100">
+          <Path d={SPARKLE} fill={GOLD} />
+        </Svg>
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -548,8 +552,7 @@ const styles = StyleSheet.create({
     borderColor: INK,
     borderBottomColor: "transparent",
   },
-  blush: {
-    position: "absolute",
+  blushShape: {
     backgroundColor: BLUSH,
     opacity: 0.7,
   },

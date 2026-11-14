@@ -136,6 +136,8 @@ function LiveRoleplayScreen() {
   const [reviewing, setReviewing] = useState(false);
 
   const callRef = useRef<Call | null>(null);
+  // Bumped when a call is started and when the screen lets go of it.
+  const callRunRef = useRef(0);
   const clientRef = useRef<StreamVideoClient | null>(null);
   const agentSessionRef = useRef<string | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -202,9 +204,15 @@ function LiveRoleplayScreen() {
       tutor_voice: tutorVoice,
     });
 
-    startCall();
+    // Start a tick later: React (StrictMode in development, e.g. on web)
+    // mounts, unmounts and mounts again at once, and a call started by the
+    // throw-away first mount raced the real one.
+    const run = ++callRunRef.current;
+    const startTimer = setTimeout(() => startCall(run), 0);
 
     return () => {
+      clearTimeout(startTimer);
+      callRunRef.current += 1; // a start still in progress gives up
       saveSessionResult(true);
       const leaving = callRef.current?.leave() ?? Promise.resolve();
       leaving.catch(console.error).finally(resetPhoneAudioToMedia);
@@ -264,8 +272,9 @@ function LiveRoleplayScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedback]);
 
-  async function startCall() {
+  async function startCall(run: number) {
     if (!user || !comic) return;
+    const stale = () => callRunRef.current !== run;
     setCallStatus("connecting");
 
     try {
@@ -297,6 +306,12 @@ function LiveRoleplayScreen() {
         await streamCall.camera.disable();
       } catch {}
       await streamCall.join({ create: true });
+      if (stale()) {
+        // The screen closed while connecting: leave this call only. The
+        // client is shared, so it stays connected for the next screen.
+        await streamCall.leave().catch(() => {});
+        return;
+      }
 
       // Stays off until the AI has joined, then opens for the whole conversation.
       try {
@@ -321,6 +336,10 @@ function LiveRoleplayScreen() {
       // No Stream closed captions here: the transcript comes from the AI
       // model itself (what it heard and said), which is more accurate for
       // Indonesian than a generic caption service.
+      if (stale()) {
+        await streamCall.leave().catch(() => {});
+        return;
+      }
       callRef.current = streamCall;
       clientRef.current = streamClient;
       setClient(streamClient);
@@ -652,7 +671,7 @@ function LiveRoleplayScreen() {
       ) : (
         <View className="flex-1 items-center justify-center px-8">
           {callStatus === "error" ? (
-            <TouchableOpacity onPress={startCall} className="items-center">
+            <TouchableOpacity onPress={() => startCall(++callRunRef.current)} className="items-center">
               <Text className="font-poppins-semibold text-sm text-text-primary">{t("roleplay.connectFailed")}</Text>
               <Text className="font-poppins text-[13px] text-text-secondary mt-1">{t("roleplay.tapRetry")}</Text>
             </TouchableOpacity>
