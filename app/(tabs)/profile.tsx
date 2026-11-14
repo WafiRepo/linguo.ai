@@ -9,8 +9,6 @@ import { colors } from "@/constants/theme";
 import { LANGUAGES } from "@/data/languages";
 import { resetCurrentAccountData } from "@/lib/learningAccount";
 import { deletePortfolio, fetchPortfolio } from "@/lib/portfolio";
-import { TUTOR_EMOTION_OPTIONS } from "@/lib/tutorEmotion";
-import { TUTOR_VOICE_OPTIONS } from "@/lib/instructionLanguage";
 import { useChildProfileStore } from "@/store/childProfileStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { usePortfolioStore } from "@/store/portfolioStore";
@@ -33,8 +31,7 @@ export default function ProfileScreen() {
     }, []),
   );
   const { t } = useT();
-  const { selectedLanguage, tutorVoice, tutorEmotion, setTutorVoice, setTutorEmotion } =
-    useLanguageStore();
+  const { selectedLanguage } = useLanguageStore();
   const { nickname, classGroup } = useChildProfileStore();
 
   // No guardian re-verification (requirement F04); the delete confirmation
@@ -225,103 +222,6 @@ export default function ProfileScreen() {
           </>
         ) : null}
 
-        {selectedLanguage === "id" ? (
-          <>
-            <Text className="font-poppins-semibold text-sm text-text-secondary mb-2 mt-6 uppercase tracking-wide">
-              {t("profile.tutorVoice")}
-            </Text>
-            <View className="gap-3">
-              {TUTOR_VOICE_OPTIONS.map((option) => {
-                const selected = tutorVoice === option.code;
-                return (
-                  <TouchableOpacity
-                    key={option.code}
-                    activeOpacity={0.8}
-                    testID={`profile-tutor-voice-${option.code}`}
-                    onPress={() => setTutorVoice(option.code)}
-                    className={`flex-row items-center rounded-[20px] border px-4 py-4 ${
-                      selected
-                        ? "bg-lingua-purple/5 border-lingua-purple"
-                        : "bg-white border-border"
-                    }`}
-                    style={styles.cardShadow}
-                  >
-                    <View className="w-11 h-11 rounded-full bg-surface items-center justify-center">
-                      <Text className="text-xl">{option.emoji}</Text>
-                    </View>
-                    <View className="flex-1 ml-3">
-                      <Text className="font-poppins-semibold text-base text-text-primary">
-                        {t(`tutorVoice.${option.code}.name`)}
-                      </Text>
-                      <Text className="font-poppins text-sm text-text-secondary mt-0.5">
-                        {t(`tutorVoice.${option.code}.description`)}
-                      </Text>
-                    </View>
-                    {selected ? (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={22}
-                        color={colors.primary.purple}
-                      />
-                    ) : (
-                      <View className="w-[22px] h-[22px] rounded-full border-2 border-border" />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </>
-        ) : null}
-
-        {selectedLanguage === "id" ? (
-          <>
-            <Text className="font-poppins-semibold text-sm text-text-secondary mb-2 mt-6 uppercase tracking-wide">
-              {t("profile.tutorStyle")}
-            </Text>
-            <View className="gap-3">
-              {TUTOR_EMOTION_OPTIONS.map((option) => {
-                const selected = tutorEmotion === option.code;
-                return (
-                  <TouchableOpacity
-                    key={option.code}
-                    activeOpacity={0.8}
-                    testID={`profile-tutor-emotion-${option.code}`}
-                    onPress={() =>
-                      setTutorEmotion(option.code)
-                    }
-                    className={`flex-row items-center rounded-[20px] border px-4 py-4 ${
-                      selected
-                        ? "bg-lingua-purple/5 border-lingua-purple"
-                        : "bg-white border-border"
-                    }`}
-                    style={styles.cardShadow}
-                  >
-                    <View className="w-11 h-11 rounded-full bg-surface items-center justify-center">
-                      <Text className="text-xl">{option.emoji}</Text>
-                    </View>
-                    <View className="flex-1 ml-3">
-                      <Text className="font-poppins-semibold text-base text-text-primary">
-                        {t(`tutorEmotion.${option.code}.name`)}
-                      </Text>
-                      <Text className="font-poppins text-sm text-text-secondary mt-0.5">
-                        {t(`tutorEmotion.${option.code}.description`)}
-                      </Text>
-                    </View>
-                    {selected ? (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={22}
-                        color={colors.primary.purple}
-                      />
-                    ) : (
-                      <View className="w-[22px] h-[22px] rounded-full border-2 border-border" />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </>
-        ) : null}
       </View>
 
       <View className="px-5 mt-6">
