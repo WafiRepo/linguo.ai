@@ -8,6 +8,7 @@ import {
   StreamVideoClient,
   useCallStateHooks,
 } from "@stream-io/video-react-native-sdk";
+import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -24,6 +25,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AIPilotNotice } from "@/components/AIPilotNotice";
+import { TalkStage } from "@/components/TalkStage";
 import { TeacherFace, TeacherMood } from "@/components/TeacherFace";
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { images } from "@/constants/images";
@@ -979,12 +981,14 @@ function ActiveRoleplayContent({
   const { t } = useT();
   const { useMicrophoneState, useParticipants } = useCallStateHooks();
   const participants = useParticipants();
-  const { microphone, optimisticIsMute } = useMicrophoneState({
+  const { microphone, optimisticIsMute, mediaStream } = useMicrophoneState({
     optimisticUpdates: true,
   });
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [partials, setPartials] = useState<Partial<Record<Speaker, string>>>({});
   const [showHints, setShowHints] = useState(false);
+  // Role Play: the student holds Bu Guru's face to talk.
+  const [holding, setHolding] = useState(false);
   const nextMessageIdRef = useRef(0);
   // Latest in-progress student words, and the bubble they were placed in
   // when Bu Guru replied before they were final.
@@ -1129,6 +1133,26 @@ function ActiveRoleplayContent({
     microphone.enable().catch((e) => console.warn("[roleplay] mic enable failed:", e));
   }
 
+  // Role Play push-to-talk. The mic stays published for the whole call
+  // (re-publishing it made the agent lose the student's audio), so holding
+  // only switches the track between the student's voice and silence. The
+  // AI hears silence after the student lets go and answers.
+  useEffect(() => {
+    if (practice) return;
+    const talking = holding && !missionComplete;
+    mediaStream?.getAudioTracks().forEach((track) => {
+      track.enabled = talking;
+    });
+  }, [practice, holding, missionComplete, mediaStream]);
+
+  function startTalking() {
+    if (optimisticIsMute) {
+      microphone.enable().catch((e) => console.warn("[roleplay] mic enable failed:", e));
+    }
+    setHolding(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  }
+
   function handleToggleHints() {
     if (!showHints) {
       posthog.capture("roleplay_hints_opened", { scenario_id: scenario.id });
@@ -1147,7 +1171,7 @@ function ActiveRoleplayContent({
     reaction ??
     (!isReady
       ? "sleepy"
-      : student?.isSpeaking || partials.user
+      : holding || student?.isSpeaking || partials.user
         ? "listening"
         : !teacherSpeaking && messages.at(-1)?.speaker === "user"
           ? "thinking" // the student finished; her answer is on its way
@@ -1158,6 +1182,113 @@ function ActiveRoleplayContent({
   const face = (size: number) => (
     <TeacherFace mood={faceMood} speaking={teacherSpeaking} audioLevel={teacher?.audioLevel ?? 0} size={size} />
   );
+
+  const hintsCard = showHints ? (
+    <View className="mx-4 mt-3 rounded-2xl bg-white border border-border p-3">
+      <Text className="font-poppins-semibold text-xs text-text-secondary mb-2">
+        {t("roleplay.youCanSay")}
+      </Text>
+      {scenario.hints.map((hint, index) => (
+        <View key={`${index}-${hint.text}`} className="mb-1.5">
+          <Text className="font-poppins-semibold text-sm text-text-primary">
+            {hint.text}
+          </Text>
+          <Text className="font-poppins text-xs text-text-secondary">
+            {hint.translation}
+          </Text>
+        </View>
+      ))}
+    </View>
+  ) : null;
+
+  const donePanel = (withFace: boolean) => (
+    <View className="px-6 pt-2 pb-6">
+      {withFace ? <View className="items-center">{face(44)}</View> : null}
+      <Text className="mb-3 text-center font-poppins-medium text-[13px] text-text-secondary">
+        {resultsReady
+          ? t("roleplay.finishedBody")
+          : t("roleplay.preparingResults", { name: scenario.aiName })}
+      </Text>
+      <TouchableOpacity
+        className={`h-14 items-center justify-center rounded-2xl ${resultsReady ? "bg-lingua-purple" : "bg-[#C9BEFB]"}`}
+        activeOpacity={0.85}
+        disabled={!resultsReady}
+        onPress={onFinish}
+        testID="roleplay-done-button"
+      >
+        {resultsReady ? (
+          <Text className="font-poppins-semibold text-base text-white">{t("roleplay.done")}</Text>
+        ) : (
+          <ActivityIndicator color="#fff" />
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
+  // ---- Role Play: hold Bu Guru's face to talk, let go and she answers ----
+  if (!practice) {
+    const talkStatus = !isReady
+      ? t("roleplay.ptt.connecting", { name: scenario.aiName })
+      : holding
+        ? t("roleplay.ptt.listening")
+        : teacherSpeaking
+          ? t("roleplay.ptt.speaking", { name: scenario.aiName })
+          : faceMood === "thinking"
+            ? t("roleplay.ptt.thinking", { name: scenario.aiName })
+            : t("roleplay.ptt.hold", { name: scenario.aiName });
+    // The last two lines of the conversation, words still arriving included.
+    const talkLines = [
+      ...messages.map((message) => ({ speaker: message.speaker, text: message.text })),
+      ...(partials.user ? [{ speaker: "user" as const, text: partials.user }] : []),
+      ...(partials.agent ? [{ speaker: "agent" as const, text: partials.agent }] : []),
+    ].slice(-2);
+
+    return (
+      <View className="flex-1">
+        {agentStatus === "failed" ? (
+          <TouchableOpacity onPress={onRetry} className="flex-1 items-center justify-center">
+            <Text className="font-poppins-semibold text-sm text-text-primary">
+              {t("roleplay.cantJoin", { name: scenario.aiName })}
+            </Text>
+            <Text className="font-poppins text-[13px] text-lingua-purple mt-1">{t("roleplay.tapRetry")}</Text>
+          </TouchableOpacity>
+        ) : (
+          <TalkStage
+            mood={faceMood}
+            teacherSpeaking={teacherSpeaking}
+            teacherLevel={teacher?.audioLevel ?? 0}
+            studentLevel={student?.audioLevel ?? 0}
+            holding={holding}
+            canTalk={isReady && !missionComplete}
+            status={talkStatus}
+            lines={talkLines}
+            teacherName={scenario.aiName}
+            youLabel={t("roleplay.you")}
+            onPressIn={startTalking}
+            onPressOut={() => setHolding(false)}
+          />
+        )}
+        {hintsCard}
+        {missionComplete ? (
+          donePanel(false)
+        ) : (
+          <View className="items-center pt-1 pb-5">
+            <TouchableOpacity
+              className={`flex-row items-center gap-1.5 rounded-full px-4 py-2 ${showHints ? "bg-lingua-purple" : "bg-surface"}`}
+              activeOpacity={0.8}
+              onPress={handleToggleHints}
+              testID="roleplay-hints-button"
+            >
+              <Ionicons name="bulb-outline" size={16} color={showHints ? "#fff" : colors.neutral.textPrimary} />
+              <Text className={`font-poppins-medium text-xs ${showHints ? "text-white" : "text-text-primary"}`}>
+                {t("roleplay.youCanSay")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1">
@@ -1219,46 +1350,10 @@ function ActiveRoleplayContent({
       </ScrollView>
 
       {missionComplete ? (
-        <View className="px-6 pt-2 pb-6">
-          <View className="items-center">{face(44)}</View>
-          <Text className="mb-3 text-center font-poppins-medium text-[13px] text-text-secondary">
-            {resultsReady
-              ? t("roleplay.finishedBody")
-              : t("roleplay.preparingResults", { name: scenario.aiName })}
-          </Text>
-          <TouchableOpacity
-            className={`h-14 items-center justify-center rounded-2xl ${resultsReady ? "bg-lingua-purple" : "bg-[#C9BEFB]"}`}
-            activeOpacity={0.85}
-            disabled={!resultsReady}
-            onPress={onFinish}
-            testID="roleplay-done-button"
-          >
-            {resultsReady ? (
-              <Text className="font-poppins-semibold text-base text-white">{t("roleplay.done")}</Text>
-            ) : (
-              <ActivityIndicator color="#fff" />
-            )}
-          </TouchableOpacity>
-        </View>
+        donePanel(true)
       ) : (
         <>
-          {showHints ? (
-            <View className="mx-4 mt-3 rounded-2xl bg-white border border-border p-3">
-              <Text className="font-poppins-semibold text-xs text-text-secondary mb-2">
-                {t("roleplay.youCanSay")}
-              </Text>
-              {scenario.hints.map((hint, index) => (
-                <View key={`${index}-${hint.text}`} className="mb-1.5">
-                  <Text className="font-poppins-semibold text-sm text-text-primary">
-                    {hint.text}
-                  </Text>
-                  <Text className="font-poppins text-xs text-text-secondary">
-                    {hint.translation}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
+          {hintsCard}
 
           <View className="flex-row items-center justify-between px-8 pt-4 pb-6">
             <TouchableOpacity
