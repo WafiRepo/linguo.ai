@@ -17,7 +17,7 @@ export default function OnboardingScreen() {
         <View className="flex-row items-center justify-center gap-2 mt-4">
           <Image source={images.mascotLogo} className="w-10 h-10" />
           <Text className="font-poppins-semibold text-xl text-text-primary">
-            lingua
+            Bicara AI
           </Text>
         </View>
 
