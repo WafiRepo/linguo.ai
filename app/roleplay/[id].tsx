@@ -382,27 +382,51 @@ function LiveRoleplayScreen() {
 
   // Move on now if the teacher is already saying the next dialogue's line,
   // or after a short wait when the line is never heard (fallback).
+  // When the move for the pending dialogue was first scheduled: the fallback
+  // never waits longer than COMIC_ADVANCE_MAX_MS in total.
+  const pendingSinceRef = useRef(0);
   const scheduleAdvance = useCallback(
     (index: number) => {
+      if (pendingTurnRef.current !== index) pendingSinceRef.current = Date.now();
       pendingTurnRef.current = index;
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
-      advanceTimerRef.current = setTimeout(() => showTurn(index), COMIC_ADVANCE_FALLBACK_MS);
+      const left = pendingSinceRef.current + COMIC_ADVANCE_MAX_MS - Date.now();
+      advanceTimerRef.current = setTimeout(
+        () => showTurn(index),
+        Math.max(0, Math.min(COMIC_ADVANCE_FALLBACK_MS, left)),
+      );
     },
     [showTurn],
   );
+
+  // What Bu Guru said in the last seconds. The server confirms a dialogue a
+  // few seconds after the answer (it waits for her reaction), so she has
+  // often started the next line before the comic is told to move on.
+  const recentAgentTextRef = useRef<{ at: number; text: string }[]>([]);
+  const heardRecently = useCallback((line: string) => {
+    const since = Date.now() - RECENT_AGENT_TEXT_MS;
+    const recent = recentAgentTextRef.current.filter((item) => item.at >= since);
+    recentAgentTextRef.current = recent;
+    return recent.some((item) => saysLine(item.text, line));
+  }, []);
 
   useEffect(() => () => {
     if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
   }, []);
 
   useEffect(() => {
-    if (completedIds.length > displayTurn) scheduleAdvance(completedIds.length);
+    if (completedIds.length <= displayTurn) return;
+    const nextGuruLine = comic?.turns[completedIds.length]?.guruLine.id;
+    // She already started the next dialogue: show it now.
+    if (nextGuruLine && heardRecently(nextGuruLine)) showTurn(completedIds.length);
+    else scheduleAdvance(completedIds.length);
     // displayTurn is read only to know whether a move is needed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [completedIds.length, scheduleAdvance]);
+  }, [completedIds.length, scheduleAdvance, showTurn, heardRecently]);
 
   const handleAgentText = useCallback(
     (text: string) => {
+      recentAgentTextRef.current.push({ at: Date.now(), text });
       const pending = pendingTurnRef.current;
       if (pending === null || !comic) return;
       const nextGuruLine = comic.turns[pending]?.guruLine.id;
@@ -697,6 +721,10 @@ const RESULTS_WAIT_MS = 20000;
 // Move the comic anyway when the teacher has been quiet this long without
 // starting the next dialogue (each piece of her speech restarts the wait).
 const COMIC_ADVANCE_FALLBACK_MS = 8000;
+// …but never longer than this after the dialogue was done.
+const COMIC_ADVANCE_MAX_MS = 15000;
+// How far back her speech is checked for the next dialogue's line.
+const RECENT_AGENT_TEXT_MS = 12000;
 
 function comparableWords(text: string): string[] {
   return text
