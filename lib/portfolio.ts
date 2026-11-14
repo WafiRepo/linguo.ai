@@ -1,9 +1,10 @@
 import { PART_KEYS, partOfTopic } from "@/constants/curriculumParts";
 import { ApiError, apiUrl } from "@/lib/api";
-import { isPassedRolePlay } from "@/lib/rolePlayScore";
+import { getLocalDateKey } from "@/lib/dailyProgress";
+import { isPassedRolePlay, rolePlayScore } from "@/lib/rolePlayScore";
 import { ALL_CLASS_TOPICS } from "@/lib/topicProgress";
 import { useChildProfileStore } from "@/store/childProfileStore";
-import { useLearningStore } from "@/store/learningStore";
+import { ServerProgress, useLearningStore } from "@/store/learningStore";
 import { usePortfolioStore } from "@/store/portfolioStore";
 import { NewSessionResult, PortfolioResponse, SessionResult } from "@/types/portfolio";
 
@@ -71,7 +72,30 @@ export function passedTopicIdsFrom(sessions: SessionResult[]): string[] {
  */
 export async function syncPassedTopics(getToken: GetToken) {
   const { sessions } = await fetchPortfolio(getToken);
-  useLearningStore.getState().mergePassedRolePlayTopics(passedTopicIdsFrom(sessions));
+  useLearningStore.getState().mergeServerProgress(serverProgressFrom(sessions));
+}
+
+/**
+ * What Home and Today's plan need, worked out from the saved sessions:
+ * PASS stamps, finished Practice/Role Play, best Role Play scores and
+ * today's XP (first completions only, like the phone counts it).
+ */
+export function serverProgressFrom(sessions: SessionResult[], today = getLocalDateKey()): ServerProgress {
+  const completedModes = [
+    ...new Set(sessions.filter((s) => s.completed).map((s) => `${s.topicId}:${s.mode}`)),
+  ];
+  const bestScores: Record<string, number> = {};
+  for (const s of sessions) {
+    // Same rule as the PASS stamp: a finished Role Play with Bu Guru's feedback.
+    if (s.mode !== "roleplay" || !s.completed || s.praise === null) continue;
+    const score = rolePlayScore(s.objectivesTotal, s.corrections.length);
+    bestScores[s.topicId] = Math.max(bestScores[s.topicId] ?? 0, score);
+  }
+  const xpIds = xpSessionIds(sessions);
+  const xpToday = sessions
+    .filter((s) => xpIds.has(s.clientId) && getLocalDateKey(new Date(s.createdAt)) === today)
+    .reduce((sum, s) => sum + s.xpEarned, 0);
+  return { passedTopicIds: passedTopicIdsFrom(sessions), completedModes, bestScores, xpToday };
 }
 
 /** Saves the child profile on the server (best effort; sessions also carry it). */

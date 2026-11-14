@@ -6,6 +6,15 @@ import { DEFAULT_DAILY_GOAL, getLocalDateKey } from "@/lib/dailyProgress";
 import { classModeKey, ClassTopicMode } from "@/lib/topicProgress";
 import { LanguageCode } from "@/types/learning";
 
+/** Progress worked out from the saved sessions in the Learning Portfolio. */
+export interface ServerProgress {
+  passedTopicIds: string[];
+  completedModes: string[];
+  bestScores: Record<string, number>;
+  /** XP earned today (first completions only), by this device's date. */
+  xpToday: number;
+}
+
 interface LearningState {
   xpToday: number;
   dailyGoal: number;
@@ -27,8 +36,8 @@ interface LearningState {
   completeClassTopic: (topicId: string, mode: ClassTopicMode, xpReward?: number) => void;
   markClassTopicStarted: (topicId: string) => void;
   markRolePlayPassed: (topicId: string) => void;
-  /** Adds stamps saved on the server (earned on another device). */
-  mergePassedRolePlayTopics: (topicIds: string[]) => void;
+  /** Adds what the Learning Portfolio knows (work done on another device). */
+  mergeServerProgress: (progress: ServerProgress) => void;
   recordRolePlayScore: (topicId: string, score: number) => void;
   setActiveLesson: (languageCode: LanguageCode, lessonId: string) => void;
   getActiveLessonId: (languageCode: LanguageCode) => string | undefined;
@@ -111,10 +120,25 @@ export const useLearningStore = create<LearningState>()(
         }));
       },
 
-      mergePassedRolePlayTopics: (topicIds) => {
-        const current = get().passedRolePlayTopicIds;
-        const added = topicIds.filter((id) => !current.includes(id));
-        if (added.length) set({ passedRolePlayTopicIds: [...current, ...added] });
+      // Only ever adds: work done here but not uploaded yet is kept.
+      mergeServerProgress: (progress) => {
+        get().syncDailyProgress();
+        const state = get();
+        const union = (local: string[], server: string[]) => [
+          ...local,
+          ...server.filter((id) => !local.includes(id)),
+        ];
+        const bestScores = { ...state.rolePlayBestScores };
+        for (const [topicId, score] of Object.entries(progress.bestScores)) {
+          bestScores[topicId] = Math.max(bestScores[topicId] ?? 0, score);
+        }
+        set({
+          passedRolePlayTopicIds: union(state.passedRolePlayTopicIds, progress.passedTopicIds),
+          completedClassModes: union(state.completedClassModes, progress.completedModes),
+          rolePlayBestScores: bestScores,
+          // The larger one: XP from sessions not uploaded yet stays counted.
+          xpToday: Math.max(state.xpToday, progress.xpToday),
+        });
       },
 
       recordRolePlayScore: (topicId, score) => {
