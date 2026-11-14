@@ -17,6 +17,7 @@ import { Image } from "@/components/Image";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AllTopicsDoneCard } from "@/components/AllTopicsDoneCard";
+import { LocaleFlag } from "@/components/LocaleFlag";
 import { NotificationsModal } from "@/components/NotificationsModal";
 import { TodayPlanList } from "@/components/TodayPlanList";
 import { images } from "@/constants/images";
@@ -262,7 +263,7 @@ export default function HomeScreen() {
             hitSlop={8}
           >
             {Platform.OS === "web" ? (
-              <Text style={styles.localeLabel}>{currentLocaleOption.label}</Text>
+              <LocaleFlag locale={currentLocaleOption.code} size={26} />
             ) : (
               <Text style={styles.localeEmoji}>{currentLocaleOption.emoji}</Text>
             )}
@@ -471,11 +472,6 @@ const styles = StyleSheet.create({
   },
   localeEmoji: {
     fontSize: 20,
-  },
-  localeLabel: {
-    fontFamily: "Poppins-SemiBold",
-    fontSize: 12,
-    color: colors.primary.purple,
   },
   scrollContent: {
     paddingHorizontal: 20,

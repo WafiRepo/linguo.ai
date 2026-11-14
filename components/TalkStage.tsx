@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
@@ -138,16 +138,18 @@ export function TalkStage({
 
 /** A soft round glow that fades out to transparent at its edge. */
 function Glow({ id, color, size }: { id: string; color: string; size: number }) {
+  // Unique per instance: SVG ids are page-wide on web.
+  const gradientId = `${id}-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   return (
     <Svg width={size} height={size}>
       <Defs>
-        <RadialGradient id={id} cx="50%" cy="50%" r="50%">
+        <RadialGradient id={gradientId} cx="50%" cy="50%" r="50%">
           <Stop offset="0%" stopColor={color} stopOpacity={0.75} />
           <Stop offset="45%" stopColor={color} stopOpacity={0.3} />
           <Stop offset="100%" stopColor={color} stopOpacity={0} />
         </RadialGradient>
       </Defs>
-      <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${id})`} />
+      <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${gradientId})`} />
     </Svg>
   );
 }
