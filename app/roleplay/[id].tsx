@@ -1128,10 +1128,20 @@ function ActiveRoleplayContent({
   // AI hears silence after the student lets go and answers.
   useEffect(() => {
     const talking = holding && !missionComplete;
-    mediaStream?.getAudioTracks().forEach((track) => {
-      track.enabled = talking;
-    });
-  }, [practice, holding, missionComplete, mediaStream]);
+    // The SDK publishes a clone of the mic track, so switch the clone that is
+    // actually sent. The local track stays on for the voice bars.
+    const apply = () =>
+      call.publisher
+        ?.getPublishedTracks()
+        .filter((track) => track.kind === "audio")
+        .forEach((track) => {
+          if (track.enabled !== talking) track.enabled = talking;
+        });
+    apply();
+    // A reconnect publishes a new clone (switched on): keep it in line.
+    const timer = setInterval(apply, 500);
+    return () => clearInterval(timer);
+  }, [call, holding, missionComplete, mediaStream]);
 
   function startTalking() {
     if (optimisticIsMute) {
