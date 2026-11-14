@@ -3,7 +3,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Href, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -12,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+import { Alert } from "@/lib/alert";
 
 import { Image } from "@/components/Image";
 import { SafeAreaView } from "react-native-safe-area-context";

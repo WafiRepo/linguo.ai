@@ -1,7 +1,9 @@
 import { useAuth } from "@clerk/expo";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+import { Alert } from "@/lib/alert";
 
 import { WaveHeader } from "@/components/WaveHeader";
 import { CERTIFICATE_TITLES } from "@/constants/curriculumParts";
