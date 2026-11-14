@@ -15,7 +15,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -26,7 +25,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AIPilotNotice } from "@/components/AIPilotNotice";
 import { TalkStage } from "@/components/TalkStage";
-import { TeacherFace, TeacherMood } from "@/components/TeacherFace";
+import { TeacherMood } from "@/components/TeacherFace";
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
@@ -995,10 +994,8 @@ function ActiveRoleplayContent({
   const userPartialRef = useRef("");
   const userDraftIdRef = useRef<number | null>(null);
   const micAutoStartedRef = useRef(false);
-  const scrollRef = useRef<ScrollView | null>(null);
 
   const isReady = agentStatus === "connected";
-  const micOn = isReady && !optimisticIsMute;
 
   // Open mic for the whole session. Toggling it per answer (tap-to-talk)
   // re-published the audio track and the agent lost the student's audio, so
@@ -1125,20 +1122,11 @@ function ActiveRoleplayContent({
     onPracticeResult,
   ]);
 
-  // The mic stays on for the whole session: turning it off and on again
-  // re-publishes the audio track and the AI teacher stops hearing the student.
-  // So the button can only switch a muted mic back on, never off.
-  function handleMicPress() {
-    if (!isReady || !optimisticIsMute) return;
-    microphone.enable().catch((e) => console.warn("[roleplay] mic enable failed:", e));
-  }
-
-  // Role Play push-to-talk. The mic stays published for the whole call
+  // Push-to-talk (Role Play and Practice). The mic stays published for the whole call
   // (re-publishing it made the agent lose the student's audio), so holding
   // only switches the track between the student's voice and silence. The
   // AI hears silence after the student lets go and answers.
   useEffect(() => {
-    if (practice) return;
     const talking = holding && !missionComplete;
     mediaStream?.getAudioTracks().forEach((track) => {
       track.enabled = talking;
@@ -1160,9 +1148,6 @@ function ActiveRoleplayContent({
     setShowHints((prev) => !prev);
   }
 
-  const hasTranscript =
-    messages.length > 0 || Boolean(partials.agent) || Boolean(partials.user);
-
   // Bu Guru's face: her voice from the call, or her words still arriving.
   const teacher = participants.find((participant) => !participant.isLocalParticipant);
   const student = participants.find((participant) => participant.isLocalParticipant);
@@ -1177,11 +1162,6 @@ function ActiveRoleplayContent({
           ? "thinking" // the student finished; her answer is on its way
           : "neutral");
 
-  // Bu Guru's face sits next to the mic (or above Done), never above the
-  // transcript: there it took the room the conversation needs.
-  const face = (size: number) => (
-    <TeacherFace mood={faceMood} speaking={teacherSpeaking} audioLevel={teacher?.audioLevel ?? 0} size={size} />
-  );
 
   const hintsCard = showHints ? (
     <View className="mx-4 mt-3 rounded-2xl bg-white border border-border p-3">
@@ -1201,9 +1181,8 @@ function ActiveRoleplayContent({
     </View>
   ) : null;
 
-  const donePanel = (withFace: boolean) => (
+  const donePanel = (
     <View className="px-6 pt-2 pb-6">
-      {withFace ? <View className="items-center">{face(44)}</View> : null}
       <Text className="mb-3 text-center font-poppins-medium text-[13px] text-text-secondary">
         {resultsReady
           ? t("roleplay.finishedBody")
@@ -1225,13 +1204,17 @@ function ActiveRoleplayContent({
     </View>
   );
 
-  // ---- Role Play: hold Bu Guru's face to talk, let go and she answers ----
-  if (!practice) {
+  // ---- Hold Bu Guru's face to talk, let go and she answers ----
+  // In Practice only during the student's step (repeat / answer).
+  {
+    const canTalk = isReady && !missionComplete && (!practice || canSpeak);
     const talkStatus = !isReady
       ? t("roleplay.ptt.connecting", { name: scenario.aiName })
       : holding
         ? t("roleplay.ptt.listening")
-        : teacherSpeaking
+        : practice && !canSpeak && !missionComplete
+          ? t("roleplay.mic.listenFirst", { name: scenario.aiName })
+          : teacherSpeaking
           ? t("roleplay.ptt.speaking", { name: scenario.aiName })
           : faceMood === "thinking"
             ? t("roleplay.ptt.thinking", { name: scenario.aiName })
@@ -1259,7 +1242,7 @@ function ActiveRoleplayContent({
             teacherLevel={teacher?.audioLevel ?? 0}
             studentLevel={student?.audioLevel ?? 0}
             holding={holding}
-            canTalk={isReady && !missionComplete}
+            canTalk={canTalk}
             status={talkStatus}
             lines={talkLines}
             teacherName={scenario.aiName}
@@ -1270,7 +1253,7 @@ function ActiveRoleplayContent({
         )}
         {hintsCard}
         {missionComplete ? (
-          donePanel(false)
+          donePanel
         ) : (
           <View className="items-center pt-1 pb-5">
             <TouchableOpacity
@@ -1290,155 +1273,8 @@ function ActiveRoleplayContent({
     );
   }
 
-  return (
-    <View className="flex-1">
-      <ScrollView
-        ref={scrollRef}
-        className="flex-1 mx-4 rounded-3xl bg-[#F4F2FF]"
-        contentContainerStyle={styles.transcriptContent}
-        showsVerticalScrollIndicator={false}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-      >
-        {hasTranscript ? (
-          <>
-            {messages.map((message) => (
-              <CaptionBubble
-                key={message.id}
-                isAgent={message.speaker === "agent"}
-                speakerName={message.speaker === "agent" ? scenario.aiName : t("roleplay.you")}
-                text={message.text}
-              />
-            ))}
-            {(["user", "agent"] as const).map((speaker) =>
-              partials[speaker] ? (
-                <CaptionBubble
-                  key={`partial-${speaker}`}
-                  isAgent={speaker === "agent"}
-                  speakerName={speaker === "agent" ? scenario.aiName : t("roleplay.you")}
-                  text={partials[speaker] ?? ""}
-                  isPartial
-                />
-              ) : null,
-            )}
-          </>
-        ) : (
-          <View className="flex-1 items-center justify-center py-10">
-            <Text className="text-5xl mb-3">{scenario.emoji}</Text>
-            {agentStatus === "failed" ? (
-              <TouchableOpacity onPress={onRetry} className="items-center">
-                <Text className="font-poppins-semibold text-sm text-text-primary">
-                  {t("roleplay.cantJoin", { name: scenario.aiName })}
-                </Text>
-                <Text className="font-poppins text-[13px] text-lingua-purple mt-1">
-                  {t("roleplay.tapRetry")}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <>
-                <Text className="font-poppins-semibold text-sm text-text-primary">
-                  {isReady
-                    ? t("roleplay.aboutToSpeak", { name: scenario.aiName })
-                    : t("roleplay.joining", { name: scenario.aiName })}
-                </Text>
-                <Text className="font-poppins text-[13px] text-text-secondary mt-1 text-center">
-                  {t("roleplay.noHold")}
-                </Text>
-              </>
-            )}
-          </View>
-        )}
-      </ScrollView>
-
-      {missionComplete ? (
-        donePanel(true)
-      ) : (
-        <>
-          {hintsCard}
-
-          <View className="flex-row items-center justify-between px-8 pt-4 pb-6">
-            <TouchableOpacity
-              className={`w-14 h-14 rounded-full items-center justify-center ${showHints ? "bg-lingua-purple" : "bg-surface"}`}
-              activeOpacity={0.8}
-              onPress={handleToggleHints}
-              testID="roleplay-hints-button"
-            >
-              <Ionicons
-                name="bulb-outline"
-                size={24}
-                color={showHints ? "#fff" : colors.neutral.textPrimary}
-              />
-            </TouchableOpacity>
-
-            <View className="items-center">
-              <Pressable
-                onPress={handleMicPress}
-                disabled={!isReady || micOn}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: !isReady || micOn }}
-                testID="roleplay-mic-button"
-                style={({ pressed }) => [
-                  styles.micButton,
-                  micOn ? styles.micButtonOn : styles.micButtonOff,
-                  !isReady && styles.micButtonDisabled,
-                  pressed && styles.micButtonPressed,
-                ]}
-              >
-                {agentStatus === "connecting" ? (
-                  <ActivityIndicator size="small" color={colors.primary.purple} />
-                ) : (
-                  <Ionicons
-                    name={micOn ? "mic" : "mic-off"}
-                    size={32}
-                    color={micOn ? "#fff" : colors.neutral.textPrimary}
-                  />
-                )}
-              </Pressable>
-              <Text
-                className={`font-poppins-medium text-[13px] mt-2 ${micOn ? "text-lingua-purple" : "text-text-secondary"}`}
-              >
-                {micLabel(practice, canSpeak, isReady, micOn, scenario.aiName, t)}
-              </Text>
-            </View>
-
-            {/* The face is wider than the slot; it overflows to the right edge. */}
-            <View className="w-14 h-14">
-              <View style={styles.faceSlot}>{face(38)}</View>
-            </View>
-          </View>
-        </>
-      )}
-    </View>
-  );
 }
 
-function CaptionBubble({
-  isAgent,
-  speakerName,
-  text,
-  isPartial = false,
-}: {
-  isAgent: boolean;
-  speakerName: string;
-  text: string;
-  isPartial?: boolean;
-}) {
-  return (
-    <View
-      className={`rounded-2xl px-3.5 py-2.5 mb-2 max-w-[88%] ${isAgent ? "bg-lingua-purple self-start" : "bg-white self-end"} ${isPartial ? "opacity-85" : ""}`}
-    >
-      <Text
-        className={`font-poppins-semibold text-[11px] mb-0.5 ${isAgent ? "text-white/75" : "text-text-secondary"}`}
-      >
-        {speakerName}
-      </Text>
-      <Text
-        className={`font-poppins text-sm leading-5 ${isAgent ? "text-white" : "text-text-primary"}`}
-      >
-        {text}
-      </Text>
-    </View>
-  );
-}
 
 function RoleplayReview({
   scenario,
@@ -1590,21 +1426,6 @@ function RoleplayReview({
   );
 }
 
-function micLabel(
-  practice: boolean,
-  canSpeak: boolean,
-  isReady: boolean,
-  micOn: boolean,
-  teacherName: string,
-  t: Translate,
-): string {
-  if (!isReady) return t("roleplay.mic.wait");
-  if (!micOn) return t("roleplay.mic.off");
-  if (practice) {
-    return canSpeak ? t("roleplay.mic.yourTurn") : t("roleplay.mic.listenFirst", { name: teacherName });
-  }
-  return t("roleplay.mic.listening");
-}
 
 function getDisplayStatus(
   callStatus: CallStatus,
@@ -1636,15 +1457,6 @@ function getDisplayStatus(
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#fff" },
   hangUpIcon: { transform: [{ rotate: "135deg" }] },
-  transcriptContent: {
-    flexGrow: 1,
-    padding: 14,
-  },
-  faceSlot: {
-    position: "absolute",
-    right: -22,
-    bottom: -6,
-  },
   reviewStamp: {
     width: 64,
     height: 64,
@@ -1655,31 +1467,5 @@ const styles = StyleSheet.create({
   comicImage: {
     width: "100%",
     height: "100%",
-  },
-  micButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  micButtonOn: {
-    backgroundColor: colors.primary.purple,
-    shadowColor: colors.primary.purple,
-    shadowOpacity: 0.4,
-  },
-  micButtonOff: {
-    backgroundColor: colors.neutral.surface,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-  },
-  micButtonDisabled: {
-    opacity: 0.5,
-  },
-  micButtonPressed: {
-    transform: [{ scale: 0.96 }],
   },
 });
