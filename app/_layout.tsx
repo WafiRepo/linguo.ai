@@ -7,6 +7,9 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { StyleSheet, View } from "react-native";
+
+import { MAX_CONTENT_WIDTH } from "@/lib/layout";
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
@@ -39,6 +42,9 @@ export default function RootLayout() {
   return (
       <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
         <AccountStorageGate>
+        {/* iPad / desktop: a centred column; on phones it is the full screen. */}
+        <View style={styles.page}>
+        <View style={styles.column}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
@@ -58,7 +64,24 @@ export default function RootLayout() {
           <Stack.Screen name="portfolio" />
           <Stack.Screen name="certificates" />
         </Stack>
+        </View>
+        </View>
         </AccountStorageGate>
       </ClerkProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  page: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: "#EEEAFB",
+  },
+  column: {
+    flex: 1,
+    width: "100%",
+    maxWidth: MAX_CONTENT_WIDTH,
+    backgroundColor: "#fff",
+    overflow: "hidden",
+  },
+});

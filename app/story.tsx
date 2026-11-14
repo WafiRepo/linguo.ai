@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+
+import { useContentWidth } from "@/lib/layout";
 
 import { Image } from "@/components/Image";
 
@@ -16,7 +18,7 @@ const PURPLE = "#6c4ef5";
 export default function StoryScreen() {
   const router = useRouter();
   // The hero card spans the screen minus its 20px side margins.
-  const heroWidth = useWindowDimensions().width - 40;
+  const heroWidth = useContentWidth() - 40;
   const { t, locale } = useT();
   const zh = locale === "zh-TW";
   const pick = (text: Bilingual) => (zh ? text.zh : text.en);

@@ -10,9 +10,10 @@ import {
   View,
   Text,
   StyleSheet,
-  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useContentWidth } from "@/lib/layout";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fontFamily } from "@/constants/theme";
 import { TranslationKey, useT } from "@/lib/i18n";
@@ -37,7 +38,8 @@ const TABS: TabConfig[] = [
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { t } = useT();
-  const { width } = useWindowDimensions();
+  // The tab bar spans the app column (narrower than the window on iPad / web).
+  const width = useContentWidth();
   const tabWidth = width / TABS.length;
 
   const indicatorX = useSharedValue(
