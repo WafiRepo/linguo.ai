@@ -42,6 +42,7 @@ from roleplay import (  # noqa: E402
     RoleplayController,
     RoleplayTracker,
     ai_accepted_answer,
+    ai_corrected_answer,
     build_comic_roleplay_prompt,
     comic_correction_note,
     comic_move_on_line,
@@ -407,6 +408,9 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                     _safe_log(f"[roleplay] AI accepted {said!r} for dialogue {index}; syncing")
                     await roleplay.complete_current()
                     return
+                await record_comic_miss(said, index, agent_text)
+
+            async def record_comic_miss(said: str, index: int, agent_text: str) -> None:
                 wrong_attempts[index] = wrong_attempts.get(index, 0) + 1
                 if wrong_attempts[index] >= MAX_WRONG_ATTEMPTS:
                     # Don't leave a child stuck: say it together and move on.
@@ -443,6 +447,20 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 )
 
             roleplay.on_unmatched = on_comic_miss
+
+            async def confirm_comic_match(said: str, index: int, started_at: float) -> bool:
+                """The answer matched the script; it counts unless Bu Guru (who
+                hears the audio) corrected it instead of moving on."""
+                await asyncio.sleep(CORRECTION_GRACE_SECONDS)
+                agent_text = roleplay.agent_text_since(started_at)
+                next_line = turns[index + 1]["guru"] if index + 1 < len(turns) else ""
+                if not ai_corrected_answer(agent_text) or ai_accepted_answer(agent_text, next_line):
+                    return True
+                _safe_log(f"[roleplay] Bu Guru corrected {said!r} for dialogue {index}; not done yet")
+                await record_comic_miss(said, index, agent_text)
+                return False
+
+            roleplay.confirm_match = confirm_comic_match
 
         if is_comic_practice:
             async def say_script(text: str) -> None:

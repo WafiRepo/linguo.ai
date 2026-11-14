@@ -19,9 +19,16 @@ export interface RoleplayCorrection {
   tip: string;
 }
 
+/** A right answer in other words than the comic (Role Play): not a mistake. */
+export interface RoleplayAlternative {
+  said: string;
+  comic: string;
+}
+
 export interface RoleplayFeedback {
   praise: string;
   corrections: RoleplayCorrection[];
+  alternatives?: RoleplayAlternative[];
 }
 
 export interface RoleplayScenario {

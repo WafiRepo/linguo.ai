@@ -207,6 +207,7 @@ def build_comic_roleplay_prompt(
     praise_example = "「很好！」" if zh else '"Great!"'
     almost_example = "「差一點！」" if zh else '"Almost!"'
     model_example = "「跟著我說：…」" if zh else '"Say it like this: ..."'
+    another_example = "「很好！漫畫裡是說：…」" if zh else '"Great! In the comic it says: ..."'
     return (
         f"You are {teacher_name}, a warm Indonesian primary-school teacher. You and a child who is a "
         f"beginner (A1) learner of Bahasa Indonesia are acting out a short classroom comic{title} "
@@ -216,13 +217,20 @@ def build_comic_roleplay_prompt(
         "- Say each TEACHER line exactly as written, in a natural classroom voice, one line at a "
         "time — then stop and wait for the student.\n"
         "- Never say the student's line before they have tried. Go to the next TEACHER line only "
-        "after the student has said their line or something very close to it.\n"
+        "after the student has given a right answer (see RIGHT ANSWERS).\n"
+        "- RIGHT ANSWERS: the comic's student line is ONE good answer, not the only one. Any answer "
+        "that is correct Indonesian, answers your TEACHER line and fits the comic's situation is "
+        "RIGHT, even with other words (e.g. 'Kemarin kita belajar salam' for 'Kami belajar "
+        "salam.'). For such an answer: praise it, then you may add the comic's version as "
+        f"another way to say it (e.g. {another_example}), then go on with the next TEACHER line. "
+        "It is NOT a mistake: never say 'almost', never ask them to repeat it.\n"
         "- Whenever you move to the next dialogue, ALWAYS say its TEACHER line first, exactly as "
         "written. Never ask for a student line whose TEACHER line you have not said yet.\n"
         f"- LANGUAGE: every reaction, praise, correction and tip you say yourself is in "
         f"{help_language}. Only the comic lines (the TEACHER lines, and the student line when "
         "you model it) are in Indonesian.\n"
-        f"- WRONG SENTENCE (wrong or missing words): say one short encouraging word in "
+        f"- WRONG SENTENCE (wrong meaning, wrong or missing words that make it incorrect, or not "
+        f"Indonesian): say one short encouraging word in "
         f"{help_language}, then the correct Indonesian student line (e.g. {model_example}), "
         "plus ONE short tip in "
         f"{help_language} about what was different. Let them try again. After two tries, say it "
@@ -401,7 +409,12 @@ COMIC_FEEDBACK_RULES = (
     "- 'better' MUST be exactly that script student line. Never add words, greetings or polite "
     "phrases that are not in the script (for example, do not add 'terima kasih').\n"
     "- Repeated words from speech recognition (like 'Baik Baik') are not mistakes.\n"
-    "- Only correct a line with missing, wrong or extra words compared with the script."
+    "- An answer with OTHER words that is still correct Indonesian, answers the teacher and fits "
+    "the situation (e.g. 'Kemarin kita belajar salam' for 'Kami belajar salam.') is RIGHT: do "
+    "not correct it. Put it in 'alternatives' instead: {\"said\": the student's line, "
+    "\"comic\": the script student line}, at most 3.\n"
+    "- Only correct a line that is wrong: wrong meaning, wrong or missing words that make it "
+    "incorrect, or not Indonesian."
 )
 
 # Fillers that never make an answer wrong. Not 'oke'/'ya': they can be script answers.
@@ -460,8 +473,22 @@ def parse_feedback(raw: str) -> Optional[dict[str, Any]]:
         said, better = _clip(item.get("said"), 120), _clip(item.get("better"), 120)
         if said and better:
             corrections.append({"said": said, "better": better, "tip": _clip(item.get("tip"), 160)})
+    # Right answers that differ from the comic ("another way to say it").
+    alternatives = []
+    for item in data.get("alternatives") or []:
+        if len(alternatives) == MAX_CORRECTIONS:
+            break
+        if not isinstance(item, dict):
+            continue
+        said, comic = _clip(item.get("said"), 120), _clip(item.get("comic"), 120)
+        if said and comic and _comparable(said) != _comparable(comic):
+            alternatives.append({"said": said, "comic": comic})
     # Custom events are capped at 5 KB, so every field above is clipped.
-    return {"praise": _clip(data.get("praise"), 200), "corrections": corrections}
+    return {
+        "praise": _clip(data.get("praise"), 200),
+        "corrections": corrections,
+        "alternatives": alternatives,
+    }
 
 
 async def generate_roleplay_feedback(
@@ -507,6 +534,9 @@ class RoleplayController:
     status_text: Callable[[RoleplayTracker, str], Optional[str]] = lambda tracker, recent: None
     # Called when a student answer completes nothing: (answer, recent AI speech).
     on_unmatched: Optional[Callable[[str, str], Awaitable[None]]] = None
+    # Comic Role Play: (answer, first matched objective index, answer start time).
+    # A keyword match only counts once this says Bu Guru didn't correct it.
+    confirm_match: Optional[Callable[[str, int, float], Awaitable[bool]]] = None
     # When set, it evaluates every student answer instead of the mission tracker
     # (Latihan's step-by-step practice owns its own flow).
     on_user_answer: Optional[Callable[[str], Awaitable[None]]] = None
@@ -545,6 +575,16 @@ class RoleplayController:
             (t, s) for t, s in self._recent_user if now - t <= USER_WINDOW_SECONDS
         ] + [(now, text)]
         newly_done = self.tracker.record(" ".join(s for _, s in self._recent_user))
+        if newly_done and self.confirm_match is not None:
+            # Bu Guru hears the real audio: wait for her reaction before counting.
+            for objective in newly_done:
+                self.tracker.completed.discard(objective.id)
+            self._recent_user.clear()
+            index = self.tracker.objectives.index(newly_done[0])
+            started_at = self.user_started_at or now
+            asyncio.create_task(self._confirm(text, newly_done, index, started_at))
+            self._schedule_feedback()
+            return
         if newly_done:
             # An answer that completed a dialogue must not count again: "Baik,
             # Bu Guru" + a wrong "Okay" would otherwise also match the next
@@ -562,6 +602,24 @@ class RoleplayController:
             await self.on_unmatched(text, recent)
 
         self._schedule_feedback()
+
+    async def _confirm(
+        self, text: str, objectives: list[RoleplayObjective], index: int, started_at: float
+    ) -> None:
+        if self.confirm_match is None or not await self.confirm_match(text, index, started_at):
+            return
+        # Still the next dialogue(s)? A later answer may have finished them meanwhile.
+        remaining = self.tracker.remaining
+        if remaining[: len(objectives)] != objectives:
+            return
+        self.tracker.completed.update(objective.id for objective in objectives)
+        for objective in objectives:
+            logger.info("[roleplay] objective done (confirmed): %s", objective.id)
+            await self.send_event({"type": "roleplay_objective", "objectiveId": objective.id})
+        if self.append_instructions is not None:
+            status = self.status_text(self.tracker, self.agent_text_since(started_at))
+            if status:
+                await self.append_instructions(status)
 
     def on_agent_partial(self, fragment: str) -> None:
         now = time.monotonic()

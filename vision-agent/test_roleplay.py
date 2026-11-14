@@ -219,10 +219,71 @@ class FeedbackTest(unittest.IsolatedAsyncioTestCase):
             [{"speaker": "agent", "text": "Mau beli apa?"}, {"speaker": "user", "text": "Saya mau manga"}],
             "English",
         )
-        self.assertEqual(result, {"praise": "Good", "corrections": []})
+        self.assertEqual(result, {"praise": "Good", "corrections": [], "alternatives": []})
         self.assertEqual(captured["model"], "gpt-5.4-mini")
         self.assertIn("STUDENT: Saya mau manga", captured["messages"][1]["content"])
         self.assertIn("in English", captured["messages"][0]["content"])
+
+
+class ConfirmMatchTest(unittest.IsolatedAsyncioTestCase):
+    def make(self, verdict):
+        turns = roleplay.comic_turns([
+            {"guruLine": "Apa yang kita pelajari kemarin?", "studentLine": "Kami belajar salam.",
+             "expectedAnswers": ["Kami belajar salam", "Belajar salam"]},
+            {"guruLine": "Bagus.", "studentLine": "Terima kasih.", "expectedAnswers": ["Terima kasih"]},
+        ])
+        self.events = []
+        self.asked = []
+
+        async def send(payload):
+            self.events.append(payload)
+
+        async def confirm(said, index, started_at):
+            self.asked.append((said, index))
+            return verdict
+
+        return RoleplayController(
+            send_event=send,
+            tracker=RoleplayTracker(roleplay.comic_objectives(turns), sequential=True),
+            confirm_match=confirm,
+        )
+
+    def done(self):
+        return [e["objectiveId"] for e in self.events if e["type"] == "roleplay_objective"]
+
+    async def test_match_counts_after_bu_guru_accepts(self):
+        controller = self.make(True)
+        await controller.on_user_final("Kemarin kita belajar salam")
+        self.assertEqual(self.done(), [])  # waits for her reaction first
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        self.assertEqual(self.done(), ["turn-0"])
+        self.assertEqual(self.asked, [("Kemarin kita belajar salam", 0)])
+
+    async def test_match_does_not_count_when_she_corrects(self):
+        controller = self.make(False)
+        await controller.on_user_final("Kemarin kita belajar salam")
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        self.assertEqual(self.done(), [])
+        self.assertEqual([o.id for o in controller.tracker.remaining], ["turn-0", "turn-1"])
+
+
+class AlternativeFeedbackTest(unittest.TestCase):
+    def test_alternatives_are_parsed_and_kept_apart(self):
+        raw = json.dumps({
+            "praise": "很好",
+            "corrections": [],
+            "alternatives": [
+                {"said": "Kemarin kita belajar salam", "comic": "Kami belajar salam."},
+                {"said": "Kami belajar salam", "comic": "Kami belajar salam."},  # same: dropped
+            ],
+        })
+        feedback = roleplay.parse_feedback(raw)
+        self.assertEqual(feedback["alternatives"], [
+            {"said": "Kemarin kita belajar salam", "comic": "Kami belajar salam."},
+        ])
+        self.assertEqual(feedback["corrections"], [])
 
 
 class AnswerWindowTest(unittest.IsolatedAsyncioTestCase):
@@ -295,7 +356,7 @@ class ComicFeedbackTest(unittest.IsolatedAsyncioTestCase):
         result = await generate_roleplay_feedback(
             client, "gpt-5.4-mini", [{"speaker": "user", "text": "Baik Okay"}], "English", script=self.script,
         )
-        self.assertEqual(result, {"praise": "Bagus", "corrections": []})
+        self.assertEqual(result, {"praise": "Bagus", "corrections": [], "alternatives": []})
         self.assertIn("COMIC SCRIPT:", captured["messages"][1]["content"])
         self.assertIn("STUDENT should say: Sudah.", captured["messages"][1]["content"])
         self.assertIn("FIXED comic script", captured["messages"][0]["content"])

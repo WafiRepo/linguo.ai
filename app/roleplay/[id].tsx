@@ -46,6 +46,7 @@ import { useLearningStore } from "@/store/learningStore";
 import { usePortfolioStore } from "@/store/portfolioStore";
 import { ClassManagementTopic } from "@/types/classManagement";
 import {
+  RoleplayAlternative,
   RoleplayCorrection,
   RoleplayFeedback,
   RoleplayScenario,
@@ -71,6 +72,7 @@ const PRACTICE_COMIC_HEIGHT = Math.min(Dimensions.get("window").height * 0.22, 2
 function parseFeedback(data: {
   praise?: unknown;
   corrections?: unknown;
+  alternatives?: unknown;
 }): RoleplayFeedback | null {
   if (typeof data.praise !== "string" || !Array.isArray(data.corrections)) {
     return null;
@@ -79,7 +81,11 @@ function parseFeedback(data: {
     (item): item is RoleplayCorrection =>
       typeof item?.said === "string" && typeof item?.better === "string",
   );
-  return { praise: data.praise, corrections };
+  const alternatives = (Array.isArray(data.alternatives) ? data.alternatives : []).filter(
+    (item): item is RoleplayAlternative =>
+      typeof item?.said === "string" && typeof item?.comic === "string",
+  );
+  return { praise: data.praise, corrections, alternatives };
 }
 
 export default function RoleplayScreen() {
@@ -1418,6 +1424,28 @@ function RoleplayReview({
                 </View>
               ))
             )}
+
+            {/* Right answers in other words: shown, never counted as mistakes. */}
+            {feedback.alternatives?.length ? (
+              <>
+                <Text className="font-poppins-semibold text-[15px] text-text-primary mt-2 mb-2">
+                  {t("roleplay.alsoRight")}
+                </Text>
+                {feedback.alternatives.map((alternative, index) => (
+                  <View
+                    key={`alt-${index}-${alternative.said}`}
+                    className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] p-4 mb-3"
+                  >
+                    <Text className="font-poppins text-xs text-lingua-green">{t("roleplay.altSaid")}</Text>
+                    <Text className="font-poppins-semibold text-[15px] text-text-primary mb-2">
+                      {alternative.said}
+                    </Text>
+                    <Text className="font-poppins text-xs text-text-secondary">{t("roleplay.inComic")}</Text>
+                    <Text className="font-poppins text-sm text-text-secondary">{alternative.comic}</Text>
+                  </View>
+                ))}
+              </>
+            ) : null}
           </View>
         ) : (
           <Text className="mx-4 font-poppins text-[13px] text-text-secondary">
