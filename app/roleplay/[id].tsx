@@ -24,6 +24,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AIPilotNotice } from "@/components/AIPilotNotice";
+import { TeacherFace, TeacherMood } from "@/components/TeacherFace";
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
@@ -406,8 +407,21 @@ function LiveRoleplayScreen() {
     [comic, showTurn, scheduleAdvance],
   );
 
+  // Bu Guru's face: a short reaction, then back to normal.
+  const [reaction, setReaction] = useState<TeacherMood | null>(null);
+  const reactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const react = useCallback((mood: TeacherMood, ms = 1800) => {
+    if (reactionTimerRef.current) clearTimeout(reactionTimerRef.current);
+    setReaction(mood);
+    reactionTimerRef.current = setTimeout(() => setReaction(null), ms);
+  }, []);
+  useEffect(() => () => {
+    if (reactionTimerRef.current) clearTimeout(reactionTimerRef.current);
+  }, []);
+
   const handleObjectiveDone = useCallback(
     (objectiveId: string) => {
+      react("happy");
       setCompletedIds((prev) =>
         prev.includes(objectiveId) ? prev : [...prev, objectiveId],
       );
@@ -416,7 +430,7 @@ function LiveRoleplayScreen() {
         objective_id: objectiveId,
       });
     },
-    [scenario?.id],
+    [scenario?.id, react],
   );
 
   const handleStudentTurn = useCallback(() => {
@@ -430,6 +444,7 @@ function LiveRoleplayScreen() {
   const handleCorrection = useCallback(
     (next: ComicCorrection) => {
       setCorrection(next);
+      react("encourage", 2600);
       setDisplayTurn(next.turnIndex);
       // Still move on afterwards, once the teacher continues.
       if (pendingTurnRef.current !== null) scheduleAdvance(pendingTurnRef.current);
@@ -438,7 +453,7 @@ function LiveRoleplayScreen() {
         turn_index: next.turnIndex,
       });
     },
-    [scenario?.id, scheduleAdvance],
+    [scenario?.id, scheduleAdvance, react],
   );
 
   const handlePracticeStep = useCallback((step: PracticeStep) => {
@@ -448,12 +463,13 @@ function LiveRoleplayScreen() {
   }, []);
 
   const handlePracticeResult = useCallback((turnIndex: number, value: number) => {
+    react(value >= 2 ? "happy" : "encourage", value >= 2 ? 1800 : 2600);
     setStars((prev) => {
       const next = [...prev];
       next[turnIndex] = value;
       return next;
     });
-  }, []);
+  }, [react]);
 
   async function handleLeave() {
     posthog.capture("roleplay_left", {
@@ -572,6 +588,7 @@ function LiveRoleplayScreen() {
               call={call}
               missionComplete={missionComplete}
               resultsReady={resultsReady}
+              reaction={missionComplete ? "celebrate" : reaction}
               onObjectiveDone={handleObjectiveDone}
               onStudentTurn={handleStudentTurn}
               onAgentTurn={handleAgentTurn}
@@ -914,6 +931,7 @@ function ActiveRoleplayContent({
   call,
   missionComplete,
   resultsReady,
+  reaction,
   onObjectiveDone,
   onStudentTurn,
   onAgentTurn,
@@ -933,6 +951,8 @@ function ActiveRoleplayContent({
   missionComplete: boolean;
   /** Feedback arrived (or we stopped waiting): Done can open the results. */
   resultsReady: boolean;
+  /** Bu Guru's reaction to the last answer (or the finished lesson), if any. */
+  reaction: TeacherMood | null;
   onObjectiveDone: (objectiveId: string) => void;
   onStudentTurn: () => void;
   onAgentTurn: () => void;
@@ -949,7 +969,8 @@ function ActiveRoleplayContent({
   onFinish: () => void;
 }) {
   const { t } = useT();
-  const { useMicrophoneState } = useCallStateHooks();
+  const { useMicrophoneState, useParticipants } = useCallStateHooks();
+  const participants = useParticipants();
   const { microphone, optimisticIsMute } = useMicrophoneState({
     optimisticUpdates: true,
   });
@@ -1110,8 +1131,28 @@ function ActiveRoleplayContent({
   const hasTranscript =
     messages.length > 0 || Boolean(partials.agent) || Boolean(partials.user);
 
+  // Bu Guru's face: her voice from the call, or her words still arriving.
+  const teacher = participants.find((participant) => !participant.isLocalParticipant);
+  const student = participants.find((participant) => participant.isLocalParticipant);
+  const teacherSpeaking = Boolean(teacher?.isSpeaking) || Boolean(partials.agent);
+  const faceMood: TeacherMood =
+    reaction ??
+    (!isReady
+      ? "sleepy"
+      : student?.isSpeaking || partials.user
+        ? "listening"
+        : "neutral");
+
   return (
     <View className="flex-1">
+      <View className="items-center pb-3">
+        <TeacherFace
+          mood={faceMood}
+          speaking={teacherSpeaking}
+          audioLevel={teacher?.audioLevel ?? 0}
+          size={56}
+        />
+      </View>
       <ScrollView
         ref={scrollRef}
         className="flex-1 mx-4 rounded-3xl bg-[#F4F2FF]"
