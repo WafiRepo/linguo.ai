@@ -379,8 +379,10 @@ function LiveRoleplayScreen() {
       const nextGuruLine = comic.turns[pending]?.guruLine.id;
       // No next dialogue (all done) or the teacher started it: show it.
       if (!nextGuruLine || saysLine(text, nextGuruLine)) showTurn(pending);
+      // Still on the current dialogue (e.g. correcting it): wait again.
+      else scheduleAdvance(pending);
     },
-    [comic, showTurn],
+    [comic, showTurn, scheduleAdvance],
   );
 
   const handleObjectiveDone = useCallback(
@@ -635,7 +637,8 @@ function MissionCard({
   );
 }
 
-// Wait this long for the teacher to start the next dialogue before moving the comic anyway.
+// Move the comic anyway when the teacher has been quiet this long without
+// starting the next dialogue (each piece of her speech restarts the wait).
 const COMIC_ADVANCE_FALLBACK_MS = 8000;
 
 function comparableWords(text: string): string[] {

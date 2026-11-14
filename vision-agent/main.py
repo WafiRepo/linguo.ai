@@ -51,6 +51,7 @@ from roleplay import (  # noqa: E402
     generate_roleplay_feedback,
     is_answer_attempt,
     help_language_name,
+    repeats_previous_line,
     roleplay_kickoff_hint,
     roleplay_opening_line,
 )
@@ -430,7 +431,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                     await agent.llm.append_thinking(note)
 
             async def on_comic_miss(said: str, _recent_agent_text: str) -> None:
-                if not is_answer_attempt(said):
+                if not is_answer_attempt(said) or repeats_previous_line(tracker, said):
                     return
                 for task in pending_miss:
                     task.cancel()

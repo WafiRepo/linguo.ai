@@ -283,6 +283,17 @@ def ai_accepted_answer(agent_text: str, next_teacher_line: str = "") -> bool:
     return praised and not ai_corrected_answer(agent_text)
 
 
+def repeats_previous_line(tracker: RoleplayTracker, text: str) -> bool:
+    """True when the student says the dialogue they just finished again, e.g.
+    after Bu Guru corrected how they said it. That is not an answer to the
+    next dialogue, so it must not be marked wrong there."""
+    remaining = tracker.remaining
+    if not remaining:
+        return False
+    index = tracker.objectives.index(remaining[0])
+    return index > 0 and objective_hit(tracker.objectives[index - 1], text)
+
+
 def is_answer_attempt(text: str) -> bool:
     """Fillers ("em", "eh") and help requests in Chinese are not answer attempts."""
     if any("一" <= ch <= "鿿" for ch in text):

@@ -225,6 +225,20 @@ class FeedbackTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("in English", captured["messages"][0]["content"])
 
 
+class RepeatPreviousLineTest(unittest.TestCase):
+    def test_repeating_the_finished_line_is_not_a_miss(self):
+        turns = roleplay.comic_turns([
+            {"guruLine": "Masukkan ke stopkontak.", "studentLine": "Baik, Bu Guru.",
+             "expectedAnswers": ["Baik, Bu Guru"]},
+            {"guruLine": "Tekan tombolnya.", "studentLine": "Sudah.", "expectedAnswers": ["Sudah"]},
+        ])
+        tracker = roleplay.RoleplayTracker(roleplay.comic_objectives(turns), sequential=True)
+        self.assertFalse(roleplay.repeats_previous_line(tracker, "Baik, Bu Guru"))  # first dialogue
+        tracker.record("Baik, Bu Guru")
+        self.assertTrue(roleplay.repeats_previous_line(tracker, "baik bu guru"))
+        self.assertFalse(roleplay.repeats_previous_line(tracker, "Belum"))
+
+
 class ComicFeedbackTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.script = roleplay.comic_turns([
