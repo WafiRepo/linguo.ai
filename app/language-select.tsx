@@ -8,13 +8,14 @@ import { type Href, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   FlatList,
-  Image,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+
+import { Image } from "@/components/Image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useT } from "@/lib/i18n";
 

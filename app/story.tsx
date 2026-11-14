@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ReactNode } from "react";
-import { Image, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+
+import { Image } from "@/components/Image";
 
 import { WaveHeader } from "@/components/WaveHeader";
 import { images } from "@/constants/images";

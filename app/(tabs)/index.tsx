@@ -4,7 +4,6 @@ import { Href, useRouter } from "expo-router";
 import { useMemo, useState, useEffect } from "react";
 import {
   Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+import { Image } from "@/components/Image";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AllTopicsDoneCard } from "@/components/AllTopicsDoneCard";

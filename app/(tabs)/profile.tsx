@@ -2,7 +2,9 @@ import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef } from "react";
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+import { Image } from "@/components/Image";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/theme";

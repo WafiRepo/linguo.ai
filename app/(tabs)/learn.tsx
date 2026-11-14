@@ -2,13 +2,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
-  Image as RNImage,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+
+import { Image as RNImage } from "@/components/Image";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { MaterialCard } from "@/components/MaterialCard";

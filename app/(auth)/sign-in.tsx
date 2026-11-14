@@ -9,7 +9,6 @@ import { type Href, router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import {
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,6 +18,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+import { Image } from "@/components/Image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useT } from "@/lib/i18n";
 

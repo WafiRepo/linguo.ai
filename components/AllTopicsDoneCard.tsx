@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Href, useRouter } from "expo-router";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+import { Image } from "@/components/Image";
 
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";

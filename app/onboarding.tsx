@@ -2,7 +2,9 @@ import { images } from "@/constants/images";
 import { posthog } from "@/lib/posthog";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+import { Image } from "@/components/Image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useT } from "@/lib/i18n";
 
