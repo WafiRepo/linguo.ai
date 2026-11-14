@@ -10,10 +10,14 @@ async function authHeaders(getToken: GetToken) {
   return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 }
 
-export async function fetchRole(getToken: GetToken): Promise<PortfolioRole> {
+/** The account's role, and whether it existed before (an existing account). */
+export async function fetchRole(
+  getToken: GetToken,
+): Promise<{ role: PortfolioRole; registered: boolean }> {
   const res = await fetch(apiUrl("/api/role"), { headers: await authHeaders(getToken) });
   if (!res.ok) throw new ApiError(res.status);
-  return (await res.json()).role;
+  const body = await res.json();
+  return { role: body.role, registered: body.registered === true };
 }
 
 /** Throws ApiError(403) when the teacher code is wrong. */

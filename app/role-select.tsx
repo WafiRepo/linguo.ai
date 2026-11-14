@@ -42,11 +42,12 @@ export default function RoleSelectScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<TranslationKey | null>(null);
 
-  // An account that is already a teacher (e.g. on a new phone) skips this step.
+  // An existing account (e.g. on a new phone, an iPad or the web app) already
+  // has its role on the server, so it skips this step.
   useEffect(() => {
     fetchRole(() => getTokenRef.current())
-      .then((role) => {
-        if (role === "teacher" || role === "admin") {
+      .then(({ role, registered }) => {
+        if (registered || role === "teacher" || role === "admin") {
           setRole(role);
           setRoleChosen(true);
           router.replace("/" as Href);

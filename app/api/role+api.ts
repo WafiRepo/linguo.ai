@@ -5,7 +5,9 @@ import { isSupabaseConfigured, supabaseRest } from "../../lib/supabase";
 import type { PortfolioRole } from "../../types/portfolio";
 
 // Choosing Student or Teacher after sign-up.
-//   GET  /api/role                         → { role } (creates the profile row if missing)
+//   GET  /api/role                         → { role, registered } (creates the profile
+//        row if missing; registered = the account already had one, i.e. it is not
+//        new, so a new phone or the web app can skip the Student/Teacher step)
 //   POST /api/role { role: "student" }     → becomes a student
 //   POST /api/role { role: "teacher", code } → becomes a teacher only with the
 //        school's teacher code (TEACHER_SIGNUP_CODE, server env), so a student
@@ -44,6 +46,7 @@ export async function GET(request: Request): Promise<Response> {
   if (auth instanceof Response) return auth;
   try {
     let role = await currentRole(auth);
+    const registered = role !== null;
     if (!role) {
       await supabaseRest("profiles?on_conflict=user_id", {
         method: "POST",
@@ -52,7 +55,7 @@ export async function GET(request: Request): Promise<Response> {
       });
       role = "student";
     }
-    return Response.json({ role });
+    return Response.json({ role, registered });
   } catch (error) {
     console.error("[role] GET failed", error);
     return Response.json({ error: "Could not load role" }, { status: 502 });
