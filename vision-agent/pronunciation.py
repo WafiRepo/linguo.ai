@@ -76,6 +76,10 @@ def indonesian_pronunciation_rules(phrases: list[str], help_language: str) -> st
         "vowel into a diphthong. Example: hadir = ha-dir, NOT \"hai-dir\".\n"
         "- Leave a tiny pause before and after each Indonesian phrase and switch fully to an "
         "Indonesian accent for it.\n"
+        "- ONE VOICE: always speak in your own teacher voice, in every language. When you model "
+        "the student's line ('say it like this: ...'), say it in your own voice: never act out "
+        "the student, never imitate a child, a boy, a man or a woman, never change your pitch "
+        "or voice.\n"
         f"- Syllables: {guide}."
     )
 

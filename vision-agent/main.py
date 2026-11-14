@@ -69,6 +69,8 @@ AGENT_USER_ID = "ai-teacher"
 MALE_TEACHER_VOICE = "cedar"
 # Longest wait for Bu Guru's reaction before a matched answer counts.
 CONFIRM_MAX_WAIT_SECONDS = 6.0
+# Pause between the student joining and Bu Guru's first line.
+FIRST_LINE_DELAY_SECONDS = 1.5
 
 LANGUAGE_NAMES: dict[str, str] = {
     "es": "Spanish",
@@ -736,6 +738,10 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         async with agent.join(call):
             # Wait for the student to join (returns immediately if already present)
             await agent.wait_for_participant(timeout=60.0)
+            # The student's phone/browser needs a moment to start playing the
+            # teacher's audio (and switch to the speaker); a first line said at
+            # once came out quiet or clipped.
+            await asyncio.sleep(FIRST_LINE_DELAY_SECONDS)
 
             if is_class_management and class_mgmt is not None:
                 await class_mgmt.start()
