@@ -755,11 +755,13 @@ const COMIC_ADVANCE_MAX_MS = 15000;
 // How far back her speech is checked for the next dialogue's line.
 const RECENT_AGENT_TEXT_MS = 12000;
 
+// Indonesian words only: Chinese and punctuation are separators, because the
+// teacher runs them together ("接著聽老師說。Tekan tombolnya").
 function comparableWords(text: string): string[] {
   return text
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .split(/\s+/)
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
     .filter(Boolean);
 }
 

@@ -290,6 +290,8 @@ class AskedLineTest(unittest.IsolatedAsyncioTestCase):
     def test_says_line_matches_the_start_of_the_teacher_line(self):
         self.assertTrue(roleplay.says_line("很棒! Besarkan suaranya sedikit ya.", "Besarkan suaranya sedikit."))
         self.assertTrue(roleplay.says_line("Siapa yang masih ingat?", "Siapa yang masih ingat pelajaran kemarin?"))
+        # Chinese right before the line, without a space (log 05:32).
+        self.assertTrue(roleplay.says_line("很好喔。接著聽老師說。Tekan tombolnya", "Tekan tombolnya."))
         self.assertFalse(roleplay.says_line("很棒! Besarkan", "Besarkan suaranya sedikit."))
 
     async def test_speech_fragments_join_as_spoken(self):

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import logging
 import time
 from dataclasses import dataclass, field
@@ -280,11 +281,18 @@ def says_line(agent_text: str, line: str) -> bool:
     """True when the AI's speech contains the start of this (comic) line:
     its first three words (all of a shorter line), so a small change at the
     end ('Siapa yang masih ingat?' for 'Siapa yang masih ingat pelajaran kemarin?') still counts."""
-    words = _normalize(line).split()
+    words = _latin_words(line)
     if not words:
         return False
     start = " ".join(words[: min(3, len(words))])
-    return f" {start} " in f" {_normalize(agent_text)} "
+    return f" {start} " in f" {' '.join(_latin_words(agent_text))} "
+
+
+def _latin_words(text: str) -> list[str]:
+    """Indonesian words only. Chinese and punctuation are separators, because
+    Bu Guru runs them together ("接著聽老師說。Tekan tombolnya"), which made
+    "說。tekan" one word and hid the line."""
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).split()
 
 
 def ai_corrected_answer(agent_text: str) -> bool:
