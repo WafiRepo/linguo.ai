@@ -2,6 +2,7 @@ import { Asset } from "expo-asset";
 import { File, Paths } from "expo-file-system";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import { Platform } from "react-native";
 
 import { CERTIFICATE_TITLES, COURSE_TITLE } from "@/constants/curriculumParts";
 import { images } from "@/constants/images";
@@ -41,6 +42,8 @@ async function getLogoDataUri(): Promise<string> {
   if (logoDataUri) return logoDataUri;
   // A bundled image is a module id (number) at runtime.
   const asset = Asset.fromModule(images.logoCertificate as number);
+  // In a browser the logo is already a normal web address.
+  if (Platform.OS === "web") return asset.uri;
   await asset.downloadAsync();
   if (!asset.localUri) throw new Error("Logo asset not available");
   logoDataUri = `data:image/jpeg;base64,${await new File(asset.localUri).base64()}`;
@@ -120,14 +123,39 @@ async function makeCertificatePdf(certificate: Certificate): Promise<string> {
   return named.uri;
 }
 
+/**
+ * Web: no PDF files in the browser. Open the certificate in a new tab and the
+ * browser's print dialog, where "Save as PDF" makes the PDF.
+ */
+async function printInBrowser(certificate: Certificate) {
+  const logo = await getLogoDataUri().catch(() => undefined);
+  const win = window.open("", "_blank");
+  if (!win) throw new Error("Pop-up blocked");
+  win.document.write(certificateHtml(certificate, logo));
+  win.document.title = `Certificate-${certificate.certificateNo}`;
+  win.document.close();
+  // Print once the logo has loaded (or after a moment if load never fires).
+  let printed = false;
+  const print = () => {
+    if (printed) return;
+    printed = true;
+    win.print();
+  };
+  win.onload = print;
+  setTimeout(print, 1200);
+}
+
 /** Opens the system print dialog with the finished (landscape) PDF. */
 export async function printCertificate(certificate: Certificate) {
+  if (Platform.OS === "web") return printInBrowser(certificate);
   // Printing the PDF file, not the HTML, keeps the page landscape on Android.
   await Print.printAsync({ uri: await makeCertificatePdf(certificate) });
 }
 
 /** Makes the PDF file and opens the share sheet (save to Files, LINE, email…). */
 export async function shareCertificatePdf(certificate: Certificate) {
+  // Browsers save the PDF from their print dialog ("Save as PDF").
+  if (Platform.OS === "web") return printInBrowser(certificate);
   const uri = await makeCertificatePdf(certificate);
   await Sharing.shareAsync(uri, {
     mimeType: "application/pdf",
