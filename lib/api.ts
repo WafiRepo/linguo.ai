@@ -7,7 +7,7 @@ import { Platform } from "react-native";
  * - Web dev: empty → relative `/api/...` (Metro serves API routes)
  * - Native dev/build: must be absolute — set `EXPO_PUBLIC_API_URL` or use production fallback
  */
-const PRODUCTION_API_URL = "https://linguo-ai.expo.app";
+const PRODUCTION_API_URL = "https://ai-berbicara.expo.app";
 
 function resolveApiBase(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");

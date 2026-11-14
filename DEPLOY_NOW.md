@@ -6,7 +6,7 @@ Repo GitHub: **https://github.com/WafiRepo/linguo.ai**
 
 Expo project: **https://expo.dev/accounts/wafirepo/projects/linguo-ai**
 
-Production API URL: **https://linguo-ai.expo.app**
+Production API URL: **https://ai-berbicara.expo.app**
 
 ---
 
@@ -108,7 +108,7 @@ npx eas-cli env:create --name VISION_AGENT_URL --value https://YOUR-RAILWAY-URL 
 npm run deploy:api
 ```
 
-Catat URL yang muncul, contoh: `https://linguo-ai.expo.app`
+Catat URL yang muncul, contoh: `https://ai-berbicara.expo.app`
 
 ### C3. Tes API
 
