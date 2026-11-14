@@ -30,8 +30,12 @@ interface TalkStageProps {
   onPressOut: () => void;
 }
 
-const FACE_SIZE = 78;
-const GLOW_SIZE = 300;
+// The face shrinks when a correction card leaves less room (never overlapping
+// the transcript or the button below).
+const MAX_FACE = 78;
+const MIN_FACE = 36;
+// TeacherFace is about 1.8x its size tall (room for flames and the shadow).
+const FACE_BOX = 380 / 210;
 const BAR_COUNT = 9;
 
 export function TalkStage({
@@ -48,6 +52,9 @@ export function TalkStage({
   onPressIn,
   onPressOut,
 }: TalkStageProps) {
+  const [stageHeight, setStageHeight] = useState(190);
+  const faceSize = Math.max(MIN_FACE, Math.min(MAX_FACE, (stageHeight - 8) / FACE_BOX));
+  const glowSize = Math.min(300, stageHeight * 1.5);
   const studentGlow = useSharedValue(0);
   const teacherGlow = useSharedValue(0.15);
 
@@ -71,13 +78,22 @@ export function TalkStage({
   }));
 
   return (
-    <View className="flex-1 items-center justify-center">
-      <View style={styles.stage}>
-        <Animated.View pointerEvents="none" style={[styles.glow, teacherGlowStyle]}>
-          <Glow id="teacher-glow" color="#FFB443" />
+    <View className="flex-1 items-center">
+      <View
+        style={styles.stage}
+        onLayout={(event) => setStageHeight(Math.round(event.nativeEvent.layout.height))}
+      >
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.glow, { width: glowSize, height: glowSize }, teacherGlowStyle]}
+        >
+          <Glow id="teacher-glow" color="#FFB443" size={glowSize} />
         </Animated.View>
-        <Animated.View pointerEvents="none" style={[styles.glow, studentGlowStyle]}>
-          <Glow id="student-glow" color="#FF3B5C" />
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.glow, { width: glowSize, height: glowSize }, studentGlowStyle]}
+        >
+          <Glow id="student-glow" color="#FF3B5C" size={glowSize} />
         </Animated.View>
         <Pressable
           onPressIn={canTalk ? onPressIn : undefined}
@@ -88,7 +104,7 @@ export function TalkStage({
           testID="roleplay-hold-to-talk"
           style={({ pressed }) => [styles.facePress, pressed && canTalk && styles.facePressed]}
         >
-          <TeacherFace mood={mood} speaking={teacherSpeaking} audioLevel={teacherLevel} size={FACE_SIZE} />
+          <TeacherFace mood={mood} speaking={teacherSpeaking} audioLevel={teacherLevel} size={faceSize} />
         </Pressable>
       </View>
 
@@ -96,7 +112,7 @@ export function TalkStage({
 
       <Text className="mt-1 font-poppins-medium text-[13px] text-text-secondary text-center px-6">{status}</Text>
 
-      <View className="mt-3 px-8 w-full items-center min-h-[52px]">
+      <View className="mt-2 px-8 w-full items-center min-h-[40px]">
         {lines.map((line, index) => (
           <Text
             key={`${index}-${line.text}`}
@@ -117,9 +133,9 @@ export function TalkStage({
 }
 
 /** A soft round glow that fades out to transparent at its edge. */
-function Glow({ id, color }: { id: string; color: string }) {
+function Glow({ id, color, size }: { id: string; color: string; size: number }) {
   return (
-    <Svg width={GLOW_SIZE} height={GLOW_SIZE}>
+    <Svg width={size} height={size}>
       <Defs>
         <RadialGradient id={id} cx="50%" cy="50%" r="50%">
           <Stop offset="0%" stopColor={color} stopOpacity={0.75} />
@@ -127,7 +143,7 @@ function Glow({ id, color }: { id: string; color: string }) {
           <Stop offset="100%" stopColor={color} stopOpacity={0} />
         </RadialGradient>
       </Defs>
-      <Circle cx={GLOW_SIZE / 2} cy={GLOW_SIZE / 2} r={GLOW_SIZE / 2} fill={`url(#${id})`} />
+      <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${id})`} />
     </Svg>
   );
 }
@@ -160,17 +176,17 @@ function VoiceBars({ active, level }: { active: boolean; level: number }) {
 }
 
 const styles = StyleSheet.create({
+  // Takes the room left between the comic and the transcript.
   stage: {
-    width: GLOW_SIZE,
-    height: 190,
+    flex: 1,
+    alignSelf: "stretch",
+    maxHeight: 200,
+    minHeight: 72,
     alignItems: "center",
     justifyContent: "center",
   },
   glow: {
     position: "absolute",
-    width: GLOW_SIZE,
-    height: GLOW_SIZE,
-    top: (190 - GLOW_SIZE) / 2,
   },
   facePress: {
     paddingHorizontal: 8,
