@@ -1,5 +1,7 @@
 import { ImageSourcePropType } from "react-native";
 
+import { images } from "@/constants/images";
+
 // "The Story Behind the App" (Info tab). Wording from the 2026-11-10 revision
 // requirements; confirm names, roles and photo permission before publishing.
 export type Bilingual = { zh: string; en: string };
@@ -45,6 +47,7 @@ export const STORY = {
     {
       name: "郭翊姍 Yishan Kuo",
       initials: "YK",
+      photo: images.teamYishan,
       role: { zh: "策劃統籌", en: "Project Planning & Coordination" },
       school: {
         zh: "國立中央大學\n學習與教學研究所｜博士候選人",
@@ -58,6 +61,7 @@ export const STORY = {
     {
       name: "萬米山 Wafi",
       initials: "W",
+      photo: images.teamWafi,
       role: { zh: "程式設計師", en: "App Developer" },
       school: {
         zh: "國立陽明交通大學\n資訊工程研究所｜博士生",
@@ -71,6 +75,7 @@ export const STORY = {
     {
       name: "文莎 Vinsa",
       initials: "V",
+      photo: images.teamVinsa,
       role: { zh: "協同執行", en: "Project Collaboration" },
       school: {
         zh: "國立中央大學\n網路學習科技研究所｜博士生",
