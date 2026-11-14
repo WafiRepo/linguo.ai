@@ -545,6 +545,11 @@ class RoleplayController:
             (t, s) for t, s in self._recent_user if now - t <= USER_WINDOW_SECONDS
         ] + [(now, text)]
         newly_done = self.tracker.record(" ".join(s for _, s in self._recent_user))
+        if newly_done:
+            # An answer that completed a dialogue must not count again: "Baik,
+            # Bu Guru" + a wrong "Okay" would otherwise also match the next
+            # dialogue whose answer is "Baik" and skip a correction.
+            self._recent_user.clear()
         for objective in newly_done:
             logger.info("[roleplay] objective done: %s", objective.id)
             await self.send_event({"type": "roleplay_objective", "objectiveId": objective.id})

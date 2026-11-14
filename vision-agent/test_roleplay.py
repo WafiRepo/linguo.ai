@@ -225,6 +225,29 @@ class FeedbackTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("in English", captured["messages"][0]["content"])
 
 
+class AnswerWindowTest(unittest.IsolatedAsyncioTestCase):
+    async def test_finished_answer_does_not_complete_the_next_dialogue(self):
+        turns = roleplay.comic_turns([
+            {"guruLine": "Masukkan ke stopkontak.", "studentLine": "Baik, Bu Guru.",
+             "expectedAnswers": ["Baik, Bu Guru", "Baik"]},
+            {"guruLine": "Tekan tombolnya.", "studentLine": "Sudah.", "expectedAnswers": ["Sudah"]},
+            {"guruLine": "Besarkan suaranya.", "studentLine": "Baik.", "expectedAnswers": ["Baik"]},
+        ])
+        events = []
+
+        async def send(payload):
+            events.append(payload)
+
+        controller = RoleplayController(
+            send_event=send,
+            tracker=RoleplayTracker(roleplay.comic_objectives(turns), sequential=True),
+        )
+        await controller.on_user_final("Baik, Bu Guru")
+        await controller.on_user_final("Okay")  # wrong answer to dialogue 2
+        done = [e["objectiveId"] for e in events if e["type"] == "roleplay_objective"]
+        self.assertEqual(done, ["turn-0"])
+
+
 class RepeatPreviousLineTest(unittest.TestCase):
     def test_repeating_the_finished_line_is_not_a_miss(self):
         turns = roleplay.comic_turns([
