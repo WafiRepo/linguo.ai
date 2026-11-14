@@ -13,6 +13,8 @@ import base64
 import json
 import logging
 import os
+import re
+import time
 from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 
 import aiortc
@@ -32,6 +34,11 @@ CONNECT_TIMEOUT_SECONDS = 15
 # pause mid-sentence while thinking, so their turns get a longer window.
 USER_TURN_SETTLE_SECONDS = 1.2
 AGENT_TURN_SETTLE_SECONDS = 0.9
+# Barge-in: the Live API stops talking by itself when the student speaks, but
+# the audio already sent keeps playing and it sends no "interrupted" event.
+# Don't count the last moment of her audio (a reply right as she ends).
+BARGE_IN_TAIL_SECONDS = 0.25
+_SPEECH = re.compile(r"[^\W\d_]{2,}")  # a real word, not "." or "-"
 
 
 class GptLive(realtime.Realtime):
@@ -61,6 +68,11 @@ class GptLive(realtime.Realtime):
         self._agent_parts: list[str] = []
         self._user_timer: Optional[asyncio.Task] = None
         self._agent_timer: Optional[asyncio.Task] = None
+        # Role Play only: the student may cut in while the teacher talks.
+        self.barge_in = False
+        self._audio_until = 0.0  # when the audio sent so far finishes playing
+        self._barging = False  # the student interrupted and is still talking
+        self._last_user_fragment_at = 0.0
 
     async def connect(self) -> None:
         api_key = self._api_key or os.environ.get("OPENAI_API_KEY", "")
@@ -203,17 +215,24 @@ class GptLive(realtime.Realtime):
         et = event.get("type")
 
         if et == "session.output_audio.delta":
+            if self._silenced():
+                return  # the rest of the sentence she was cut off in
             pcm = PcmData.from_bytes(
                 base64.b64decode(event.get("delta", "")),
                 sample_rate=LIVE_SAMPLE_RATE,
                 format="s16",
                 channels=1,
             )
+            now = time.monotonic()
+            self._audio_until = max(now, self._audio_until) + pcm.duration_ms / 1000
             self._emit_audio_output_event(pcm)
         elif et == "session.output_transcript.delta":
-            self._on_agent_fragment(event.get("delta", ""))
+            if not self._silenced():
+                self._on_agent_fragment(event.get("delta", ""))
         elif et == "session.input_transcript.delta":
-            self._on_user_fragment(event.get("delta", ""))
+            delta = event.get("delta", "")
+            self._maybe_barge_in(delta)
+            self._on_user_fragment(delta)
         elif et == "session.started":
             logger.info("gpt-live session started: %s", (event.get("session") or {}).get("id"))
             if self._started is not None:
@@ -244,6 +263,31 @@ class GptLive(realtime.Realtime):
             "delegation_id": delegation["id"],
             "content": "No backend is available. Handle this yourself, briefly and in character.",
         })
+
+    def _maybe_barge_in(self, fragment: str) -> None:
+        """The student started talking over the teacher: stop her audio now."""
+        now = time.monotonic()
+        if _SPEECH.search(fragment):
+            self._last_user_fragment_at = now
+        if not self.barge_in or self._barging or not _SPEECH.search(fragment):
+            return
+        if now >= self._audio_until - BARGE_IN_TAIL_SECONDS:
+            return  # she already finished: a normal answer, not an interruption
+        logger.info("gpt-live: student barged in; stopping the teacher's audio")
+        self._barging = True
+        self._audio_until = now
+        # Same path as a Realtime barge-in: the agent flushes the queued audio.
+        self._emit_audio_output_done_event(interrupted=True)
+
+    def _silenced(self) -> bool:
+        """While the student who interrupted is still talking, drop the rest of
+        the teacher's interrupted sentence; her reply afterwards plays normally."""
+        if not self._barging:
+            return False
+        if time.monotonic() - self._last_user_fragment_at > USER_TURN_SETTLE_SECONDS:
+            self._barging = False
+            return False
+        return True
 
     def _on_user_fragment(self, text: str) -> None:
         if not text:

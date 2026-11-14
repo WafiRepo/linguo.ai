@@ -69,6 +69,47 @@ async def drain(llm: GptLive, seconds: float) -> list:
     return items
 
 
+def audio_event(seconds: float) -> dict:
+    samples = np.zeros(int(24000 * seconds), dtype=np.int16).tobytes()
+    return {"type": "session.output_audio.delta", "delta": base64.b64encode(samples).decode()}
+
+
+class BargeInTest(unittest.IsolatedAsyncioTestCase):
+    async def test_student_cuts_in_while_teacher_talks(self):
+        with patch.object(gpt_live, "USER_TURN_SETTLE_SECONDS", 0.2):
+            llm = GptLive(api_key="test")
+            llm.barge_in = True
+            done = []
+            llm._emit_audio_output_done_event = lambda **kw: done.append(kw)
+            await llm._handle_event(audio_event(2.0))  # 2 s of her speech queued
+            await llm._handle_event({"type": "session.input_transcript.delta", "delta": " Saya"})
+            self.assertEqual(done, [{"interrupted": True}])
+            # The rest of the cut-off sentence is dropped while the student talks…
+            await llm._handle_event(audio_event(0.5))
+            self.assertTrue(llm._silenced())
+            # …and her reply after they stop plays again.
+            await asyncio.sleep(0.3)
+            self.assertFalse(llm._silenced())
+
+    async def test_answer_after_she_finished_is_not_a_barge_in(self):
+        llm = GptLive(api_key="test")
+        llm.barge_in = True
+        done = []
+        llm._emit_audio_output_done_event = lambda **kw: done.append(kw)
+        await llm._handle_event({"type": "session.input_transcript.delta", "delta": " Sudah"})
+        self.assertEqual(done, [])
+
+    async def test_off_by_default_and_noise_ignored(self):
+        llm = GptLive(api_key="test")
+        done = []
+        llm._emit_audio_output_done_event = lambda **kw: done.append(kw)
+        await llm._handle_event(audio_event(2.0))
+        await llm._handle_event({"type": "session.input_transcript.delta", "delta": " Saya"})
+        llm.barge_in = True
+        await llm._handle_event({"type": "session.input_transcript.delta", "delta": " ."})
+        self.assertEqual(done, [])
+
+
 class GptLiveTest(unittest.IsolatedAsyncioTestCase):
     async def start_server(self, server: FakeLiveServer) -> str:
         ws_server = await websockets.serve(server.handler, "127.0.0.1", 0)

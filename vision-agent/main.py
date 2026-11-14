@@ -358,6 +358,10 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         teacher = "Pak Guru" if custom.get("ai_name") == "Pak Guru" else "Bu Guru"
         if teacher == "Pak Guru" and is_gpt_live:
             agent.llm.voice = MALE_TEACHER_VOICE  # read when the session connects
+        if is_gpt_live and not is_comic_practice:
+            # Role Play: the student may cut in; Practice mutes them while
+            # the teacher talks, so it can't be interrupted.
+            agent.llm.barge_in = True
         if is_comic_practice:
             # The practice flow voices every next line itself; no status notes.
             status_text = lambda t, recent: None  # noqa: E731
