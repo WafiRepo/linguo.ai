@@ -217,6 +217,19 @@ function LiveRoleplayScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [missionComplete, comic, isPractice, completeClassTopic]);
 
+  // After the last dialogue the Done button waits for Bu Guru's feedback
+  // (it holds the score), but not longer than RESULTS_WAIT_MS.
+  const [resultsTimedOut, setResultsTimedOut] = useState(false);
+  useEffect(() => {
+    if (!missionComplete) {
+      setResultsTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setResultsTimedOut(true), RESULTS_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [missionComplete]);
+  const resultsReady = feedback !== null || resultsTimedOut;
+
   // Role Play score, once every dialogue is done and Bu Guru's feedback is in.
   const rolePlayResult =
     !isPractice && missionComplete && feedback && scenario
@@ -550,6 +563,7 @@ function LiveRoleplayScreen() {
               agentStatus={agentStatus}
               call={call}
               missionComplete={missionComplete}
+              resultsReady={resultsReady}
               onObjectiveDone={handleObjectiveDone}
               onStudentTurn={handleStudentTurn}
               onAgentTurn={handleAgentTurn}
@@ -636,6 +650,9 @@ function MissionCard({
     </View>
   );
 }
+
+// After the last dialogue, wait at most this long for Bu Guru's feedback.
+const RESULTS_WAIT_MS = 20000;
 
 // Move the comic anyway when the teacher has been quiet this long without
 // starting the next dialogue (each piece of her speech restarts the wait).
@@ -888,6 +905,7 @@ function ActiveRoleplayContent({
   agentStatus,
   call,
   missionComplete,
+  resultsReady,
   onObjectiveDone,
   onStudentTurn,
   onAgentTurn,
@@ -905,6 +923,8 @@ function ActiveRoleplayContent({
   agentStatus: AgentStatus;
   call: Call;
   missionComplete: boolean;
+  /** Feedback arrived (or we stopped waiting): Done can open the results. */
+  resultsReady: boolean;
   onObjectiveDone: (objectiveId: string) => void;
   onStudentTurn: () => void;
   onAgentTurn: () => void;
@@ -947,6 +967,13 @@ function ActiveRoleplayContent({
     micAutoStartedRef.current = true;
     microphone.enable().catch((e) => console.warn("[roleplay] mic enable failed:", e));
   }, [isReady, microphone]);
+
+  // Every dialogue is done: the conversation is over, the student can't
+  // talk to Bu Guru any more (she can still finish her last sentence).
+  useEffect(() => {
+    if (!missionComplete) return;
+    microphone.disable().catch((e) => console.warn("[roleplay] mic disable failed:", e));
+  }, [missionComplete, microphone]);
 
   useEffect(() => {
     const unsubscribe = call.on("custom", (event: RoleplayCustomEvent) => {
@@ -1084,26 +1111,6 @@ function ActiveRoleplayContent({
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
-        {missionComplete ? (
-          <View className="flex-row items-center bg-white rounded-2xl p-3 mb-2 border border-lingua-green">
-            <View className="flex-1">
-              <Text className="font-poppins-semibold text-sm text-text-primary">
-                {t("roleplay.missionDone", { xp: scenario.xpReward })}
-              </Text>
-              <Text className="font-poppins text-xs text-text-secondary">
-                {t("roleplay.keepTalking")}
-              </Text>
-            </View>
-            <TouchableOpacity
-              className="bg-lingua-green rounded-xl px-3 py-2"
-              activeOpacity={0.85}
-              onPress={onFinish}
-            >
-              <Text className="font-poppins-semibold text-xs text-white">{t("roleplay.end")}</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
         {hasTranscript ? (
           <>
             {messages.map((message) => (
@@ -1154,71 +1161,96 @@ function ActiveRoleplayContent({
         )}
       </ScrollView>
 
-      {showHints ? (
-        <View className="mx-4 mt-3 rounded-2xl bg-white border border-border p-3">
-          <Text className="font-poppins-semibold text-xs text-text-secondary mb-2">
-            {t("roleplay.youCanSay")}
+      {missionComplete ? (
+        <View className="px-6 pt-4 pb-6">
+          <Text className="mb-3 text-center font-poppins-medium text-[13px] text-text-secondary">
+            {resultsReady
+              ? t("roleplay.finishedBody")
+              : t("roleplay.preparingResults", { name: scenario.aiName })}
           </Text>
-          {scenario.hints.map((hint, index) => (
-            <View key={`${index}-${hint.text}`} className="mb-1.5">
-              <Text className="font-poppins-semibold text-sm text-text-primary">
-                {hint.text}
+          <TouchableOpacity
+            className={`h-14 items-center justify-center rounded-2xl ${resultsReady ? "bg-lingua-purple" : "bg-[#C9BEFB]"}`}
+            activeOpacity={0.85}
+            disabled={!resultsReady}
+            onPress={onFinish}
+            testID="roleplay-done-button"
+          >
+            {resultsReady ? (
+              <Text className="font-poppins-semibold text-base text-white">{t("roleplay.done")}</Text>
+            ) : (
+              <ActivityIndicator color="#fff" />
+            )}
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          {showHints ? (
+            <View className="mx-4 mt-3 rounded-2xl bg-white border border-border p-3">
+              <Text className="font-poppins-semibold text-xs text-text-secondary mb-2">
+                {t("roleplay.youCanSay")}
               </Text>
-              <Text className="font-poppins text-xs text-text-secondary">
-                {hint.translation}
+              {scenario.hints.map((hint, index) => (
+                <View key={`${index}-${hint.text}`} className="mb-1.5">
+                  <Text className="font-poppins-semibold text-sm text-text-primary">
+                    {hint.text}
+                  </Text>
+                  <Text className="font-poppins text-xs text-text-secondary">
+                    {hint.translation}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          <View className="flex-row items-center justify-between px-8 pt-4 pb-6">
+            <TouchableOpacity
+              className={`w-14 h-14 rounded-full items-center justify-center ${showHints ? "bg-lingua-purple" : "bg-surface"}`}
+              activeOpacity={0.8}
+              onPress={handleToggleHints}
+              testID="roleplay-hints-button"
+            >
+              <Ionicons
+                name="bulb-outline"
+                size={24}
+                color={showHints ? "#fff" : colors.neutral.textPrimary}
+              />
+            </TouchableOpacity>
+
+            <View className="items-center">
+              <Pressable
+                onPress={handleMicPress}
+                disabled={!isReady || micOn}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !isReady || micOn }}
+                testID="roleplay-mic-button"
+                style={({ pressed }) => [
+                  styles.micButton,
+                  micOn ? styles.micButtonOn : styles.micButtonOff,
+                  !isReady && styles.micButtonDisabled,
+                  pressed && styles.micButtonPressed,
+                ]}
+              >
+                {agentStatus === "connecting" ? (
+                  <ActivityIndicator size="small" color={colors.primary.purple} />
+                ) : (
+                  <Ionicons
+                    name={micOn ? "mic" : "mic-off"}
+                    size={32}
+                    color={micOn ? "#fff" : colors.neutral.textPrimary}
+                  />
+                )}
+              </Pressable>
+              <Text
+                className={`font-poppins-medium text-[13px] mt-2 ${micOn ? "text-lingua-purple" : "text-text-secondary"}`}
+              >
+                {micLabel(practice, canSpeak, isReady, micOn, scenario.aiName, t)}
               </Text>
             </View>
-          ))}
-        </View>
-      ) : null}
 
-      <View className="flex-row items-center justify-between px-8 pt-4 pb-6">
-        <TouchableOpacity
-          className={`w-14 h-14 rounded-full items-center justify-center ${showHints ? "bg-lingua-purple" : "bg-surface"}`}
-          activeOpacity={0.8}
-          onPress={handleToggleHints}
-          testID="roleplay-hints-button"
-        >
-          <Ionicons
-            name="bulb-outline"
-            size={24}
-            color={showHints ? "#fff" : colors.neutral.textPrimary}
-          />
-        </TouchableOpacity>
-
-        <View className="items-center">
-          <Pressable
-            onPress={handleMicPress}
-            disabled={!isReady || micOn}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !isReady || micOn }}
-            testID="roleplay-mic-button"
-            style={({ pressed }) => [
-              styles.micButton,
-              micOn ? styles.micButtonOn : styles.micButtonOff,
-              !isReady && styles.micButtonDisabled,
-              pressed && styles.micButtonPressed,
-            ]}
-          >
-            {agentStatus === "connecting" ? (
-              <ActivityIndicator size="small" color={colors.primary.purple} />
-            ) : (
-              <Ionicons
-                name={micOn ? "mic" : "mic-off"}
-                size={32}
-                color={micOn ? "#fff" : colors.neutral.textPrimary}
-              />
-            )}
-          </Pressable>
-          <Text
-            className={`font-poppins-medium text-[13px] mt-2 ${micOn ? "text-lingua-purple" : "text-text-secondary"}`}
-          >
-            {micLabel(practice, canSpeak, isReady, micOn, scenario.aiName, t)}
-          </Text>
-        </View>
-
-        <View className="w-14 h-14" />
-      </View>
+            <View className="w-14 h-14" />
+          </View>
+        </>
+      )}
     </View>
   );
 }
