@@ -277,8 +277,14 @@ CORRECTION_WORDS_ZH = ("差一點", "再試", "再說一次", "應該", "不是"
 
 
 def says_line(agent_text: str, line: str) -> bool:
-    """True when the AI's speech contains this (comic) line."""
-    return bool(_normalize(line)) and _normalize(line) in _normalize(agent_text)
+    """True when the AI's speech contains the start of this (comic) line:
+    its first three words (all of a shorter line), so a small change at the
+    end ('Siapa yang masih ingat?' for 'Siapa yang masih ingat pelajaran kemarin?') still counts."""
+    words = _normalize(line).split()
+    if not words:
+        return False
+    start = " ".join(words[: min(3, len(words))])
+    return f" {start} " in f" {_normalize(agent_text)} "
 
 
 def ai_corrected_answer(agent_text: str) -> bool:
@@ -560,6 +566,8 @@ class RoleplayController:
     _feedback_task: Optional[asyncio.Task] = None
     # When the student started their current/latest answer.
     user_started_at: Optional[float] = None
+    # How many matched answers per dialogue are waiting for Bu Guru's reaction.
+    confirming: dict[str, int] = field(default_factory=dict)
 
     async def on_user_partial(self, fragment: str) -> None:
         if not self._user_partial:
@@ -617,9 +625,19 @@ class RoleplayController:
     async def _confirm(
         self, text: str, objectives: list[RoleplayObjective], index: int, started_at: float
     ) -> None:
-        if self.confirm_match is None or not await self.confirm_match(
-            text, index, started_at, len(objectives)
-        ):
+        ids = [objective.id for objective in objectives]
+        for objective_id in ids:
+            self.confirming[objective_id] = self.confirming.get(objective_id, 0) + 1
+        try:
+            accepted = self.confirm_match is not None and await self.confirm_match(
+                text, index, started_at, len(objectives)
+            )
+        finally:
+            for objective_id in ids:
+                self.confirming[objective_id] -= 1
+                if not self.confirming[objective_id]:
+                    del self.confirming[objective_id]
+        if not accepted:
             return
         # Still the next dialogue(s)? A later answer may have finished them meanwhile.
         remaining = self.tracker.remaining
@@ -636,12 +654,18 @@ class RoleplayController:
 
     def on_agent_partial(self, fragment: str) -> None:
         now = time.monotonic()
-        self._recent_agent = [(t, s) for t, s in self._recent_agent if now - t <= 60] + [
+        # Kept a few minutes: a slow answer still needs the line it answers.
+        self._recent_agent = [(t, s) for t, s in self._recent_agent if now - t <= 180] + [
             (now, fragment)
         ]
 
     def agent_text_since(self, since: float) -> str:
         return " ".join(s for t, s in self._recent_agent if t >= since)
+
+    def agent_speech_between(self, start: float, end: float) -> str:
+        """What the AI said in a time window, fragments joined as spoken
+        (they carry their own spaces: ' suar' + 'anya' -> ' suaranya')."""
+        return "".join(s for t, s in self._recent_agent if start <= t <= end)
 
     async def complete_current(self) -> None:
         """Mark the current in-order objective done because the AI accepted

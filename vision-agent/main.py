@@ -442,6 +442,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             async def on_comic_miss(said: str, _recent_agent_text: str) -> None:
                 if not is_answer_attempt(said) or repeats_previous_line(tracker, said):
                     return
+                if tracker.remaining and roleplay.confirming.get(tracker.remaining[0].id, 0) > 0:
+                    return  # its right answer is still waiting for Bu Guru's reaction
                 for task in pending_miss:
                     task.cancel()
                 pending_miss.clear()
@@ -459,10 +461,23 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 """The answer matched the script; it counts unless Bu Guru (who
                 hears the audio) corrected it instead of moving on."""
                 next_line = turns[index + 1]["guru"] if index + 1 < len(turns) else ""
+                asked = roleplay.agent_speech_between(started_at - 170, started_at + 0.5)
+                # An answer only counts for a dialogue Bu Guru has already asked:
+                # "Sudah… Baik" said in one go must not finish dialogue 3 before
+                # she has said its line (the lesson ended mid-feedback).
+                if index > 0 and not says_line(asked, turns[index]["guru"]):
+                    _safe_log(f"[roleplay] {said!r} came before Bu Guru asked dialogue {index}; ignored")
+                    return False
                 # An answer that also finishes the NEXT dialogue ("Baik" fits
                 # several) only skips ahead if Bu Guru had already moved on to it.
-                if count > 1 and not says_line(roleplay.agent_text_since(started_at - 60), next_line):
+                if count > 1 and not says_line(asked, next_line):
                     count = 1
+                    # More than this answer's own check: another (right)
+                    # answer for this dialogue is still being confirmed.
+                    if roleplay.confirming.get(tracker.objectives[index].id, 0) > 1:
+                        # Its own right answer is still being confirmed
+                        # ("Sudah… Baik"): the extra word is not a mistake.
+                        return False
                     if index + 1 < len(turns):
                         _safe_log(f"[roleplay] {said!r} fits a later dialogue; not skipping {index}")
                         await record_comic_miss(said, index, roleplay.agent_text_since(started_at))

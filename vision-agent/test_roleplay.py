@@ -286,6 +286,51 @@ class AlternativeFeedbackTest(unittest.TestCase):
         self.assertEqual(feedback["corrections"], [])
 
 
+class AskedLineTest(unittest.IsolatedAsyncioTestCase):
+    def test_says_line_matches_the_start_of_the_teacher_line(self):
+        self.assertTrue(roleplay.says_line("很棒! Besarkan suaranya sedikit ya.", "Besarkan suaranya sedikit."))
+        self.assertTrue(roleplay.says_line("Siapa yang masih ingat?", "Siapa yang masih ingat pelajaran kemarin?"))
+        self.assertFalse(roleplay.says_line("很棒! Besarkan", "Besarkan suaranya sedikit."))
+
+    async def test_speech_fragments_join_as_spoken(self):
+        async def send(payload):
+            pass
+
+        controller = RoleplayController(send_event=send, tracker=RoleplayTracker([]))
+        for fragment in (" Besarkan", " suar", "anya", " sedikit."):
+            controller.on_agent_partial(fragment)
+        speech = controller.agent_speech_between(0, float("inf"))
+        self.assertTrue(roleplay.says_line(speech, "Besarkan suaranya sedikit."))
+
+    async def test_confirming_counts_while_bu_guru_reacts(self):
+        turns = roleplay.comic_turns([
+            {"guruLine": "Tekan tombolnya.", "studentLine": "Sudah.", "expectedAnswers": ["Sudah"]},
+            {"guruLine": "Besarkan suaranya sedikit.", "studentLine": "Baik.", "expectedAnswers": ["Baik"]},
+        ])
+        release = asyncio.Event()
+        seen = []
+
+        async def send(payload):
+            pass
+
+        async def confirm(said, index, started_at, count):
+            seen.append(dict(controller.confirming))
+            await asyncio.wait_for(release.wait(), 2)
+            return True
+
+        controller = RoleplayController(
+            send_event=send,
+            tracker=RoleplayTracker(roleplay.comic_objectives(turns), sequential=True),
+            confirm_match=confirm,
+        )
+        await controller.on_user_final("Sudah")
+        await asyncio.sleep(0.05)
+        self.assertEqual(seen, [{"turn-0": 1}])
+        release.set()
+        await asyncio.sleep(0.05)
+        self.assertEqual(controller.confirming, {})
+
+
 class AnswerWindowTest(unittest.IsolatedAsyncioTestCase):
     async def test_finished_answer_does_not_complete_the_next_dialogue(self):
         turns = roleplay.comic_turns([
