@@ -418,10 +418,16 @@ function LiveRoleplayScreen() {
   useEffect(() => () => {
     if (reactionTimerRef.current) clearTimeout(reactionTimerRef.current);
   }, []);
+  // Right answers in a row light her up; a second correction on the same
+  // dialogue gets a gentle "it's okay" instead of another "almost".
+  const correctStreakRef = useRef(0);
+  const correctedTurnRef = useRef<number | null>(null);
 
   const handleObjectiveDone = useCallback(
     (objectiveId: string) => {
-      react("happy");
+      correctStreakRef.current += 1;
+      correctedTurnRef.current = null;
+      react(correctStreakRef.current >= 2 ? "onFire" : "happy", 2200);
       setCompletedIds((prev) =>
         prev.includes(objectiveId) ? prev : [...prev, objectiveId],
       );
@@ -444,7 +450,9 @@ function LiveRoleplayScreen() {
   const handleCorrection = useCallback(
     (next: ComicCorrection) => {
       setCorrection(next);
-      react("encourage", 2600);
+      correctStreakRef.current = 0;
+      react(correctedTurnRef.current === next.turnIndex ? "comfort" : "encourage", 2600);
+      correctedTurnRef.current = next.turnIndex;
       setDisplayTurn(next.turnIndex);
       // Still move on afterwards, once the teacher continues.
       if (pendingTurnRef.current !== null) scheduleAdvance(pendingTurnRef.current);
@@ -463,7 +471,7 @@ function LiveRoleplayScreen() {
   }, []);
 
   const handlePracticeResult = useCallback((turnIndex: number, value: number) => {
-    react(value >= 2 ? "happy" : "encourage", value >= 2 ? 1800 : 2600);
+    react(value >= 3 ? "wow" : value === 2 ? "happy" : "encourage", value >= 2 ? 2000 : 2600);
     setStars((prev) => {
       const next = [...prev];
       next[turnIndex] = value;
@@ -1141,7 +1149,9 @@ function ActiveRoleplayContent({
       ? "sleepy"
       : student?.isSpeaking || partials.user
         ? "listening"
-        : "neutral");
+        : !teacherSpeaking && messages.at(-1)?.speaker === "user"
+          ? "thinking" // the student finished; her answer is on its way
+          : "neutral");
 
   return (
     <View className="flex-1">
