@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AllTopicsDoneCard } from "@/components/AllTopicsDoneCard";
 import { NotificationsModal } from "@/components/NotificationsModal";
 import { TodayPlanList } from "@/components/TodayPlanList";
 import { images } from "@/constants/images";
@@ -396,7 +397,11 @@ export default function HomeScreen() {
         </View>
 
         <View className="mb-4">
-          <TodayPlanList items={planItems} onItemPress={handlePlanItemPress} />
+          {nextTopic ? (
+            <TodayPlanList items={planItems} onItemPress={handlePlanItemPress} />
+          ) : (
+            <AllTopicsDoneCard />
+          )}
         </View>
       </ScrollView>
 

@@ -97,6 +97,7 @@ function LiveRoleplayScreen() {
   const { tutorVoice, tutorEmotion } = useLanguageStore();
   const completeClassTopic = useLearningStore((s) => s.completeClassTopic);
   const markRolePlayPassed = useLearningStore((s) => s.markRolePlayPassed);
+  const recordRolePlayScore = useLearningStore((s) => s.recordRolePlayScore);
 
   // AI Teacher's comic topics, acted out live: Role Play, or with
   // mode=practice the Latihan (listen → repeat → answer).
@@ -243,10 +244,10 @@ function LiveRoleplayScreen() {
       ? rolePlayScore(scenario.objectives.length, feedback.corrections.length)
       : null;
   useEffect(() => {
-    if (rolePlayResult !== null && rolePlayResult >= ROLE_PLAY_PASS_SCORE && comic) {
-      markRolePlayPassed(comic.id);
-    }
-  }, [rolePlayResult, comic, markRolePlayPassed]);
+    if (rolePlayResult === null || !comic) return;
+    recordRolePlayScore(comic.id, rolePlayResult);
+    if (rolePlayResult >= ROLE_PLAY_PASS_SCORE) markRolePlayPassed(comic.id);
+  }, [rolePlayResult, comic, markRolePlayPassed, recordRolePlayScore]);
 
   // The AI feedback can arrive after the dialogues are done: update the record.
   useEffect(() => {

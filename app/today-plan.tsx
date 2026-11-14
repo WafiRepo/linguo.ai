@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AllTopicsDoneCard } from "@/components/AllTopicsDoneCard";
 import { TodayPlanList } from "@/components/TodayPlanList";
 import { colors } from "@/constants/theme";
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
@@ -91,11 +92,15 @@ export default function TodayPlanScreen() {
           </Text>
         </View>
 
-        <TodayPlanList
-          items={planItems}
-          onItemPress={handleItemPress}
-          showXpHint
-        />
+        {nextTopic ? (
+          <TodayPlanList
+            items={planItems}
+            onItemPress={handleItemPress}
+            showXpHint
+          />
+        ) : (
+          <AllTopicsDoneCard />
+        )}
       </ScrollView>
     </SafeAreaView>
   );

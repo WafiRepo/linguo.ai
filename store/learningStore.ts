@@ -18,6 +18,8 @@ interface LearningState {
   startedClassTopicIds: string[];
   /** Topics whose Role Play was finished with a passing score (PASS stamp). */
   passedRolePlayTopicIds: string[];
+  /** Best Role Play score (0–100) per topic, to suggest what to practise again. */
+  rolePlayBestScores: Record<string, number>;
   activeLessonIdsByLanguage: Partial<Record<LanguageCode, string>>;
   syncDailyProgress: () => void;
   addXP: (amount: number) => void;
@@ -25,6 +27,7 @@ interface LearningState {
   completeClassTopic: (topicId: string, mode: ClassTopicMode, xpReward?: number) => void;
   markClassTopicStarted: (topicId: string) => void;
   markRolePlayPassed: (topicId: string) => void;
+  recordRolePlayScore: (topicId: string, score: number) => void;
   setActiveLesson: (languageCode: LanguageCode, lessonId: string) => void;
   getActiveLessonId: (languageCode: LanguageCode) => string | undefined;
 }
@@ -40,6 +43,7 @@ export const useLearningStore = create<LearningState>()(
       completedClassModes: [],
       startedClassTopicIds: [],
       passedRolePlayTopicIds: [],
+      rolePlayBestScores: {},
       activeLessonIdsByLanguage: {},
 
       syncDailyProgress: () => {
@@ -103,6 +107,12 @@ export const useLearningStore = create<LearningState>()(
         set((state) => ({
           passedRolePlayTopicIds: [...state.passedRolePlayTopicIds, topicId],
         }));
+      },
+
+      recordRolePlayScore: (topicId, score) => {
+        const best = get().rolePlayBestScores[topicId];
+        if (best !== undefined && best >= score) return;
+        set((state) => ({ rolePlayBestScores: { ...state.rolePlayBestScores, [topicId]: score } }));
       },
 
       setActiveLesson: (languageCode, lessonId) =>

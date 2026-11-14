@@ -25,6 +25,18 @@ export function classTopicRoute(topicId: string, mode: ClassTopicMode): string {
  * its Role Play earned the PASS stamp (see lib/rolePlayScore.ts): the same rule
  * as the Learning Portfolio and the certificates, so every number agrees.
  */
+/**
+ * After every topic is done: the topic with the lowest best Role Play score
+ * (the first one in AI Teacher order on a tie). Topics without a score count as 100.
+ */
+export function getReviewTopic(bestScores: Record<string, number>): ClassManagementTopic | undefined {
+  let lowest: ClassManagementTopic | undefined;
+  for (const topic of ALL_CLASS_TOPICS) {
+    if (!lowest || (bestScores[topic.id] ?? 100) < (bestScores[lowest.id] ?? 100)) lowest = topic;
+  }
+  return lowest;
+}
+
 export function getNextClassTopic(passedTopicIds: string[]): ClassManagementTopic | undefined {
   return ALL_CLASS_TOPICS.find((topic) => !passedTopicIds.includes(topic.id));
 }
