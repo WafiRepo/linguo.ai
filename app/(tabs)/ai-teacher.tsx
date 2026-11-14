@@ -8,7 +8,7 @@ import { Href, useRouter } from "expo-router";
 import { ClassTopicCard } from "@/components/ClassTopicCard";
 import { colors } from "@/constants/theme";
 import { BAGIAN_B_TOPICS, BAGIAN_C_TOPICS, CLASS_MANAGEMENT_TOPICS } from "@/data/classManagement";
-import { classModeKey, classTopicRoute, ClassTopicMode, getWorkedOnTopicIds } from "@/lib/topicProgress";
+import { classTopicRoute, ClassTopicMode } from "@/lib/topicProgress";
 import { posthog } from "@/lib/posthog";
 import { useLearningStore } from "@/store/learningStore";
 import { useT } from "@/lib/i18n";
@@ -40,19 +40,10 @@ export default function AITeacherScreen() {
 function AITeacherTopics() {
   const router = useRouter();
   const { t } = useT();
-  const completedClassTopicIds = useLearningStore((s) => s.completedClassTopicIds);
-  const startedClassTopicIds = useLearningStore((s) => s.startedClassTopicIds);
-  const completedClassModes = useLearningStore((s) => s.completedClassModes);
+  const passedRolePlayTopicIds = useLearningStore((s) => s.passedRolePlayTopicIds);
   const markClassTopicStarted = useLearningStore((s) => s.markClassTopicStarted);
-  const workedOnTopicIds = getWorkedOnTopicIds({
-    completedClassTopicIds,
-    startedClassTopicIds,
-    completedClassModes,
-  });
-  const isTopicMarked = (topicId: string) => workedOnTopicIds.includes(topicId);
-  // The PASS stamp is earned by finishing the Role Play, not the practice.
-  const isRolePlayPassed = (topicId: string) =>
-    completedClassModes.includes(classModeKey(topicId, "roleplay"));
+  // The PASS stamp: Role Play finished with a passing score (not Practice).
+  const isRolePlayPassed = (topicId: string) => passedRolePlayTopicIds.includes(topicId);
   const startTopic = (topicId: string, mode: ClassTopicMode) => {
     markClassTopicStarted(topicId);
     // Both modes run live on the same screen: Role Play is the Speak-style
@@ -84,7 +75,6 @@ function AITeacherTopics() {
             <ClassTopicCard
               key={topic.id}
               topic={topic}
-              isCompleted={isTopicMarked(topic.id)}
               rolePlayPassed={isRolePlayPassed(topic.id)}
               onPress={(mode) => startTopic(topic.id, mode)}
             />
@@ -99,7 +89,6 @@ function AITeacherTopics() {
             <ClassTopicCard
               key={topic.id}
               topic={topic}
-              isCompleted={isTopicMarked(topic.id)}
               rolePlayPassed={isRolePlayPassed(topic.id)}
               onPress={(mode) => startTopic(topic.id, mode)}
             />
@@ -114,7 +103,6 @@ function AITeacherTopics() {
             <ClassTopicCard
               key={topic.id}
               topic={topic}
-              isCompleted={isTopicMarked(topic.id)}
               rolePlayPassed={isRolePlayPassed(topic.id)}
               onPress={(mode) => startTopic(topic.id, mode)}
             />

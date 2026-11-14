@@ -14,6 +14,16 @@ export function classModeKey(topicId: string, mode: ClassTopicMode): string {
   return `${topicId}:${mode}`;
 }
 
+// Role Play score: the share of dialogues Bu Guru did not need to correct.
+// The PASS stamp needs at least this score (0–100).
+export const ROLE_PLAY_PASS_SCORE = 60;
+
+export function rolePlayScore(dialogues: number, corrections: number): number {
+  if (dialogues <= 0) return 0;
+  const correct = Math.max(0, dialogues - corrections);
+  return Math.round((correct / dialogues) * 100);
+}
+
 export function classTopicRoute(topicId: string, mode: ClassTopicMode): string {
   return mode === "roleplay"
     ? `/roleplay/${topicId}?kind=comic`
@@ -22,7 +32,7 @@ export function classTopicRoute(topicId: string, mode: ClassTopicMode): string {
 
 /**
  * Topics the student has worked on: opened, or finished Latihan or Role Play.
- * These are the ones with a check mark on the AI Teacher tab.
+ * Used to pick the next topic for the home screen and today's plan.
  */
 export function getWorkedOnTopicIds(progress: {
   completedClassTopicIds: string[];

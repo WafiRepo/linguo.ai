@@ -16,12 +16,15 @@ interface LearningState {
   /** Finished AI Teacher sessions, as `${topicId}:${mode}`. */
   completedClassModes: string[];
   startedClassTopicIds: string[];
+  /** Topics whose Role Play was finished with a passing score (PASS stamp). */
+  passedRolePlayTopicIds: string[];
   activeLessonIdsByLanguage: Partial<Record<LanguageCode, string>>;
   syncDailyProgress: () => void;
   addXP: (amount: number) => void;
   completeLesson: (lessonId: string, xpReward?: number) => void;
   completeClassTopic: (topicId: string, mode: ClassTopicMode, xpReward?: number) => void;
   markClassTopicStarted: (topicId: string) => void;
+  markRolePlayPassed: (topicId: string) => void;
   setActiveLesson: (languageCode: LanguageCode, lessonId: string) => void;
   getActiveLessonId: (languageCode: LanguageCode) => string | undefined;
 }
@@ -36,6 +39,7 @@ export const useLearningStore = create<LearningState>()(
       completedClassTopicIds: [],
       completedClassModes: [],
       startedClassTopicIds: [],
+      passedRolePlayTopicIds: [],
       activeLessonIdsByLanguage: {},
 
       syncDailyProgress: () => {
@@ -92,6 +96,13 @@ export const useLearningStore = create<LearningState>()(
             startedClassTopicIds: [...state.startedClassTopicIds, topicId],
           }));
         }
+      },
+
+      markRolePlayPassed: (topicId) => {
+        if (get().passedRolePlayTopicIds.includes(topicId)) return;
+        set((state) => ({
+          passedRolePlayTopicIds: [...state.passedRolePlayTopicIds, topicId],
+        }));
       },
 
       setActiveLesson: (languageCode, lessonId) =>

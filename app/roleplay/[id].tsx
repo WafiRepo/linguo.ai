@@ -38,6 +38,7 @@ import {
 import { getInstructionLanguages } from "@/lib/instructionLanguage";
 import { newSessionClientId, recordSessionResult } from "@/lib/portfolio";
 import { posthog } from "@/lib/posthog";
+import { ROLE_PLAY_PASS_SCORE, rolePlayScore } from "@/lib/topicProgress";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
 import { usePortfolioStore } from "@/store/portfolioStore";
@@ -95,6 +96,7 @@ function LiveRoleplayScreen() {
   const { t } = useT();
   const { tutorVoice, tutorEmotion } = useLanguageStore();
   const completeClassTopic = useLearningStore((s) => s.completeClassTopic);
+  const markRolePlayPassed = useLearningStore((s) => s.markRolePlayPassed);
 
   // AI Teacher's comic topics, acted out live: Role Play, or with
   // mode=practice the Latihan (listen → repeat → answer).
@@ -214,6 +216,17 @@ function LiveRoleplayScreen() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [missionComplete, comic, isPractice, completeClassTopic]);
+
+  // Role Play score, once every dialogue is done and Bu Guru's feedback is in.
+  const rolePlayResult =
+    !isPractice && missionComplete && feedback && scenario
+      ? rolePlayScore(scenario.objectives.length, feedback.corrections.length)
+      : null;
+  useEffect(() => {
+    if (rolePlayResult !== null && rolePlayResult >= ROLE_PLAY_PASS_SCORE && comic) {
+      markRolePlayPassed(comic.id);
+    }
+  }, [rolePlayResult, comic, markRolePlayPassed]);
 
   // The AI feedback can arrive after the dialogues are done: update the record.
   useEffect(() => {
@@ -469,6 +482,7 @@ function LiveRoleplayScreen() {
         completedIds={completedIds}
         feedback={feedback}
         stars={isPractice ? stars : undefined}
+        score={rolePlayResult}
         teacherMode={isTeacherMode}
         onDone={() => router.back()}
       />
@@ -1240,6 +1254,7 @@ function RoleplayReview({
   completedIds,
   feedback,
   stars,
+  score = null,
   teacherMode = false,
   onDone,
 }: {
@@ -1248,6 +1263,8 @@ function RoleplayReview({
   feedback: RoleplayFeedback | null;
   /** Latihan only: stars earned per dialogue. */
   stars?: number[];
+  /** Role Play only: score 0–100, null until the feedback arrives. */
+  score?: number | null;
   /** A teacher trying the lesson: nothing is saved to a portfolio. */
   teacherMode?: boolean;
   onDone: () => void;
@@ -1292,6 +1309,24 @@ function RoleplayReview({
                 </Text>
               </View>
             ))}
+          </View>
+        ) : null}
+
+        {score !== null ? (
+          <View className="mx-4 mb-4 flex-row items-center gap-3 rounded-2xl border border-border bg-white p-4">
+            {score >= ROLE_PLAY_PASS_SCORE ? (
+              <Image source={images.stampPass} contentFit="contain" style={styles.reviewStamp} />
+            ) : null}
+            <View className="flex-1">
+              <Text className="font-poppins-semibold text-base text-text-primary">
+                {t("roleplay.score", { score })}
+              </Text>
+              <Text className="mt-0.5 font-poppins text-[13px] leading-5 text-text-secondary">
+                {score >= ROLE_PLAY_PASS_SCORE
+                  ? t("roleplay.stampEarned")
+                  : t("roleplay.stampNeeds", { score: ROLE_PLAY_PASS_SCORE })}
+              </Text>
+            </View>
           </View>
         ) : null}
 
@@ -1413,6 +1448,10 @@ const styles = StyleSheet.create({
   transcriptContent: {
     flexGrow: 1,
     padding: 14,
+  },
+  reviewStamp: {
+    width: 64,
+    height: 64,
   },
   reviewContent: {
     paddingBottom: 16,

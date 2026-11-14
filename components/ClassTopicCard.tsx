@@ -10,15 +10,13 @@ import { useT } from "@/lib/i18n";
 
 interface ClassTopicCardProps {
   topic: ClassManagementTopic;
-  isCompleted: boolean;
-  /** Role Play finished: shows the PASS stamp instead of the check. */
+  /** Role Play finished with a passing score: shows the PASS stamp. */
   rolePlayPassed: boolean;
   onPress: (mode: ClassTopicMode) => void;
 }
 
 export function ClassTopicCard({
   topic,
-  isCompleted,
   rolePlayPassed,
   onPress,
 }: ClassTopicCardProps) {
@@ -55,10 +53,6 @@ export function ClassTopicCard({
             style={styles.stamp}
             accessibilityLabel={t("topicCard.rolePlayPassed")}
           />
-        ) : isCompleted ? (
-          <View style={styles.checkCircle}>
-            <Ionicons name="checkmark" size={16} color="#fff" />
-          </View>
         ) : null}
       </View>
 
@@ -105,14 +99,6 @@ const styles = StyleSheet.create({
   stamp: {
     width: 56,
     height: 56,
-  },
-  checkCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.semantic.success,
-    alignItems: "center",
-    justifyContent: "center",
   },
   actionRow: {
     flexDirection: "row",
