@@ -1,4 +1,5 @@
 import { getBearerToken, verifyClerkToken } from "../../lib/clerkAuth";
+import { isPassedRolePlay } from "../../lib/rolePlayScore";
 import { isSupabaseConfigured, supabaseRest } from "../../lib/supabase";
 import type {
   NewSessionResult,
@@ -37,6 +38,12 @@ type SessionRow = {
   duration_seconds: number;
   created_at: string;
 };
+
+// What the teacher list needs from every session.
+type StudentSessionRow = Pick<
+  SessionRow,
+  "topic_id" | "mode" | "completed" | "objectives_total" | "praise" | "corrections" | "created_at"
+> & { user_id: string };
 
 const MAX_SESSIONS = 200;
 
@@ -103,21 +110,22 @@ async function getSessions(userId: string): Promise<SessionResult[]> {
 async function getStudentOverviews(): Promise<StudentOverview[]> {
   const [students, sessions, certificates] = await Promise.all([
     supabaseRest<ProfileRow[]>("profiles?role=eq.student&select=user_id,role,nickname,class_group"),
-    supabaseRest<{ user_id: string; topic_id: string; mode: string; completed: boolean; created_at: string }[]>(
-      "session_results?select=user_id,topic_id,mode,completed,created_at",
-    ),
+    supabaseRest<StudentSessionRow[]>("session_results?select=user_id,topic_id,mode,completed,objectives_total,praise,corrections,created_at"),
     supabaseRest<{ user_id: string; part: string }[]>("certificates?select=user_id,part"),
   ]);
   return students
     .map((row) => {
       const own = sessions.filter((session) => session.user_id === row.user_id);
-      const finished = new Set(own.filter((s) => s.completed).map((s) => `${s.topic_id}:${s.mode}`));
-      const topics = new Set(own.map((session) => session.topic_id));
+      // A topic is done when a Role Play earned the PASS stamp.
+      const passedTopics = new Set(
+        own
+          .filter((s) => isPassedRolePlay({ ...s, objectivesTotal: s.objectives_total }))
+          .map((s) => s.topic_id),
+      );
       return {
         ...toStudent(row, row.user_id),
         sessionsCount: own.length,
-        topicsCompleted: [...topics].filter((id) => finished.has(`${id}:practice`) && finished.has(`${id}:roleplay`))
-          .length,
+        topicsCompleted: passedTopics.size,
         certificateParts: certificates.filter((c) => c.user_id === row.user_id).map((c) => c.part).sort(),
         lastActiveAt: own.map((session) => session.created_at).sort().at(-1) ?? null,
       };

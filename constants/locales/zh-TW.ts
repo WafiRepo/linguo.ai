@@ -26,7 +26,7 @@ export const zhTW: Record<TranslationKey, string> = {
   "certificates.pdfError": "無法產生 PDF，請再試一次。",
   "certificates.print": "列印",
   "certificates.progress": "已完成 {done}/{total} 個主題",
-  "certificates.rule": "完成同一部分所有主題的「練習」與「角色扮演」，就能獲得該部分的證書。三個部分都完成後，還能獲得全部課程證書。",
+  "certificates.rule": "同一部分的每個主題都在「角色扮演」獲得 PASS 印章，就能獲得該部分的證書。三個部分都完成後，還能獲得全部課程證書。",
   "certificates.title": "數位證書",
   "childProfile.grade": "年級",
   "childProfile.intro": "請家長協助填寫，僅需暱稱與年級，不需要真實姓名、電話、生日或照片。",

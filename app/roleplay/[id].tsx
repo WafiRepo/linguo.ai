@@ -38,7 +38,7 @@ import {
 import { getInstructionLanguages } from "@/lib/instructionLanguage";
 import { newSessionClientId, recordSessionResult } from "@/lib/portfolio";
 import { posthog } from "@/lib/posthog";
-import { ROLE_PLAY_PASS_SCORE, rolePlayScore } from "@/lib/topicProgress";
+import { ROLE_PLAY_PASS_SCORE, rolePlayScore } from "@/lib/rolePlayScore";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
 import { usePortfolioStore } from "@/store/portfolioStore";
@@ -229,6 +229,13 @@ function LiveRoleplayScreen() {
     return () => clearTimeout(timer);
   }, [missionComplete]);
   const resultsReady = feedback !== null || resultsTimedOut;
+
+  // Bu Guru sends feedback whenever the student pauses, so one may already be
+  // here from before the last dialogue. The score must come from the feedback
+  // on the whole session (it follows the last answer), so drop the old one.
+  useEffect(() => {
+    if (missionComplete) setFeedback(null);
+  }, [missionComplete]);
 
   // Role Play score, once every dialogue is done and Bu Guru's feedback is in.
   const rolePlayResult =

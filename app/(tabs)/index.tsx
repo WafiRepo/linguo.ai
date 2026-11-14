@@ -63,7 +63,7 @@ export default function HomeScreen() {
   const syncDailyProgress = useLearningStore((s) => s.syncDailyProgress);
   const xpToday = useLearningStore((s) => s.xpToday);
   const dailyGoal = useLearningStore((s) => s.dailyGoal);
-  const completedClassTopicIds = useLearningStore((s) => s.completedClassTopicIds);
+  const passedRolePlayTopicIds = useLearningStore((s) => s.passedRolePlayTopicIds);
   const completedClassModes = useLearningStore((s) => s.completedClassModes);
   const markClassTopicStarted = useLearningStore((s) => s.markClassTopicStarted);
 
@@ -76,9 +76,9 @@ export default function HomeScreen() {
     APP_LOCALE_OPTIONS.find((option) => option.code === locale) ??
     APP_LOCALE_OPTIONS[0];
   // Continue learning follows the AI Teacher topics, in the same order: the
-  // first one whose Practice and Role Play are not both done.
-  const nextTopic = getNextClassTopic(completedClassTopicIds);
-  const doneTopicCount = completedClassTopicIds.length;
+  // first one without the PASS stamp (Practice doesn't count).
+  const nextTopic = getNextClassTopic(passedRolePlayTopicIds);
+  const doneTopicCount = passedRolePlayTopicIds.length;
   const firstName = user?.firstName ?? t("home.studentFallback");
   const greeting = getGreeting(selectedLanguage);
   const xpProgress =

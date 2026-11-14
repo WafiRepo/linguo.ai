@@ -52,7 +52,9 @@ export function buildTodayPlanItems({
       iconColor: "#EF4444",
       title: t("plan.roleplay.title"),
       subtitle: t("plan.roleplay.subtitle", { teacher }),
-      completed: isDone("roleplay"),
+      // The plan shows a topic without the PASS stamp, so its Role Play
+      // still has to be done (again) even if it was finished with a low score.
+      completed: false,
       route: classTopicRoute(topic.id, "roleplay"),
       xpHint: `+${topic.xpReward} XP`,
     },

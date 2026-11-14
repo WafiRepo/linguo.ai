@@ -21,7 +21,7 @@ export default function TodayPlanScreen() {
   const router = useRouter();
   const { t, locale } = useT();
   const syncDailyProgress = useLearningStore((s) => s.syncDailyProgress);
-  const completedClassTopicIds = useLearningStore((s) => s.completedClassTopicIds);
+  const passedRolePlayTopicIds = useLearningStore((s) => s.passedRolePlayTopicIds);
   const completedClassModes = useLearningStore((s) => s.completedClassModes);
   const markClassTopicStarted = useLearningStore((s) => s.markClassTopicStarted);
   const dailyGoal = useLearningStore((s) => s.dailyGoal);
@@ -31,7 +31,7 @@ export default function TodayPlanScreen() {
     syncDailyProgress();
   }, [syncDailyProgress]);
 
-  const nextTopic = getNextClassTopic(completedClassTopicIds);
+  const nextTopic = getNextClassTopic(passedRolePlayTopicIds);
 
   // `t` is rebuilt each render; `locale` is what it depends on.
   const planItems = useMemo(

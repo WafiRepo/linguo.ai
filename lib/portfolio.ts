@@ -1,5 +1,6 @@
 import { PART_KEYS, partOfTopic } from "@/constants/curriculumParts";
 import { ApiError, apiUrl } from "@/lib/api";
+import { isPassedRolePlay } from "@/lib/rolePlayScore";
 import { ALL_CLASS_TOPICS } from "@/lib/topicProgress";
 import { useChildProfileStore } from "@/store/childProfileStore";
 import { usePortfolioStore } from "@/store/portfolioStore";
@@ -108,12 +109,9 @@ export interface PortfolioSummary {
 
 export function summarizePortfolio(sessions: SessionResult[]): PortfolioSummary {
   const xpIds = xpSessionIds(sessions);
-  const finished = new Set(
-    sessions.filter((session) => session.completed).map((session) => `${session.topicId}:${session.mode}`),
-  );
-  const completedTopicIds = ALL_CLASS_TOPICS.filter(
-    (topic) => finished.has(`${topic.id}:practice`) && finished.has(`${topic.id}:roleplay`),
-  ).map((topic) => topic.id);
+  // A topic is done when a Role Play earned the PASS stamp.
+  const passed = new Set(sessions.filter(isPassedRolePlay).map((session) => session.topicId));
+  const completedTopicIds = ALL_CLASS_TOPICS.filter((topic) => passed.has(topic.id)).map((topic) => topic.id);
 
   const allStars = sessions.flatMap((session) => session.stars).filter((value) => value > 0);
 

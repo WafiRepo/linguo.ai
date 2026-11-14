@@ -8,16 +8,37 @@ import {
   COURSE_TITLE,
 } from "../../constants/curriculumParts";
 import { getBearerToken, verifyClerkToken } from "../../lib/clerkAuth";
+import { isPassedRolePlay } from "../../lib/rolePlayScore";
 import { isSupabaseConfigured, supabaseRest } from "../../lib/supabase";
 import type { Certificate, CertificatesResponse } from "../../types/certificate";
 
 // Digital Certificate API (revision P2).
 //   GET /api/certificates → each part's progress, issuing any certificate the
 //   student has just earned. A part is earned when every one of its topics has
-//   a finished Latihan AND a finished Role Play in the Learning Portfolio.
+//   a Role Play with the PASS stamp in the Learning Portfolio (Practice is
+//   extra training and does not count).
 //   The (user_id, part) unique key makes issuing idempotent: never a duplicate.
 
-type SessionRow = { topic_id: string; mode: "practice" | "roleplay"; created_at: string };
+type SessionRow = {
+  topic_id: string;
+  mode: "practice" | "roleplay";
+  completed: boolean;
+  objectives_total: number;
+  praise: string | null;
+  corrections: unknown[] | null;
+  created_at: string;
+};
+
+/** First time each topic earned the PASS stamp. */
+function passedAt(sessions: SessionRow[]): Map<string, string> {
+  const first = new Map<string, string>();
+  for (const session of sessions) {
+    if (!isPassedRolePlay({ ...session, objectivesTotal: session.objectives_total })) continue;
+    const known = first.get(session.topic_id);
+    if (!known || session.created_at < known) first.set(session.topic_id, session.created_at);
+  }
+  return first;
+}
 type CertificateRow = {
   certificate_no: string;
   part: CertificateKind;
@@ -36,26 +57,21 @@ function newCertificateNo(part: CertificateKind): string {
   return `BI-${part}-${code}`;
 }
 
-/** When the part was completed: the moment its last required session was first done. */
+/** When the part was completed: the moment its last topic first earned the PASS stamp. */
 function completionDate(part: CertificateKind, sessions: SessionRow[]): string | null {
+  const passed = passedAt(sessions);
   let latest: string | null = null;
   for (const topicId of CERTIFICATE_TOPICS[part]) {
-    for (const mode of ["practice", "roleplay"] as const) {
-      const first = sessions
-        .filter((session) => session.topic_id === topicId && session.mode === mode)
-        .map((session) => session.created_at)
-        .sort()[0];
-      if (!first) return null;
-      if (!latest || first > latest) latest = first;
-    }
+    const first = passed.get(topicId);
+    if (!first) return null;
+    if (!latest || first > latest) latest = first;
   }
   return latest;
 }
 
 function topicsDone(part: CertificateKind, sessions: SessionRow[]): number {
-  const done = new Set(sessions.map((session) => `${session.topic_id}:${session.mode}`));
-  return CERTIFICATE_TOPICS[part].filter((id) => done.has(`${id}:practice`) && done.has(`${id}:roleplay`))
-    .length;
+  const passed = passedAt(sessions);
+  return CERTIFICATE_TOPICS[part].filter((id) => passed.has(id)).length;
 }
 
 function toCertificate(row: CertificateRow): Certificate {
@@ -99,7 +115,8 @@ export async function GET(request: Request): Promise<Response> {
   const user = encodeURIComponent(ownerId);
   try {
     const sessions = await supabaseRest<SessionRow[]>(
-      `session_results?user_id=eq.${user}&completed=eq.true&select=topic_id,mode,created_at`,
+      `session_results?user_id=eq.${user}&mode=eq.roleplay&completed=eq.true` +
+        "&select=topic_id,mode,completed,objectives_total,praise,corrections,created_at",
     );
     const existing = await supabaseRest<CertificateRow[]>(`certificates?user_id=eq.${user}`);
     const issuedParts = new Set(existing.map((row) => row.part));
