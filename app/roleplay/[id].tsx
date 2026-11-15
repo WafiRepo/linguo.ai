@@ -770,6 +770,8 @@ const RESULTS_WAIT_MS = 20000;
 const COMIC_ADVANCE_FALLBACK_MS = 8000;
 // …but never longer than this after the dialogue was done.
 const COMIC_ADVANCE_MAX_MS = 15000;
+// Hold-to-talk opens after the teacher's first line, or after this long.
+const OPENING_WAIT_MS = 15000;
 // How far back her speech is checked for the next dialogue's line.
 const RECENT_AGENT_TEXT_MS = 12000;
 
@@ -1083,6 +1085,18 @@ function ActiveRoleplayContent({
 
   const isReady = agentStatus === "connected";
 
+  // The comic starts with Bu Guru's (or Pak Guru's) line: holding to talk
+  // only opens once she has said it. If she stays silent, it opens anyway
+  // after a while so a child is never stuck.
+  const teacherOpened = messages.some((message) => message.speaker === "agent");
+  const [openingTimedOut, setOpeningTimedOut] = useState(false);
+  useEffect(() => {
+    if (!isReady || teacherOpened) return;
+    const timer = setTimeout(() => setOpeningTimedOut(true), OPENING_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [isReady, teacherOpened]);
+  const waitingForOpening = isReady && !teacherOpened && !openingTimedOut;
+
   // Open mic for the whole session. Toggling it per answer (tap-to-talk)
   // re-published the audio track and the agent lost the student's audio, so
   // in Latihan the server decides when the AI listens instead.
@@ -1309,7 +1323,7 @@ function ActiveRoleplayContent({
   // ---- Hold Bu Guru's face to talk, let go and she answers ----
   // In Practice only during the student's step (repeat / answer).
   {
-    const canTalk = isReady && !missionComplete && (!practice || canSpeak);
+    const canTalk = isReady && !waitingForOpening && !missionComplete && (!practice || canSpeak);
     // Once every dialogue is done there is nothing to hold any more: the
     // Done panel below says what to do.
     const talkStatus = missionComplete
@@ -1318,7 +1332,7 @@ function ActiveRoleplayContent({
       ? t("roleplay.ptt.connecting", { name: scenario.aiName })
       : holding
         ? t("roleplay.ptt.listening")
-        : practice && !canSpeak && !missionComplete
+        : waitingForOpening || (practice && !canSpeak && !missionComplete)
           ? t("roleplay.mic.listenFirst", { name: scenario.aiName })
           : teacherSpeaking
           ? t("roleplay.ptt.speaking", { name: scenario.aiName })
