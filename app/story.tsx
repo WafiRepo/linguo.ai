@@ -128,12 +128,14 @@ function MemberCard({ member, zh }: { member: TeamMember; zh: boolean }) {
           <View className="flex-row flex-wrap gap-1.5 mt-1.5">
             <Chip strong>{zh ? member.role.zh : member.role.en}</Chip>
           </View>
-          <View className="flex-row gap-2 mt-2">
-            <Ionicons name="school-outline" size={18} color="#1f1f2e" style={{ marginTop: 2 }} />
-            <Text className="flex-1 font-poppins text-[13px] leading-5 text-text-primary">
-              {zh ? member.school.zh : member.school.en}
-            </Text>
-          </View>
+          {member.school ? (
+            <View className="flex-row gap-2 mt-2">
+              <Ionicons name="school-outline" size={18} color="#1f1f2e" style={{ marginTop: 2 }} />
+              <Text className="flex-1 font-poppins text-[13px] leading-5 text-text-primary">
+                {zh ? member.school.zh : member.school.en}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
       <View className="mt-3 rounded-2xl bg-[#f4f1ff] px-4 py-3">

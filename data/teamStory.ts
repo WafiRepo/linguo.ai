@@ -10,7 +10,8 @@ export interface TeamMember {
   name: string;
   initials: string;
   role: Bilingual;
-  school: Bilingual;
+  /** Left out until it is known. */
+  school?: Bilingual;
   quote: Bilingual;
   /** Portrait from constants/images.ts, once the member has approved it. */
   photo?: ImageSourcePropType;
@@ -53,7 +54,7 @@ export const STORY = {
       en: "We hope every learner starts with a brave first sentence in Indonesian, grows in confidence, and discovers the joy of learning a language.",
     },
   ] as Bilingual[],
-  teamLead: { zh: "三個人，一個共同的願景。", en: "Three minds, one shared vision." } as Bilingual,
+  teamLead: { zh: "四個人，一個共同的願景。", en: "Four minds, one shared vision." } as Bilingual,
   team: [
     {
       name: "郭翊姍 Yishan Kuo",
@@ -68,6 +69,13 @@ export const STORY = {
         zh: "從教育現場的需求出發，串連語言教學與 AI 科技，讓創新的想法成為真正能陪伴學習者的工具。",
         en: "Starting from real classroom needs, she links language teaching with AI so new ideas become tools that truly support learners.",
       },
+    },
+    {
+      name: "Wen",
+      initials: "W",
+      photo: images.teamWen,
+      role: { zh: "協同執行", en: "Project Collaboration" },
+      quote: { zh: "TBD", en: "TBD" },
     },
     {
       name: "萬米山 Wafi",
