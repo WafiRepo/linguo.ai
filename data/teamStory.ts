@@ -80,13 +80,13 @@ export const STORY = {
         { zh: "學校助教", en: "School Teaching Assistant" },
         {
           zh: "臺北市新住民語文補充教材編輯團隊成員",
-          en: "Members of the Editorial Team for the Supplementary Language Textbook for New Residents of Taipei City",
+          en: "Member of the Editorial Team for the Supplementary Language Textbook for New Residents of Taipei City",
         },
-        { zh: "東協人力教育中心專員", en: "Commissioner, East Asia Human Resources Education Centre" },
+        { zh: "東協人力教育中心專員", en: "Commissioner, ASEAN Human Resources Education Centre" },
       ],
       quote: {
         zh: "熱愛語言教學與多元文化交流，具備華語教學、教育輔導及教材編輯經驗。秉持耐心、尊重與關懷的理念，致力於促進語言學習與跨文化理解。",
-        en: "Passionate about language teaching and multicultural communication, with experience in teaching Chinese, educational counseling, and textbook editing. Guided by the principles of patience, respect, and care, it is dedicated to promoting language learning and cross-cultural understanding.",
+        en: "Passionate about language teaching and multicultural communication, with experience in teaching Chinese, educational counseling, and textbook editing. Guided by the principles of patience, respect, and care, she is dedicated to promoting language learning and cross-cultural understanding.",
       },
     },
     {
