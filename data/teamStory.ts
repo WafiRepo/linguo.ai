@@ -9,7 +9,8 @@ export type Bilingual = { zh: string; en: string };
 export interface TeamMember {
   name: string;
   initials: string;
-  role: Bilingual;
+  /** Shown as tags under the name; the first one is highlighted. */
+  roles: Bilingual[];
   /** Left out until it is known. */
   school?: Bilingual;
   quote: Bilingual;
@@ -60,7 +61,7 @@ export const STORY = {
       name: "郭翊姍 Yishan Kuo",
       initials: "YK",
       photo: images.teamYishan,
-      role: { zh: "策劃統籌", en: "Project Planning & Coordination" },
+      roles: [{ zh: "策劃統籌", en: "Project Planning & Coordination" }],
       school: {
         zh: "國立中央大學\n學習與教學研究所｜博士候選人",
         en: "National Central University\nGraduate Institute of Learning and Instruction | PhD Candidate",
@@ -71,17 +72,28 @@ export const STORY = {
       },
     },
     {
-      name: "Wen",
+      name: "許慈雯 Wen",
       initials: "W",
       photo: images.teamWen,
-      role: { zh: "協同執行", en: "Project Collaboration" },
-      quote: { zh: "TBD", en: "TBD" },
+      roles: [
+        { zh: "華語教師", en: "Chinese Language Teacher" },
+        { zh: "學校助教", en: "School Teaching Assistant" },
+        {
+          zh: "臺北市新住民語文補充教材編輯團隊成員",
+          en: "Members of the Editorial Team for the Supplementary Language Textbook for New Residents of Taipei City",
+        },
+        { zh: "東協人力教育中心專員", en: "Commissioner, East Asia Human Resources Education Centre" },
+      ],
+      quote: {
+        zh: "熱愛語言教學與多元文化交流，具備華語教學、教育輔導及教材編輯經驗。秉持耐心、尊重與關懷的理念，致力於促進語言學習與跨文化理解。",
+        en: "Passionate about language teaching and multicultural communication, with experience in teaching Chinese, educational counseling, and textbook editing. Guided by the principles of patience, respect, and care, it is dedicated to promoting language learning and cross-cultural understanding.",
+      },
     },
     {
       name: "萬米山 Wafi",
       initials: "W",
       photo: images.teamWafi,
-      role: { zh: "程式設計師", en: "App Developer" },
+      roles: [{ zh: "程式設計師", en: "App Developer" }],
       school: {
         zh: "國立陽明交通大學\n資訊工程研究所｜博士生",
         en: "National Yang Ming Chiao Tung University\nInstitute of Computer Science and Engineering | PhD Student",
@@ -95,7 +107,7 @@ export const STORY = {
       name: "文莎 Vinsa",
       initials: "V",
       photo: images.teamVinsa,
-      role: { zh: "協同執行", en: "Project Collaboration" },
+      roles: [{ zh: "協同執行", en: "Project Collaboration" }],
       school: {
         zh: "國立中央大學\n網路學習科技研究所｜博士生",
         en: "National Central University\nGraduate Institute of Network Learning Technology | PhD Student",

@@ -126,7 +126,11 @@ function MemberCard({ member, zh }: { member: TeamMember; zh: boolean }) {
         <View className="flex-1">
           <Text className="font-poppins-bold text-lg text-text-primary">{member.name}</Text>
           <View className="flex-row flex-wrap gap-1.5 mt-1.5">
-            <Chip strong>{zh ? member.role.zh : member.role.en}</Chip>
+            {member.roles.map((role, index) => (
+              <Chip key={role.en} strong={index === 0}>
+                {zh ? role.zh : role.en}
+              </Chip>
+            ))}
           </View>
           {member.school ? (
             <View className="flex-row gap-2 mt-2">
