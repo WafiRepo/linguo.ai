@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/constants/theme";
 import { LANGUAGES } from "@/data/languages";
 import { resetCurrentAccountData } from "@/lib/learningAccount";
-import { deletePortfolio, fetchPortfolio } from "@/lib/portfolio";
+import { deletePortfolio, fetchPortfolio, syncChildProfile } from "@/lib/portfolio";
 import { useChildProfileStore } from "@/store/childProfileStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { usePortfolioStore } from "@/store/portfolioStore";
@@ -30,7 +30,11 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchPortfolio(() => getTokenRef.current())
-        .then((result) => usePortfolioStore.getState().setRole(result.role))
+        .then((result) => {
+          usePortfolioStore.getState().setRole(result.role);
+          // Same child profile as the other devices (phone, iPad, web).
+          syncChildProfile(() => getTokenRef.current(), result.student);
+        })
         .catch(() => {});
     }, []),
   );

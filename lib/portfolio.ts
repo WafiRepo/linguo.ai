@@ -3,10 +3,10 @@ import { ApiError, apiUrl } from "@/lib/api";
 import { getLocalDateKey } from "@/lib/dailyProgress";
 import { isPassedRolePlay, rolePlayScore } from "@/lib/rolePlayScore";
 import { ALL_CLASS_TOPICS } from "@/lib/topicProgress";
-import { useChildProfileStore } from "@/store/childProfileStore";
+import { CHILD_CLASS_GROUPS, ChildClassGroup, useChildProfileStore } from "@/store/childProfileStore";
 import { ServerProgress, useLearningStore } from "@/store/learningStore";
 import { usePortfolioStore } from "@/store/portfolioStore";
-import { NewSessionResult, PortfolioResponse, SessionResult } from "@/types/portfolio";
+import { NewSessionResult, PortfolioResponse, SessionResult, StudentSummary } from "@/types/portfolio";
 
 // Phone side of the Learning Portfolio: save results, load the portfolio.
 type GetToken = () => Promise<string | null>;
@@ -71,8 +71,30 @@ export function passedTopicIdsFrom(sessions: SessionResult[]): string[] {
  * another phone, an iPad or the web app show up here too.
  */
 export async function syncPassedTopics(getToken: GetToken) {
-  const { sessions } = await fetchPortfolio(getToken);
+  const { sessions, student } = await fetchPortfolio(getToken);
   useLearningStore.getState().mergeServerProgress(serverProgressFrom(sessions));
+  syncChildProfile(getToken, student);
+}
+
+/**
+ * One child profile for every device: the server's copy wins, except for an
+ * edit made here that has not reached the server yet (that is sent first).
+ */
+export function syncChildProfile(getToken: GetToken, student: StudentSummary) {
+  const local = useChildProfileStore.getState();
+  const serverGroup = student.classGroup as ChildClassGroup | null;
+  const serverHasProfile =
+    !!student.nickname && !!serverGroup && CHILD_CLASS_GROUPS.includes(serverGroup);
+
+  if (local.nickname && local.classGroup && (local.unsynced || !serverHasProfile)) {
+    saveChildProfile(getToken, local.nickname, local.classGroup)
+      .then(() => useChildProfileStore.getState().markSynced())
+      .catch(() => {});
+    return;
+  }
+  if (serverHasProfile && (student.nickname !== local.nickname || serverGroup !== local.classGroup)) {
+    local.loadFromServer(student.nickname as string, serverGroup as ChildClassGroup);
+  }
 }
 
 /**

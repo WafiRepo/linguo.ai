@@ -226,10 +226,12 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json({ ok: true, skipped: "staff" });
     }
 
-    // Create the profile on first save; never touch `role` from the phone.
+    // Create the profile on first save only. An existing one is changed
+    // only by PUT (the guardian editing it): a session from a device with an
+    // old nickname must not overwrite it. Never touches `role`.
     await supabaseRest("profiles?on_conflict=user_id", {
       method: "POST",
-      prefer: "resolution=merge-duplicates",
+      prefer: "resolution=ignore-duplicates",
       body: {
         user_id: auth,
         nickname: input.nickname?.slice(0, 50) ?? null,

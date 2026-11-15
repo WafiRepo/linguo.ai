@@ -29,7 +29,7 @@ export default function ChildProfileSetupScreen() {
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const isEditMode = mode === "edit";
   const { t } = useT();
-  const { nickname, classGroup, setChildProfile } = useChildProfileStore();
+  const { nickname, classGroup, setChildProfile, loadFromServer, markSynced } = useChildProfileStore();
   const [nicknameInput, setNicknameInput] = useState(nickname ?? "");
   const [classGroupInput, setClassGroupInput] = useState<ChildClassGroup | null>(
     classGroup,
@@ -47,14 +47,14 @@ export default function ChildProfileSetupScreen() {
       .then(({ student }) => {
         const group = student.classGroup as ChildClassGroup | null;
         if (student.nickname && group && CHILD_CLASS_GROUPS.includes(group)) {
-          setChildProfile(student.nickname, group);
+          loadFromServer(student.nickname, group);
           router.replace("/(tabs)" as Href);
         } else {
           setChecking(false);
         }
       })
       .catch(() => setChecking(false));
-  }, [isEditMode, setChildProfile]);
+  }, [isEditMode, loadFromServer]);
 
   const canSubmit = nicknameInput.trim().length > 0 && classGroupInput !== null;
 
@@ -62,7 +62,9 @@ export default function ChildProfileSetupScreen() {
     if (!canSubmit || !classGroupInput) return;
     setChildProfile(nicknameInput, classGroupInput);
     // Also on the server, so other devices get it (errors: sessions carry it later).
-    saveChildProfile(() => getTokenRef.current(), nicknameInput.trim(), classGroupInput).catch(() => {});
+    saveChildProfile(() => getTokenRef.current(), nicknameInput.trim(), classGroupInput)
+      .then(markSynced)
+      .catch(() => {}); // stays unsynced: sent again when Home or Me opens
     if (isEditMode) {
       router.back();
     } else {
