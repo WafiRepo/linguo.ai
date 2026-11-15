@@ -26,7 +26,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AIPilotNotice } from "@/components/AIPilotNotice";
 import { TalkStage } from "@/components/TalkStage";
-import { TeacherMood } from "@/components/TeacherFace";
+import { TeacherAccessory, TeacherMood } from "@/components/TeacherFace";
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
@@ -513,12 +513,19 @@ function LiveRoleplayScreen() {
 
   // Bumped on every right answer: stars fly out of Bu Guru's face.
   const [starBurst, setStarBurst] = useState(0);
+  // Right answers in a row, shown as a combo (shades from 3).
+  const [combo, setCombo] = useState(0);
+  const countCombo = useCallback((right: boolean) => {
+    correctStreakRef.current = right ? correctStreakRef.current + 1 : 0;
+    setCombo(correctStreakRef.current);
+    if (correctStreakRef.current === COOL_COMBO) setTimeout(() => playSfx("tada", 0.5), 350);
+  }, []);
 
   const handleObjectiveDone = useCallback(
     (objectiveId: string) => {
       setStarBurst((value) => value + 1);
       playSfx("ding");
-      correctStreakRef.current += 1;
+      countCombo(true);
       correctedTurnRef.current = null;
       react(correctStreakRef.current >= 2 ? "onFire" : "happy", 2200);
       setCompletedIds((prev) =>
@@ -529,7 +536,7 @@ function LiveRoleplayScreen() {
         objective_id: objectiveId,
       });
     },
-    [scenario?.id, react],
+    [scenario?.id, react, countCombo],
   );
 
   const handleStudentTurn = useCallback(() => {
@@ -543,7 +550,7 @@ function LiveRoleplayScreen() {
   const handleCorrection = useCallback(
     (next: ComicCorrection) => {
       setCorrection(next);
-      correctStreakRef.current = 0;
+      countCombo(false);
       react(correctedTurnRef.current === next.turnIndex ? "comfort" : "encourage", 2600);
       correctedTurnRef.current = next.turnIndex;
       setDisplayTurn(next.turnIndex);
@@ -554,7 +561,7 @@ function LiveRoleplayScreen() {
         turn_index: next.turnIndex,
       });
     },
-    [scenario?.id, scheduleAdvance, react],
+    [scenario?.id, scheduleAdvance, react, countCombo],
   );
 
   const handlePracticeStep = useCallback((step: PracticeStep) => {
@@ -568,13 +575,14 @@ function LiveRoleplayScreen() {
       setStarBurst((burst) => burst + 1);
       playSfx("ding");
     }
+    countCombo(value >= 2);
     react(value >= 3 ? "wow" : value === 2 ? "happy" : "encourage", value >= 2 ? 2000 : 2600);
     setStars((prev) => {
       const next = [...prev];
       next[turnIndex] = value;
       return next;
     });
-  }, [react]);
+  }, [react, countCombo]);
 
   async function handleLeave() {
     posthog.capture("roleplay_left", {
@@ -696,6 +704,8 @@ function LiveRoleplayScreen() {
               resultsReady={resultsReady}
               reaction={missionComplete ? "celebrate" : reaction}
               starBurst={starBurst}
+              combo={missionComplete ? 0 : combo}
+              accessory={missionComplete ? "partyHat" : combo >= COOL_COMBO ? "shades" : null}
               onTickle={() => react("happy", 1500)}
               onObjectiveDone={handleObjectiveDone}
               onStudentTurn={handleStudentTurn}
@@ -786,6 +796,8 @@ function MissionCard({
 }
 
 // After the last dialogue, wait at most this long for Bu Guru's feedback.
+// Right answers in a row that earn Bu Guru's cool shades.
+const COOL_COMBO = 3;
 const RESULTS_WAIT_MS = 20000;
 
 // Move the comic anyway when the teacher has been quiet this long without
@@ -1050,6 +1062,8 @@ function ActiveRoleplayContent({
   resultsReady,
   reaction,
   starBurst,
+  combo,
+  accessory,
   onTickle,
   onObjectiveDone,
   onStudentTurn,
@@ -1075,6 +1089,10 @@ function ActiveRoleplayContent({
   reaction: TeacherMood | null;
   /** Bumped on every right answer: stars fly out of her face. */
   starBurst: number;
+  /** Right answers in a row. */
+  combo: number;
+  /** What she wears: shades for a combo, a party hat when all is done. */
+  accessory: TeacherAccessory | null;
   /** Three quick taps on her face: she giggles. */
   onTickle: () => void;
   onObjectiveDone: (objectiveId: string) => void;
@@ -1399,6 +1417,8 @@ function ActiveRoleplayContent({
             onPressIn={startTalking}
             onPressOut={() => setHolding(false)}
             starBurst={starBurst}
+            combo={combo}
+            accessory={accessory}
             onTickle={onTickle}
             teacherText={partials.agent ?? ""}
           />

@@ -1,10 +1,19 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+  ZoomIn,
+} from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 
 import { StarBurst } from "@/components/StarBurst";
-import { TeacherFace, TeacherMood } from "@/components/TeacherFace";
+import { TeacherAccessory, TeacherFace, TeacherMood } from "@/components/TeacherFace";
 import { playSfx } from "@/lib/sfx";
 
 // Role Play: hold Bu Guru's face to talk, let go and she answers.
@@ -37,6 +46,10 @@ interface TalkStageProps {
   starBurst?: number;
   /** Three quick taps on the face: she giggles. */
   onTickle?: () => void;
+  /** Right answers in a row: a "x3" badge from 2, cool shades from 3. */
+  combo?: number;
+  /** A prize she wears (shades for a combo, a party hat when all is done). */
+  accessory?: TeacherAccessory | null;
 }
 
 // The face shrinks when a correction card leaves less room (never overlapping
@@ -63,6 +76,8 @@ export function TalkStage({
   starBurst = 0,
   onTickle,
   teacherText = "",
+  combo = 0,
+  accessory = null,
 }: TalkStageProps) {
   const [stageHeight, setStageHeight] = useState(190);
 
@@ -147,7 +162,14 @@ export function TalkStage({
         >
           <Glow id="student-glow" color="#FF3B5C" size={glowSize} />
         </Animated.View>
+        <VoiceBubbles active={holding} level={studentLevel} rise={stageHeight * 0.55} spread={faceSize * 1.6} />
         <StarBurst trigger={starBurst} distance={Math.min(140, stageHeight * 0.8)} />
+        {combo >= 2 ? (
+          <Animated.View key={combo} entering={ZoomIn.springify().damping(7)} style={styles.combo} pointerEvents="none">
+            <Ionicons name="flame" size={16} color="#fff" />
+            <Text className="font-poppins-bold text-[15px] text-white">x{combo}</Text>
+          </Animated.View>
+        ) : null}
         <Pressable
           // Never disabled: the face reacts to every touch; talking only
           // starts when canTalk.
@@ -170,6 +192,7 @@ export function TalkStage({
               speechText={teacherText}
               size={faceSize}
               name={teacherName}
+              accessory={accessory}
             />
           </Animated.View>
         </Pressable>
@@ -217,6 +240,65 @@ function Glow({ id, color, size }: { id: string; color: string; size: number }) 
       </Defs>
       <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${gradientId})`} />
     </Svg>
+  );
+}
+
+/**
+ * Soap bubbles float up while the student holds the face and talks: the
+ * louder (and clearer) the voice, the bigger the bubbles.
+ */
+function VoiceBubbles({ active, level, rise, spread }: { active: boolean; level: number; rise: number; spread: number }) {
+  const [bubbles, setBubbles] = useState<{ id: number; size: number; x: number }[]>([]);
+  const levelRef = useRef(level);
+  levelRef.current = level;
+  const nextIdRef = useRef(0);
+
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => {
+      const loud = Math.min(1, levelRef.current * 2.5);
+      const bubble = {
+        id: nextIdRef.current++,
+        size: 10 + loud * 30 + Math.random() * 6,
+        x: (Math.random() - 0.5) * spread,
+      };
+      // Each bubble lives about a second; a few on screen at a time.
+      setBubbles((prev) => [...prev.slice(-7), bubble]);
+    }, 230);
+    return () => clearInterval(timer);
+  }, [active, spread]);
+
+  return (
+    <View pointerEvents="none" style={styles.bubbleAnchor}>
+      {bubbles.map((bubble) => (
+        <Bubble key={bubble.id} size={bubble.size} x={bubble.x} rise={rise} />
+      ))}
+    </View>
+  );
+}
+
+function Bubble({ size, x, rise }: { size: number; x: number; rise: number }) {
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = withTiming(1, { duration: 1300, easing: Easing.out(Easing.quad) });
+  }, [progress]);
+  const style = useAnimatedStyle(() => {
+    const p = progress.value;
+    return {
+      opacity: p < 0.15 ? p / 0.15 : 1 - Math.max(0, p - 0.6) / 0.4,
+      transform: [
+        { translateX: x + Math.sin(p * 9) * 8 },
+        { translateY: -p * rise },
+        { scale: 0.3 + p * 0.9 },
+      ],
+    };
+  });
+  return (
+    <Animated.View
+      style={[styles.bubble, { width: size, height: size, borderRadius: size / 2, marginLeft: -size / 2, marginTop: -size / 2 }, style]}
+    >
+      <View style={[styles.bubbleShine, { width: size * 0.28, height: size * 0.28, borderRadius: size }]} />
+    </Animated.View>
   );
 }
 
@@ -273,6 +355,40 @@ const styles = StyleSheet.create({
   },
   glow: {
     position: "absolute",
+  },
+  combo: {
+    position: "absolute",
+    top: 6,
+    right: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: "#FF6A2B",
+    borderWidth: 2,
+    borderColor: "#FFC531",
+  },
+  // The bubbles start around the face's middle and float up.
+  bubbleAnchor: {
+    position: "absolute",
+    left: "50%",
+    top: "55%",
+    width: 0,
+    height: 0,
+  },
+  bubble: {
+    position: "absolute",
+    backgroundColor: "rgba(255, 255, 255, 0.35)",
+    borderWidth: 2,
+    borderColor: "rgba(255, 59, 92, 0.55)",
+  },
+  bubbleShine: {
+    position: "absolute",
+    top: "18%",
+    left: "20%",
+    backgroundColor: "#fff",
   },
   facePress: {
     paddingHorizontal: 8,

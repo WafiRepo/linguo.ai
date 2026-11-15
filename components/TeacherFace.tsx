@@ -12,9 +12,10 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
+  SlideInUp,
   ZoomIn,
 } from "react-native-reanimated";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 
 /**
  * Bu Guru's live face: a pill with two eyes and a mouth. It blinks and looks
@@ -37,7 +38,10 @@ type Eyes = "round" | "happy" | "star" | "closed";
 type Brows = "none" | "raised" | "determined" | "worried";
 type Mouth = "smile" | "grin" | "o" | "flat";
 type Extra = "flames" | "blush" | "sweat" | "dots" | "zzz" | "sparkles";
-type Motion = "none" | "hop" | "bounce" | "wiggle";
+type Motion = "none" | "hop" | "bounce" | "wiggle" | "dance";
+
+/** Something she wears for a combo: cool shades (3 right in a row) or a party hat (all done). */
+export type TeacherAccessory = "shades" | "partyHat";
 
 interface Look {
   eyes: Eyes;
@@ -61,7 +65,7 @@ const LOOKS: Record<TeacherMood, Look> = {
   wow: { eyes: "star", brows: "raised", mouth: "o", extras: ["sparkles"], tilt: 0, gaze: [0, 0], motion: "hop" },
   encourage: { eyes: "round", brows: "worried", mouth: "o", extras: ["sweat"], tilt: -8, gaze: [0.3, -0.2], motion: "none" },
   comfort: { eyes: "happy", brows: "worried", mouth: "smile", extras: ["blush"], tilt: 7, gaze: [0, 0], motion: "none" },
-  celebrate: { eyes: "star", brows: "raised", mouth: "grin", extras: ["blush", "sparkles"], tilt: 0, gaze: [0, 0], motion: "bounce" },
+  celebrate: { eyes: "star", brows: "raised", mouth: "grin", extras: ["blush", "sparkles"], tilt: 0, gaze: [0, 0], motion: "dance" },
 };
 
 interface TeacherFaceProps {
@@ -74,8 +78,10 @@ interface TeacherFaceProps {
   speechText?: string;
   /** Height of the face in points; everything else scales with it. */
   size?: number;
-  /** Who the face is (Bu Guru or Pak Guru), for screen readers. */
+  /** Who the face is (Bu Guru or Pak Guru). Pak Guru has a moustache and thick brows. */
   name?: string;
+  /** A combo prize she wears. */
+  accessory?: TeacherAccessory | null;
 }
 
 const RED = "#FF4B3A";
@@ -90,6 +96,9 @@ const SPARKLE = "M50 0 C55 35 65 45 100 50 C65 55 55 65 50 100 C45 65 35 55 0 50
 const FLAME_OUTER =
   "M30 100 C8 100 0 80 6 62 C10 50 18 46 16 30 C26 38 30 46 30 52 C34 40 40 22 34 0 C52 14 62 40 58 66 C56 86 46 100 30 100 Z";
 const FLAME_INNER = "M30 100 C18 100 14 90 17 80 C20 72 26 70 26 60 C32 66 36 72 38 66 C44 76 44 92 30 100 Z";
+// A friendly handlebar moustache (Pak Guru).
+const MOUSTACHE =
+  "M60 12 C52 2 38 0 26 6 C16 11 8 20 0 16 C4 32 22 40 36 35 C46 32 54 26 60 20 C66 26 74 32 84 35 C98 40 116 32 120 16 C112 20 104 11 94 6 C82 0 68 2 60 12 Z";
 const DROP = "M20 0 C26 14 40 26 40 38 C40 48 31 56 20 56 C9 56 0 48 0 38 C0 26 14 14 20 0 Z";
 
 export function TeacherFace({
@@ -99,8 +108,11 @@ export function TeacherFace({
   speechText = "",
   size = 64,
   name = "Bu Guru",
+  accessory = null,
 }: TeacherFaceProps) {
   const look = LOOKS[mood];
+  const isPakGuru = name === "Pak Guru";
+  const shades = accessory === "shades";
   // Every measure comes from the design (a 210-high face), scaled to `size`.
   const s = size / 210;
   const faceW = 500 * s;
@@ -132,6 +144,7 @@ export function TeacherFace({
   const wiggle = useSharedValue(0);
   const browAngle = useSharedValue(0);
   const browLift = useSharedValue(0);
+  const sway = useSharedValue(0); // the party dance
 
   // Always breathing a little.
   useEffect(() => {
@@ -184,12 +197,16 @@ export function TeacherFace({
       : withTiming(0, { duration: 120 });
     if (look.motion === "hop") {
       hop.value = withSequence(withTiming(1, { duration: 140 }), withSpring(0, { damping: 6 }));
-    } else if (look.motion === "bounce") {
+    } else if (look.motion === "bounce" || look.motion === "dance") {
       hop.value = withRepeat(withSequence(withTiming(1, { duration: 180 }), withTiming(0, { duration: 260 })), -1);
     } else {
       hop.value = withTiming(0, { duration: 150 });
     }
-  }, [look.motion, mood, hop, wiggle]);
+    // Dancing: she sways left and right with each hop.
+    sway.value = look.motion === "dance"
+      ? withRepeat(withSequence(withTiming(1, { duration: 220 }), withTiming(-1, { duration: 440 }), withTiming(0, { duration: 220 })), -1)
+      : withTiming(0, { duration: 150 });
+  }, [look.motion, mood, hop, wiggle, sway]);
 
   // Lip-sync: while she talks, the mouth takes a new shape about 9 times a
   // second, following the vowels of the Indonesian words arriving (a, i, u,
@@ -230,7 +247,8 @@ export function TeacherFace({
   const headStyle = useAnimatedStyle(() => ({
     transform: [
       { translateY: interpolate(bob.value, [0, 1], [0, -3 * (size / 64)]) - hop.value * 10 * (size / 64) },
-      { rotate: `${tilt.value + wiggle.value * 3}deg` },
+      { rotate: `${tilt.value + wiggle.value * 3 + sway.value * 9}deg` },
+      { translateX: sway.value * 6 * (size / 64) },
       { scale: 1 + hop.value * 0.05 },
     ],
   }));
@@ -294,6 +312,9 @@ export function TeacherFace({
   }));
 
   const has = (extra: Extra) => look.extras.includes(extra);
+  // Pak Guru always shows his thick brows; Bu Guru only when the mood has them.
+  const showBrows = look.brows !== "none" || isPakGuru;
+  const browH = (isPakGuru ? 20 : 12) * s;
 
   return (
     <View style={{ width, height: flameH + size + 50 * s }} accessibilityRole="image" accessibilityLabel={name}>
@@ -316,8 +337,8 @@ export function TeacherFace({
           ]}
         />
 
-        {/* Eyes */}
-        {[-1, 1].map((side) => (
+        {/* Eyes (hidden behind the shades) */}
+        {(shades ? [] : [-1, 1]).map((side) => (
           <View key={side} style={{ position: "absolute", left: eyeLeft(side), top: eyeTop, width: eyeW, height: eyeH }}>
             {look.eyes === "round" || look.eyes === "closed" ? (
               <Animated.View entering={FadeIn.duration(120)} exiting={FadeOut.duration(100)}>
@@ -357,8 +378,10 @@ export function TeacherFace({
           </View>
         ))}
 
+        {shades ? <Shades eyeLeft={eyeLeft} eyeTop={eyeTop} eyeW={eyeW} eyeH={eyeH} centerX={centerX} s={s} /> : null}
+
         {/* Eyebrows */}
-        {look.brows !== "none" ? (
+        {showBrows ? (
           <>
             {[-1, 1].map((side) => (
               <Animated.View
@@ -368,15 +391,15 @@ export function TeacherFace({
                 style={{
                   position: "absolute",
                   left: eyeLeft(side) - 6 * s,
-                  top: eyeTop - 30 * s,
+                  top: eyeTop - 30 * s - (browH - 12 * s),
                   width: eyeW + 12 * s,
-                  height: 12 * s,
+                  height: browH,
                 }}
               >
                 <Animated.View
                   style={[
                     styles.ink,
-                    { width: eyeW + 12 * s, height: 12 * s, borderRadius: 6 * s },
+                    { width: eyeW + 12 * s, height: browH, borderRadius: browH / 2 },
                     side < 0 ? leftBrowStyle : rightBrowStyle,
                   ]}
                 />
@@ -443,6 +466,19 @@ export function TeacherFace({
           />
         ) : null}
 
+        {/* Pak Guru's moustache, over the top of his mouth */}
+        {isPakGuru ? (
+          <View style={{ position: "absolute", left: centerX - 46 * s, top: mouthTop - 32 * s, width: 92 * s, height: 34 * s }}>
+            <Svg width="100%" height="100%" viewBox="0 0 120 40">
+              <Path d={MOUSTACHE} fill={INK} />
+            </Svg>
+          </View>
+        ) : null}
+
+        {accessory === "partyHat" ? (
+          <PartyHat left={centerX + faceW * 0.1} top={faceTop - 118 * s} width={100 * s} height={130 * s} />
+        ) : null}
+
         {has("sweat") ? <SweatDrop left={faceLeft + faceW - 40 * s} top={faceTop - 18 * s} s={s} /> : null}
         {has("dots") ? <ThinkingDots left={faceLeft + faceW - 30 * s} top={faceTop - 70 * s} s={s} /> : null}
         {has("zzz") ? <Zzz left={faceLeft + faceW - 20 * s} top={faceTop - 60 * s} s={s} /> : null}
@@ -455,6 +491,88 @@ export function TeacherFace({
         ) : null}
       </Animated.View>
     </View>
+  );
+}
+
+/** Cool black shades: they drop onto her face for 3 right answers in a row. */
+function Shades({
+  eyeLeft,
+  eyeTop,
+  eyeW,
+  eyeH,
+  centerX,
+  s,
+}: {
+  eyeLeft: (side: number) => number;
+  eyeTop: number;
+  eyeW: number;
+  eyeH: number;
+  centerX: number;
+  s: number;
+}) {
+  const lensW = eyeW + 30 * s;
+  const lensH = eyeH * 0.72;
+  const top = eyeTop + 8 * s;
+  const innerEdge = eyeLeft(1) - 15 * s; // the right lens' left edge
+  return (
+    <Animated.View
+      entering={SlideInUp.springify().damping(9)}
+      exiting={FadeOut.duration(150)}
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+    >
+      {/* Bridge */}
+      <View
+        style={[
+          styles.ink,
+          { position: "absolute", left: 2 * centerX - innerEdge - 2 * s, top: top + 8 * s, width: 2 * (innerEdge - centerX) + 4 * s, height: 10 * s },
+        ]}
+      />
+      {[-1, 1].map((side) => (
+        <View
+          key={side}
+          style={[
+            styles.ink,
+            {
+              position: "absolute",
+              left: eyeLeft(side) - 15 * s,
+              top,
+              width: lensW,
+              height: lensH,
+              borderTopLeftRadius: 10 * s,
+              borderTopRightRadius: 10 * s,
+              borderBottomLeftRadius: lensW / 2,
+              borderBottomRightRadius: lensW / 2,
+            },
+          ]}
+        >
+          {/* Shine */}
+          <View style={[styles.shine, { left: 12 * s, top: 10 * s, width: 12 * s, height: lensH * 0.45, borderRadius: 6 * s }]} />
+        </View>
+      ))}
+    </Animated.View>
+  );
+}
+
+/** A party hat on the side of her head when every dialogue is done. */
+function PartyHat({ left, top, width, height }: { left: number; top: number; width: number; height: number }) {
+  return (
+    <Animated.View
+      entering={ZoomIn.springify().damping(8)}
+      exiting={FadeOut.duration(150)}
+      style={{ position: "absolute", left, top, width, height, transform: [{ rotate: "18deg" }] }}
+      pointerEvents="none"
+    >
+      <Svg width="100%" height="100%" viewBox="0 0 100 130">
+        <Path d="M50 8 L92 118 Q50 132 8 118 Z" fill="#7C5CFF" stroke={INK} strokeWidth={5} strokeLinejoin="round" />
+        <Circle cx={48} cy={50} r={7} fill={GOLD} />
+        <Circle cx={34} cy={88} r={7} fill="#FF6B9A" />
+        <Circle cx={64} cy={92} r={7} fill={GOLD} />
+        <Circle cx={56} cy={70} r={5} fill="#3DD68C" />
+        <Path d="M10 116 Q50 130 90 116" stroke={GOLD} strokeWidth={9} fill="none" strokeLinecap="round" />
+        <Circle cx={50} cy={8} r={12} fill={GOLD} stroke={INK} strokeWidth={4} />
+      </Svg>
+    </Animated.View>
   );
 }
 
@@ -617,6 +735,12 @@ const styles = StyleSheet.create({
     width: "70%",
     marginBottom: -4,
     backgroundColor: "#FF7A93",
+  },
+  shine: {
+    position: "absolute",
+    backgroundColor: "#fff",
+    opacity: 0.45,
+    transform: [{ rotate: "20deg" }],
   },
   happyEye: {
     position: "absolute",
