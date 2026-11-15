@@ -122,7 +122,7 @@ export function TalkStage({
           testID="roleplay-hold-to-talk"
           style={({ pressed }) => [styles.facePress, pressed && canTalk && styles.facePressed]}
         >
-          <TeacherFace mood={mood} speaking={teacherSpeaking} audioLevel={teacherLevel} size={faceSize} />
+          <TeacherFace mood={mood} speaking={teacherSpeaking} audioLevel={teacherLevel} size={faceSize} name={teacherName} />
         </Pressable>
       </View>
 

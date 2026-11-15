@@ -390,6 +390,7 @@ export const BAGIAN_B_TOPICS: ClassManagementTopic[] = [
   },
   {
     id: "b-topik-4",
+    teacher: "Pak Guru",
     title: "Topik 4",
     subtitle: "Bermain Dadu dan Kartu Kata",
     description:
@@ -492,6 +493,7 @@ export const BAGIAN_B_TOPICS: ClassManagementTopic[] = [
   },
   {
     id: "b-topik-5",
+    teacher: "Pak Guru",
     title: "Topik 5",
     subtitle: "Memastikan Pemahaman",
     description:
@@ -537,13 +539,14 @@ export const BAGIAN_B_TOPICS: ClassManagementTopic[] = [
   },
   {
     id: "b-topik-6",
+    teacher: "Pak Guru",
     title: "Topik 6",
     subtitle: "Membagi Kelompok Belajar",
     description:
       "Latih empat dialog guru–siswa dari gambar komik: membagi kelompok, aturan berbicara, dan batas waktu.",
     comicScope:
-      "Hanya empat percakapan di gambar: (1) Sekarang kita akan bekerja dalam kelompok. / Baik, Bu Guru, " +
-      "(2) Satu kelompok tiga orang. / Baik, (3) Setiap orang harus berbicara. / Baik, Bu Guru, " +
+      "Hanya empat percakapan di gambar: (1) Sekarang kita akan bekerja dalam kelompok. / Baik, Pak Guru, " +
+      "(2) Satu kelompok tiga orang. / Baik, (3) Setiap orang harus berbicara. / Baik, Pak Guru, " +
       "(4) Kalian punya lima menit. / Kami siap. Tidak ada materi lain.",
     imageKey: "bagianBTopik6Panel1",
     xpReward: 10,
@@ -553,8 +556,8 @@ export const BAGIAN_B_TOPICS: ClassManagementTopic[] = [
     turns: [
       {
         guruLine: { id: "Sekarang kita akan bekerja dalam kelompok.", zhTW: "現在我們要分組活動。" },
-        studentLine: { id: "Baik, Bu Guru.", zhTW: "好的，老師。" },
-        expectedAnswers: ["Baik, Bu Guru", "Baik bu guru", "Baik"],
+        studentLine: { id: "Baik, Pak Guru.", zhTW: "好的，老師。" },
+        expectedAnswers: ["Baik, Pak Guru", "Baik Pak Guru", "Baik", "Baik, Bu Guru"],
         guruPanelIndex: 0,
         studentPanelIndex: 0,
         guruImageKey: "bagianBTopik6Panel1",
@@ -563,7 +566,7 @@ export const BAGIAN_B_TOPICS: ClassManagementTopic[] = [
       {
         guruLine: { id: "Satu kelompok tiga orang.", zhTW: "三人一組。" },
         studentLine: { id: "Baik.", zhTW: "好的。" },
-        expectedAnswers: ["Baik", "Baik Bu Guru"],
+        expectedAnswers: ["Baik", "Baik Pak Guru", "Baik Bu Guru"],
         guruPanelIndex: 1,
         studentPanelIndex: 1,
         guruImageKey: "bagianBTopik6Panel2",
@@ -571,8 +574,8 @@ export const BAGIAN_B_TOPICS: ClassManagementTopic[] = [
       },
       {
         guruLine: { id: "Setiap orang harus berbicara.", zhTW: "每個人都要發言。" },
-        studentLine: { id: "Baik, Bu Guru.", zhTW: "好的，老師。" },
-        expectedAnswers: ["Baik, Bu Guru", "Baik bu guru", "Baik"],
+        studentLine: { id: "Baik, Pak Guru.", zhTW: "好的，老師。" },
+        expectedAnswers: ["Baik, Pak Guru", "Baik Pak Guru", "Baik", "Baik, Bu Guru"],
         guruPanelIndex: 2,
         studentPanelIndex: 3,
         guruImageKey: "bagianBTopik6Panel3",
@@ -581,7 +584,7 @@ export const BAGIAN_B_TOPICS: ClassManagementTopic[] = [
       {
         guruLine: { id: "Kalian punya lima menit.", zhTW: "你們有五分鐘。" },
         studentLine: { id: "Kami siap.", zhTW: "我們準備好了。" },
-        expectedAnswers: ["Kami siap", "Kami siap, Bu Guru"],
+        expectedAnswers: ["Kami siap", "Kami siap, Pak Guru", "Kami siap, Bu Guru"],
         guruPanelIndex: 4,
         studentPanelIndex: 5,
         guruImageKey: "bagianBTopik6Panel5",
@@ -591,6 +594,7 @@ export const BAGIAN_B_TOPICS: ClassManagementTopic[] = [
   },
   {
     id: "b-topik-7",
+    teacher: "Pak Guru",
     title: "Topik 7",
     subtitle: "Berkenalan di Kelas",
     description:
@@ -808,6 +812,7 @@ export const BAGIAN_B_TOPICS: ClassManagementTopic[] = [
 export const BAGIAN_C_TOPICS: ClassManagementTopic[] = [
   {
     id: "c-topik-1",
+    teacher: "Pak Guru",
     title: "Topik 1",
     subtitle: "Memberikan Tugas dan PR",
     description:

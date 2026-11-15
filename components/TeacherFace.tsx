@@ -72,6 +72,8 @@ interface TeacherFaceProps {
   audioLevel?: number;
   /** Height of the face in points; everything else scales with it. */
   size?: number;
+  /** Who the face is (Bu Guru or Pak Guru), for screen readers. */
+  name?: string;
 }
 
 const RED = "#FF4B3A";
@@ -88,7 +90,7 @@ const FLAME_OUTER =
 const FLAME_INNER = "M30 100 C18 100 14 90 17 80 C20 72 26 70 26 60 C32 66 36 72 38 66 C44 76 44 92 30 100 Z";
 const DROP = "M20 0 C26 14 40 26 40 38 C40 48 31 56 20 56 C9 56 0 48 0 38 C0 26 14 14 20 0 Z";
 
-export function TeacherFace({ mood, speaking, audioLevel = 0, size = 64 }: TeacherFaceProps) {
+export function TeacherFace({ mood, speaking, audioLevel = 0, size = 64, name = "Bu Guru" }: TeacherFaceProps) {
   const look = LOOKS[mood];
   // Every measure comes from the design (a 210-high face), scaled to `size`.
   const s = size / 210;
@@ -241,7 +243,7 @@ export function TeacherFace({ mood, speaking, audioLevel = 0, size = 64 }: Teach
   const has = (extra: Extra) => look.extras.includes(extra);
 
   return (
-    <View style={{ width, height: flameH + size + 50 * s }} accessibilityRole="image" accessibilityLabel="Bu Guru">
+    <View style={{ width, height: flameH + size + 50 * s }} accessibilityRole="image" accessibilityLabel={name}>
       {/* Shadow on the floor */}
       <Animated.View
         style={[

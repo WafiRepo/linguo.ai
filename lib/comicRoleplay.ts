@@ -5,9 +5,11 @@ import { RoleplayScenario } from "@/types/roleplay";
 // becomes a mission the student completes, in order.
 export type ComicTeacherName = "Bu Guru" | "Pak Guru";
 
-// Some comics have a male teacher (the student answers "Baik, Pak Guru");
-// the AI takes that role, with a male voice on the server.
+// Some comics have a male teacher: the AI takes that role (name and a
+// male voice on the server). Set on the topic; otherwise a student line
+// like "Baik, Pak Guru" gives it away.
 export function comicTeacherName(topic: ClassManagementTopic): ComicTeacherName {
+  if (topic.teacher) return topic.teacher;
   return topic.turns.some((turn) => /\bPak\b/.test(turn.studentLine.id)) ? "Pak Guru" : "Bu Guru";
 }
 

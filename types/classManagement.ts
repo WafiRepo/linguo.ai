@@ -23,6 +23,8 @@ export interface ClassManagementTopic {
   /** What the comic covers — tutor must not go beyond this. */
   comicScope: string;
   imageKey: keyof typeof images;
+  /** The teacher drawn in the comic (the AI's name and voice). Default: Bu Guru. */
+  teacher?: "Bu Guru" | "Pak Guru";
   xpReward: number;
   introMessage: string;
   turns: ClassDialogueTurn[];
