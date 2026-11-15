@@ -20,6 +20,8 @@ export interface PartnerOrg {
   zhName: string;
   enName: string;
   about: Bilingual;
+  /** Wide logo shown at the top of the partner card. */
+  logo?: ImageSourcePropType;
 }
 
 export const STORY = {
@@ -90,6 +92,7 @@ export const STORY = {
   implementation: {
     zhName: "新竹市新住民語文輔導團",
     enName: "Hsinchu City New Immigrant Languages Advisory Group",
+    logo: images.logoCertificate,
     about: {
       zh: "透過教學專業與教育現場的合作，推動印尼語數位學習資源的發展，讓語言學習有更多元的可能。",
       en: "Working with teachers and schools, they champion digital Indonesian learning resources and open up new ways to learn a language.",
@@ -98,6 +101,7 @@ export const STORY = {
   funding: {
     zhName: "國立臺北教育大學東協中心",
     enName: "ASEAN Center, National Taipei University of Education",
+    logo: images.partnerAseanCenter,
     about: {
       zh: "感謝提供經費支持，讓印尼語 AI 學習工具的研發與教育創新得以持續推進。",
       en: "Thank you for funding the development of this Indonesian AI learning tool and helping educational innovation move forward.",

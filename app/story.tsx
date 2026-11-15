@@ -154,8 +154,11 @@ function MemberCard({ member, zh }: { member: TeamMember; zh: boolean }) {
 function PartnerCard({ org, zh }: { org: PartnerOrg; zh: boolean }) {
   return (
     <View className="mx-5 mt-3 rounded-[24px] border border-[#e4dcff] bg-white p-4" style={styles.softShadow}>
+      {org.logo ? (
+        <Image source={org.logo} className="h-[84px] w-full mb-3" resizeMode="contain" />
+      ) : null}
       <View className="flex-row gap-3">
-        <Ionicons name="leaf" size={40} color="#7cc96b" />
+        {org.logo ? null : <Ionicons name="leaf" size={40} color="#7cc96b" />}
         <View className="flex-1">
           {zh ? <Text className="font-poppins-bold text-lg text-text-primary">{org.zhName}</Text> : null}
           <Text className={zh ? "font-poppins text-sm text-[#5b3bf6]" : "font-poppins-bold text-lg text-text-primary"}>

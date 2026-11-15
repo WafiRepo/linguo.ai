@@ -10,6 +10,7 @@ import storyHero from "@/assets/images/story-hero.jpg";
 import teamYishan from "@/assets/images/team-yishan.jpg";
 import teamWafi from "@/assets/images/team-wafi.jpg";
 import teamVinsa from "@/assets/images/team-vinsa.jpg";
+import partnerAseanCenter from "@/assets/images/partner-asean-center.png";
 
 import topik1Panel1 from "@/assets/learning-management/bagian-a/topik-1/panel-1.png";
 import topik1Panel2 from "@/assets/learning-management/bagian-a/topik-1/panel-2.png";
@@ -186,6 +187,7 @@ export const images = {
   teamYishan,
   teamWafi,
   teamVinsa,
+  partnerAseanCenter,
   topik1Panel1,
   topik1Panel2,
   topik1Panel3,
