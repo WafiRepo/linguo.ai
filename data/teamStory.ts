@@ -62,7 +62,6 @@ export const STORY = {
       initials: "YK",
       photo: images.teamYishan,
       roles: [
-        { zh: "國立中央大學博士候選人", en: "Ph.D. Candidate, National Central University" },
         { zh: "新竹市關埔國小學務主任", en: "Director of Student Affairs, Guanpu Elementary School" },
         {
           zh: "新竹市新住民語文輔導團副召集人",
