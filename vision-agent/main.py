@@ -507,11 +507,18 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                     return
                 if tracker.remaining and roleplay.confirming.get(tracker.remaining[0].id, 0) > 0:
                     return  # its right answer is still waiting for Bu Guru's reaction
+                index = tracker.objectives.index(tracker.remaining[0])
+                started_at = roleplay.user_started_at or time.monotonic()
+                # Only a miss for a dialogue Bu Guru has already asked: the end
+                # of the previous answer ("Baik. Sudah") can arrive right after
+                # that answer counted, before she says the next line.
+                asked = roleplay.agent_speech_between(started_at - 170, started_at + 0.5)
+                if index > 0 and not says_line(asked, turns[index]["guru"]):
+                    _safe_log(f"[roleplay] {said!r} came before Bu Guru asked dialogue {index}; not a miss")
+                    return
                 for task in pending_miss:
                     task.cancel()
                 pending_miss.clear()
-                index = tracker.objectives.index(tracker.remaining[0])
-                started_at = roleplay.user_started_at or time.monotonic()
                 pending_miss.append(
                     asyncio.create_task(resolve_comic_miss(said, index, started_at))
                 )
