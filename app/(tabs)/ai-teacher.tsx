@@ -1,14 +1,16 @@
-import { ReactNode, useEffect } from "react";
+import { useAuth } from "@clerk/expo";
+import { ReactNode, useCallback, useEffect, useRef } from "react";
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
 import { AIPilotNotice } from "@/components/AIPilotNotice";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Href, useRouter } from "expo-router";
+import { Href, useFocusEffect, useRouter } from "expo-router";
 
 import { ClassTopicCard } from "@/components/ClassTopicCard";
 import { colors } from "@/constants/theme";
 import { BAGIAN_B_TOPICS, BAGIAN_C_TOPICS, CLASS_MANAGEMENT_TOPICS } from "@/data/classManagement";
 import { classTopicRoute, ClassTopicMode } from "@/lib/topicProgress";
+import { syncPassedTopics } from "@/lib/portfolio";
 import { posthog } from "@/lib/posthog";
 import { useLearningStore } from "@/store/learningStore";
 import { useT } from "@/lib/i18n";
@@ -40,6 +42,15 @@ export default function AITeacherScreen() {
 function AITeacherTopics() {
   const router = useRouter();
   const { t } = useT();
+  // PASS stamps from the server (earned on another device, or rescored).
+  const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+  useFocusEffect(
+    useCallback(() => {
+      syncPassedTopics(() => getTokenRef.current()).catch(() => {});
+    }, []),
+  );
   const passedRolePlayTopicIds = useLearningStore((s) => s.passedRolePlayTopicIds);
   const markClassTopicStarted = useLearningStore((s) => s.markClassTopicStarted);
   // The PASS stamp: Role Play finished with a passing score (not Practice).
