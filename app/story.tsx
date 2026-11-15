@@ -106,8 +106,11 @@ function SectionTitle({
 
 function Chip({ children, strong = false }: { children: ReactNode; strong?: boolean }) {
   return (
-    <View className="rounded-lg bg-[#ece6ff] px-2 py-1">
-      <Text className={`text-[13px] text-[#4a32c9] ${strong ? "font-poppins-semibold" : "font-poppins"}`}>{children}</Text>
+    // max-w-full + shrink: a long role wraps inside the card instead of running past it.
+    <View className="max-w-full rounded-lg bg-[#ece6ff] px-2 py-1">
+      <Text className={`shrink text-[13px] leading-5 text-[#4a32c9] ${strong ? "font-poppins-semibold" : "font-poppins"}`}>
+        {children}
+      </Text>
     </View>
   );
 }
