@@ -286,6 +286,59 @@ class AlternativeFeedbackTest(unittest.TestCase):
         self.assertEqual(feedback["corrections"], [])
 
 
+class TurnDirectorTest(unittest.IsolatedAsyncioTestCase):
+    TURNS = [
+        {"guru": "Kalian sudah siap?", "student": "Ya, kami siap."},
+        {"guru": "Saya mulai mengabsen. Andi?", "student": "Hadir."},
+    ]
+
+    def make(self):
+        events, said = [], []
+
+        async def send(payload):
+            events.append(payload)
+
+        async def say(line):
+            said.append(line)
+
+        controller = RoleplayController(send_event=send, tracker=RoleplayTracker([]))
+        director = roleplay.ComicTurnDirector(
+            turns=self.TURNS, controller=controller, send_event=send, say=say,
+            quiet_seconds=0.05, max_wait_seconds=0.5,
+        )
+        return director, controller, events, said
+
+    async def test_start_shows_and_says_the_first_line(self):
+        director, _, events, said = self.make()
+        await director.start()
+        self.assertEqual(events, [{"type": "roleplay_turn", "turnIndex": 0}])
+        self.assertEqual(said, ["Kalian sudah siap?"])
+
+    async def test_next_line_comes_after_her_praise(self):
+        director, controller, events, said = self.make()
+        controller.on_agent_partial("很好喔！")
+        director.dialogue_done()
+        await director._task
+        self.assertEqual(events[-1], {"type": "roleplay_turn", "turnIndex": 1})
+        self.assertEqual(said, ["Saya mulai mengabsen. Andi?"])
+
+    async def test_line_she_already_started_is_not_said_twice(self):
+        director, controller, events, said = self.make()
+        director.dialogue_done()
+        controller.on_agent_partial("很好！ Saya mulai mengabsen. Andi?")
+        await director._task
+        self.assertEqual(events[-1]["turnIndex"], 1)
+        self.assertEqual(said, [])
+
+    async def test_last_dialogue_ends_the_comic(self):
+        director, _, events, said = self.make()
+        director.index = 1
+        director.dialogue_done()
+        await director._task
+        self.assertEqual(events[-1], {"type": "roleplay_turn", "turnIndex": 2, "done": True})
+        self.assertEqual(said, [])
+
+
 class LiveMissesTest(unittest.TestCase):
     SCRIPT = [
         {"guru": "Selamat pagi, anak-anak.", "student": "Selamat pagi, Bu Guru.", "answers": []},
@@ -478,10 +531,11 @@ class ComicTest(unittest.TestCase):
         self.assertEqual(done, ["turn-1", "turn-2"])
         self.assertIn("finished every dialogue", roleplay.comic_status_text(self.tracker, self.turns))
 
-    def test_move_on_line_says_next_teacher_line_or_closes(self):
+    def test_move_on_line_says_it_together_or_closes(self):
         middle = roleplay.comic_move_on_line(self.turns, 1, "English")
         self.assertIn('"Sudah."', middle)
-        self.assertTrue(middle.endswith("Besarkan suaranya sedikit."))
+        # The turn director says the next TEACHER line, not this line.
+        self.assertNotIn("Besarkan", middle)
         last = roleplay.comic_move_on_line(self.turns, 2, "English")
         self.assertIn('"Oke, Bu."', last)
         self.assertIn("Thank you", last)
@@ -531,7 +585,8 @@ class ComicTest(unittest.TestCase):
         prompt = roleplay.build_comic_roleplay_prompt(self.turns, "English", "Topik 1")
         self.assertLess(prompt.index("Masukkan ke stopkontak"), prompt.index("Tekan tombolnya"))
         self.assertIn("SAFETY", prompt)
-        self.assertIn("TURN STATUS", prompt)
+        # The server says the TEACHER lines; the model only reacts.
+        self.assertIn("NEVER say a TEACHER line on your own", prompt)
 
 
 if __name__ == "__main__":

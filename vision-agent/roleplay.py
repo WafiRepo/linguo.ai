@@ -214,20 +214,20 @@ def build_comic_roleplay_prompt(
         "as a LIVE SPOKEN ROLEPLAY. You play the TEACHER; the child plays the STUDENT.\n\n"
         f"COMIC SCRIPT, in order:\n{script}\n\n"
         "RULES:\n"
-        "- Say each TEACHER line exactly as written, in a natural classroom voice, one line at a "
-        "time — then stop and wait for the student.\n"
-        "- Never say the student's line before they have tried. Go to the next TEACHER line only "
-        "after the student has given a right answer (see RIGHT ANSWERS).\n"
+        "- The lesson system gives you each TEACHER line to say, one at a time, in the right "
+        "order. Say it exactly as written, in a natural classroom voice, then stop and wait for "
+        "the student.\n"
+        "- NEVER say a TEACHER line on your own, and never start the next dialogue yourself: "
+        "after reacting to the student's answer, STOP. The next TEACHER line comes to you.\n"
+        "- Never say the student's line before they have tried.\n"
         "- RIGHT ANSWERS: the comic's student line is ONE good answer, not the only one. Any answer "
         "that is correct Indonesian, answers your TEACHER line and fits the comic's situation is "
         "RIGHT, even with other words (e.g. 'Kemarin kita belajar salam' for 'Kami belajar "
         "salam.'). For such an answer: give one short praise in "
-        f"{help_language}, then go straight on with the next TEACHER line. Do NOT say the comic's "
+        f"{help_language}, then STOP (the next TEACHER line comes to you). Do NOT say the comic's "
         "version (the app shows it later), never say 'almost' and never ask them to repeat it.\n"
         "- A name or greeting alone ('Bu Guru') or one unrelated word is NOT an answer: treat it "
         "as a WRONG SENTENCE.\n"
-        "- Whenever you move to the next dialogue, ALWAYS say its TEACHER line first, exactly as "
-        "written. Never ask for a student line whose TEACHER line you have not said yet.\n"
         f"- LANGUAGE: every reaction, praise, correction and tip you say yourself is in "
         f"{help_language}. Only the comic lines (the TEACHER lines, and the student line when "
         "you model it) are in Indonesian.\n"
@@ -239,8 +239,8 @@ def build_comic_roleplay_prompt(
         f"Indonesian): say one short encouraging word in "
         f"{help_language}, then the correct Indonesian student line (e.g. {model_example}), "
         "plus ONE short tip in "
-        f"{help_language} about what was different. Let them try again. After two tries, say it "
-        "together with them and move on.\n"
+        f"{help_language} about what was different. Let them try again (the lesson system "
+        "helps them say it together after two tries).\n"
         "- WRONG PRONUNCIATION (right words, clearly mispronounced — you can hear it): say that "
         "word slowly, syllable by syllable (e.g. \"Gu-ru\"), give ONE short tip in "
         f"{help_language} on how to say it, and ask them to say the line once more. Only correct "
@@ -251,13 +251,12 @@ def build_comic_roleplay_prompt(
         "comic. Correct at most ONCE per answer: if you already corrected or accepted it, "
         "ignore the note.\n"
         f"- If the student is stuck or speaks {help_language}: give ONE short help sentence in "
-        f"{help_language} that includes the Indonesian student line, then continue the comic.\n"
+        f"{help_language} that includes the Indonesian student line, then wait.\n"
         f"- Keep reactions tiny (like {praise_example}). This is acting out the comic, not a "
         "lesson: no "
         "explanations, no other topics, no new vocabulary.\n"
-        "- Quiet TURN STATUS notes tell you where you are in the script. Use them to stay on "
-        "track, but never repeat a line you have already said.\n"
-        f"- After the last dialogue, close warmly in one short sentence in {help_language}.\n\n"
+        f"- After the student's answer to the LAST dialogue, praise and close warmly in one "
+        f"short sentence in {help_language}.\n\n"
         f"{indonesian_pronunciation_rules(comic_phrases(turns), help_language)}\n\n"
         f"{SAFETY_RULES}"
     )
@@ -366,7 +365,7 @@ def comic_move_on_line(turns: list[dict[str, Any]], index: int, help_language: s
         together = f"That's okay, let's say it together: \"{line}\"."
         closing = "Thank you, you tried really hard. Well done!"
     if index + 1 < len(turns):
-        return f'{together} {turns[index + 1]["guru"]}'
+        return together  # the turn director says the next TEACHER line
     return f"{together} {closing}"
 
 
@@ -713,6 +712,10 @@ class RoleplayController:
             (now, fragment)
         ]
 
+    def last_agent_at(self) -> Optional[float]:
+        """When the AI last said something (None: not yet)."""
+        return self._recent_agent[-1][0] if self._recent_agent else None
+
     def agent_text_since(self, since: float) -> str:
         return " ".join(s for t, s in self._recent_agent if t >= since)
 
@@ -761,3 +764,74 @@ class RoleplayController:
             return
         if feedback is not None:
             await self.send_event({"type": "roleplay_feedback", **feedback})
+
+
+@dataclass
+class ComicTurnDirector:
+    """Comic Role Play: the server, not the model, keeps the dialogue order.
+
+    The model only reacts to answers (praise or correction). This director
+    holds the dialogue number, says every TEACHER line itself, and tells the
+    app which comic dialogue is on ("roleplay_turn"), so a correction can
+    never move the comic or make Bu Guru skip or repeat a line.
+    """
+
+    turns: list[dict[str, Any]]
+    controller: RoleplayController
+    send_event: Callable[[dict[str, Any]], Awaitable[None]]
+    # Voices one TEACHER line (word for word).
+    say: Callable[[str], Awaitable[None]]
+    index: int = 0
+    # Set right before a completion whose reaction is still to be voiced
+    # (two missed tries: "let's say it together"): wait for it to start.
+    expect_speech: bool = False
+    # Quiet this long = Bu Guru finished her reaction.
+    quiet_seconds: float = 0.8
+    # Never wait longer than this for her reaction.
+    max_wait_seconds: float = 6.0
+    _task: Optional[asyncio.Task] = None
+
+    async def start(self) -> None:
+        await self._show_and_say(0)
+
+    def dialogue_done(self) -> None:
+        """A dialogue was completed (right answer, accepted alternative, or
+        said together after two tries): say the next line once Bu Guru has
+        finished reacting."""
+        self.index += 1
+        expect_speech, self.expect_speech = self.expect_speech, False
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
+        self._task = asyncio.create_task(self._next(self.index, expect_speech))
+
+    async def _next(self, index: int, expect_speech: bool) -> None:
+        since = time.monotonic()
+        await self.wait_for_reaction(since, expect_speech)
+        if index >= len(self.turns):
+            await self.send_event({"type": "roleplay_turn", "turnIndex": index, "done": True})
+            return
+        # The model sometimes still starts the next line by itself: then
+        # only move the comic, don't say it twice.
+        heard = self.controller.agent_speech_between(since - 10, time.monotonic())
+        if says_line(heard, self.turns[index]["guru"]):
+            await self.send_event({"type": "roleplay_turn", "turnIndex": index})
+            return
+        await self._show_and_say(index)
+
+    async def _show_and_say(self, index: int) -> None:
+        # Comic first, so the panel changes as she starts the line.
+        await self.send_event({"type": "roleplay_turn", "turnIndex": index})
+        await self.say(self.turns[index]["guru"])
+
+    async def wait_for_reaction(self, since: float, expect_speech: bool = False) -> None:
+        """Until Bu Guru has finished her praise or correction: quiet for
+        quiet_seconds (and, with expect_speech, only after new speech)."""
+        deadline = since + self.max_wait_seconds
+        await asyncio.sleep(0.3)
+        while time.monotonic() < deadline:
+            last = self.controller.last_agent_at()
+            now = time.monotonic()
+            started = last is not None and last >= since
+            if (started or not expect_speech) and (last is None or now - last >= self.quiet_seconds):
+                return
+            await asyncio.sleep(0.1)

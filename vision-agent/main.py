@@ -39,6 +39,7 @@ from pronunciation import append_pronunciation_guide  # noqa: E402
 from roleplay import (  # noqa: E402
     CORRECTION_GRACE_SECONDS,
     MAX_WRONG_ATTEMPTS,
+    ComicTurnDirector,
     RoleplayController,
     RoleplayTracker,
     ai_accepted_answer,
@@ -49,7 +50,6 @@ from roleplay import (  # noqa: E402
     comic_correction_note,
     comic_move_on_line,
     comic_objectives,
-    comic_status_text,
     comic_turns,
     generate_roleplay_feedback,
     is_answer_attempt,
@@ -68,6 +68,7 @@ from tutor_emotion import (  # noqa: E402
 AGENT_USER_ID = "ai-teacher"
 # gpt-live-1 voice for comics whose teacher is "Pak Guru" (default voice is female).
 MALE_TEACHER_VOICE = "cedar"
+FEMALE_TEACHER_VOICE = "marin"
 # Longest wait for Bu Guru's reaction before a matched answer counts.
 CONFIRM_MAX_WAIT_SECONDS = 6.0
 # Pause between the student joining and Bu Guru's first line.
@@ -363,8 +364,10 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         topic_title = str(custom.get("topic_title") or "")
         # Some comics have a male teacher; only these two roles exist.
         teacher = "Pak Guru" if custom.get("ai_name") == "Pak Guru" else "Bu Guru"
-        if teacher == "Pak Guru" and is_gpt_live:
-            agent.llm.voice = MALE_TEACHER_VOICE  # read when the session connects
+        if is_gpt_live:
+            # Read when the session connects. Always set: the agent is reused,
+            # and a Pak Guru comic must not leave the male voice for Bu Guru.
+            agent.llm.voice = MALE_TEACHER_VOICE if teacher == "Pak Guru" else FEMALE_TEACHER_VOICE
         if is_comic_practice:
             # The practice flow voices every next line itself; no status notes.
             status_text = lambda t, recent: None  # noqa: E731
@@ -372,18 +375,33 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 turns, help_language, topic_title, teacher
             )
         else:
-            status_text = lambda t, recent: comic_status_text(t, turns, recent)  # noqa: E731
+            # The turn director says every TEACHER line: no status notes.
+            status_text = lambda t, recent: None  # noqa: E731
             system_prompt = build_comic_roleplay_prompt(
                 turns, help_language, topic_title, teacher
             )
         feedback_client = AsyncOpenAI()
         feedback_model = os.getenv("ROLEPLAY_FEEDBACK_MODEL", "gpt-5.4-mini")
 
+        director: ComicTurnDirector | None = None
+
         async def send_roleplay_event(payload: dict) -> None:
             try:
                 await agent.send_custom_event(payload)
             except Exception as e:
                 print(f"[roleplay] event error ({payload.get('type')}): {e}")
+            if director is not None and payload.get("type") == "roleplay_objective":
+                director.dialogue_done()
+
+        async def say_teacher_line(line: str) -> None:
+            # GPT-Live voices commentary as written; the Realtime fallback
+            # needs the instruction wrapper.
+            if is_gpt_live:
+                await agent.simple_response(line)
+            else:
+                await agent.simple_response(
+                    f'Say this TEACHER line and NOTHING else: "{line}" Then STOP and wait.'
+                )
 
         # Comic Role Play: what the student said each time Bu Guru corrected
         # a dialogue (index -> answer). The report's corrections, and so the
@@ -409,6 +427,12 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         )
 
         if is_comic_roleplay:
+            director = ComicTurnDirector(
+                turns=turns,
+                controller=roleplay,
+                send_event=send_roleplay_event,
+                say=say_teacher_line,
+            )
             pending_miss: list[asyncio.Task] = []
             wrong_attempts: dict[int, int] = {}
 
@@ -434,9 +458,11 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                     # Commentary is voiced as written, so the next teacher
                     # line can't be skipped the way the model sometimes did.
                     _safe_log(f"[roleplay] dialogue {index} missed twice; moving on together")
-                    await roleplay.complete_current()
+                    if director is not None:
+                        director.expect_speech = True  # the line below is still to come
                     if is_gpt_live:
                         await agent.simple_response(comic_move_on_line(turns, index, help_language))
+                    await roleplay.complete_current()
                     return
                 # The app shows a correction card; the quiet note makes sure
                 # Bu Guru corrects it out loud unless she already did.
@@ -802,7 +828,9 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             elif is_roleplay:
                 # GPT-Live voices commentary as-is, so it gets the bare line;
                 # the Realtime fallback needs the instruction wrapper.
-                if is_gpt_live:
+                if director is not None:
+                    await director.start()
+                elif is_gpt_live:
                     await agent.simple_response(roleplay_opening_line(custom))
                 else:
                     await agent.simple_response(roleplay_kickoff_hint(custom))

@@ -124,6 +124,10 @@ function LiveRoleplayScreen() {
   // next dialogue's line, not as soon as the server marks a dialogue done:
   // the teacher may still be correcting the previous one.
   const [displayTurn, setDisplayTurn] = useState(0);
+  const displayTurnRef = useRef(0);
+  // Role Play: the server says which dialogue is on ("roleplay_turn").
+  // Once it does, the comic follows only the server, never a guess.
+  const serverTurnsRef = useRef(false);
   const pendingTurnRef = useRef<number | null>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -402,6 +406,7 @@ function LiveRoleplayScreen() {
     if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
     advanceTimerRef.current = null;
     pendingTurnRef.current = null;
+    displayTurnRef.current = index;
     setDisplayTurn(index);
     // Next comic dialogue: Bu Guru speaks first.
     setComicPhase("guru");
@@ -442,7 +447,19 @@ function LiveRoleplayScreen() {
     if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
   }, []);
 
+  // The server moved to a dialogue (it says its TEACHER line now).
+  const handleServerTurn = useCallback(
+    (index: number) => {
+      serverTurnsRef.current = true;
+      // Only forward: a late event never moves the comic back.
+      if (index >= displayTurnRef.current) showTurn(index);
+    },
+    [showTurn],
+  );
+
   useEffect(() => {
+    // Older server without turn events: guess from what Bu Guru says.
+    if (serverTurnsRef.current) return;
     if (completedIds.length <= displayTurn) return;
     const nextGuruLine = comic?.turns[completedIds.length]?.guruLine.id;
     // She already started the next dialogue: show it now.
@@ -661,6 +678,7 @@ function LiveRoleplayScreen() {
               onStudentTurn={handleStudentTurn}
               onAgentTurn={handleAgentTurn}
               onAgentText={handleAgentText}
+              onServerTurn={handleServerTurn}
               onCorrection={handleCorrection}
               onFeedback={setFeedback}
               onPracticeStep={handlePracticeStep}
@@ -1010,6 +1028,7 @@ function ActiveRoleplayContent({
   onStudentTurn,
   onAgentTurn,
   onAgentText,
+  onServerTurn,
   onCorrection,
   onFeedback,
   onPracticeStep,
@@ -1032,6 +1051,8 @@ function ActiveRoleplayContent({
   onAgentTurn: () => void;
   /** Every piece of the teacher's speech (partial and final). */
   onAgentText: (text: string) => void;
+  /** Role Play: the server moved the comic to this dialogue. */
+  onServerTurn: (turnIndex: number) => void;
   onCorrection: (correction: ComicCorrection) => void;
   onFeedback: (feedback: RoleplayFeedback) => void;
   onPracticeStep: (step: PracticeStep) => void;
@@ -1084,6 +1105,11 @@ function ActiveRoleplayContent({
 
       if (data.type === "roleplay_objective" && data.objectiveId) {
         onObjectiveDone(data.objectiveId);
+        return;
+      }
+
+      if (data.type === "roleplay_turn" && typeof data.turnIndex === "number") {
+        onServerTurn(data.turnIndex);
         return;
       }
 
@@ -1181,6 +1207,7 @@ function ActiveRoleplayContent({
     onStudentTurn,
     onAgentTurn,
     onAgentText,
+    onServerTurn,
     onCorrection,
     onFeedback,
     onPracticeStep,
