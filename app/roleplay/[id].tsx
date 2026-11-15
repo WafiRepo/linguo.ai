@@ -1400,6 +1400,7 @@ function ActiveRoleplayContent({
             onPressOut={() => setHolding(false)}
             starBurst={starBurst}
             onTickle={onTickle}
+            teacherText={partials.agent ?? ""}
           />
         )}
         {hintsCard}

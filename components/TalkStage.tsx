@@ -31,6 +31,8 @@ interface TalkStageProps {
   youLabel: string;
   onPressIn: () => void;
   onPressOut: () => void;
+  /** What Bu Guru is saying right now (her mouth follows the vowels). */
+  teacherText?: string;
   /** Change it (e.g. +1) to throw a burst of stars: a right answer. */
   starBurst?: number;
   /** Three quick taps on the face: she giggles. */
@@ -60,6 +62,7 @@ export function TalkStage({
   onPressOut,
   starBurst = 0,
   onTickle,
+  teacherText = "",
 }: TalkStageProps) {
   const [stageHeight, setStageHeight] = useState(190);
 
@@ -160,7 +163,14 @@ export function TalkStage({
           style={({ pressed }) => [styles.facePress, pressed && canTalk && styles.facePressed]}
         >
           <Animated.View style={squishStyle}>
-            <TeacherFace mood={mood} speaking={teacherSpeaking} audioLevel={teacherLevel} size={faceSize} name={teacherName} />
+            <TeacherFace
+              mood={mood}
+              speaking={teacherSpeaking}
+              audioLevel={teacherLevel}
+              speechText={teacherText}
+              size={faceSize}
+              name={teacherName}
+            />
           </Animated.View>
         </Pressable>
       </View>

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
@@ -70,6 +70,8 @@ interface TeacherFaceProps {
   speaking: boolean;
   /** Her voice level (0–1) from the call, when the call reports it. */
   audioLevel?: number;
+  /** The words she is saying right now: the mouth shapes follow their vowels. */
+  speechText?: string;
   /** Height of the face in points; everything else scales with it. */
   size?: number;
   /** Who the face is (Bu Guru or Pak Guru), for screen readers. */
@@ -90,7 +92,14 @@ const FLAME_OUTER =
 const FLAME_INNER = "M30 100 C18 100 14 90 17 80 C20 72 26 70 26 60 C32 66 36 72 38 66 C44 76 44 92 30 100 Z";
 const DROP = "M20 0 C26 14 40 26 40 38 C40 48 31 56 20 56 C9 56 0 48 0 38 C0 26 14 14 20 0 Z";
 
-export function TeacherFace({ mood, speaking, audioLevel = 0, size = 64, name = "Bu Guru" }: TeacherFaceProps) {
+export function TeacherFace({
+  mood,
+  speaking,
+  audioLevel = 0,
+  speechText = "",
+  size = 64,
+  name = "Bu Guru",
+}: TeacherFaceProps) {
   const look = LOOKS[mood];
   // Every measure comes from the design (a 210-high face), scaled to `size`.
   const s = size / 210;
@@ -114,6 +123,9 @@ export function TeacherFace({ mood, speaking, audioLevel = 0, size = 64, name = 
   const lookX = useSharedValue(0);
   const lookY = useSharedValue(0);
   const mouthOpen = useSharedValue(0);
+  // Talking mouth shape: width factor and roundness (see VISEMES).
+  const mouthWide = useSharedValue(1);
+  const mouthRound = useSharedValue(0.3);
   const bob = useSharedValue(0);
   const hop = useSharedValue(0);
   const tilt = useSharedValue(0);
@@ -179,22 +191,41 @@ export function TeacherFace({ mood, speaking, audioLevel = 0, size = 64, name = 
     }
   }, [look.motion, mood, hop, wiggle]);
 
-  // The mouth follows her voice: the call's level when it has one, otherwise
-  // a natural flap while she speaks.
+  // Lip-sync: while she talks, the mouth takes a new shape about 9 times a
+  // second, following the vowels of the Indonesian words arriving (a, i, u,
+  // e, o; a consonant closes it a little). Chinese has no Latin vowels, so
+  // it gets a natural mix. Her voice level sets how far it opens.
+  const vowelsRef = useRef<Viseme[]>([]);
+  const heardTextRef = useRef("");
+  const levelRef = useRef(0);
+  levelRef.current = audioLevel;
+  useEffect(() => {
+    const previous = heardTextRef.current;
+    // The text grows while she speaks; a new sentence starts over.
+    const added = speechText.startsWith(previous) ? speechText.slice(previous.length) : speechText;
+    heardTextRef.current = speechText;
+    vowelsRef.current = [...vowelsRef.current, ...visemesOf(added)].slice(-40);
+  }, [speechText]);
   useEffect(() => {
     if (!speaking) {
+      vowelsRef.current = [];
       mouthOpen.value = withTiming(0, { duration: 120 });
-      return;
-    }
-    if (audioLevel > 0.02) {
-      mouthOpen.value = withTiming(Math.min(1, 0.25 + audioLevel * 2.2), { duration: 70 });
+      mouthWide.value = withTiming(1, { duration: 120 });
+      mouthRound.value = withTiming(0.3, { duration: 120 });
       return;
     }
     const timer = setInterval(() => {
-      mouthOpen.value = withTiming(0.2 + Math.random() * 0.8, { duration: 90 });
-    }, 120);
+      const next = vowelsRef.current.shift() ?? NATURAL_MIX[Math.floor(Math.random() * NATURAL_MIX.length)];
+      const shape = VISEMES[next];
+      const level = levelRef.current;
+      // No level reported (some browsers): open as written.
+      const loudness = level > 0.02 ? Math.min(1.15, 0.55 + level * 2) : 1;
+      mouthOpen.value = withTiming(shape.open * loudness, { duration: 80 });
+      mouthWide.value = withTiming(shape.wide, { duration: 80 });
+      mouthRound.value = withTiming(shape.round, { duration: 80 });
+    }, VISEME_MS);
     return () => clearInterval(timer);
-  }, [speaking, audioLevel, mouthOpen]);
+  }, [speaking, mouthOpen, mouthWide, mouthRound]);
 
   const headStyle = useAnimatedStyle(() => ({
     transform: [
@@ -239,6 +270,28 @@ export function TeacherFace({ mood, speaking, audioLevel = 0, size = 64, name = 
       transform: [{ translateX: lookX.value * 6 * s }],
     };
   });
+
+  // The talking mouth: an oval whose width, height and roundness change
+  // with each vowel, with a pink tongue showing when it opens wide.
+  const talkW = mouthW * 1.1;
+  const talkMouthStyle = useAnimatedStyle(() => {
+    const width = talkW * mouthWide.value;
+    const height = mouthH * 0.25 + mouthOpen.value * mouthH * 1.5;
+    const round = Math.min(width, height) / 2;
+    return {
+      width,
+      height,
+      left: centerX - width / 2 + lookX.value * 6 * s,
+      top: mouthTop + mouthH * 0.3 - height * 0.35,
+      borderTopLeftRadius: round * (0.35 + mouthRound.value * 0.65),
+      borderTopRightRadius: round * (0.35 + mouthRound.value * 0.65),
+      borderBottomLeftRadius: round,
+      borderBottomRightRadius: round,
+    };
+  });
+  const tongueStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(mouthOpen.value, [0.35, 0.75], [0, 1], "clamp"),
+  }));
 
   const has = (extra: Extra) => look.extras.includes(extra);
 
@@ -351,7 +404,12 @@ export function TeacherFace({ mood, speaking, audioLevel = 0, size = 64, name = 
           : null}
 
         {/* Mouth */}
-        {mouth === "smile" || mouth === "grin" ? (
+        {speaking ? (
+          <Animated.View style={[styles.ink, styles.talkMouth, talkMouthStyle]}>
+            <Animated.View style={[styles.tongue, { height: mouthH * 0.7, borderRadius: mouthH }, tongueStyle]} />
+          </Animated.View>
+        ) : null}
+        {!speaking && (mouth === "smile" || mouth === "grin") ? (
           <Animated.View
             style={[
               styles.ink,
@@ -549,6 +607,17 @@ const styles = StyleSheet.create({
   ink: {
     backgroundColor: INK,
   },
+  talkMouth: {
+    position: "absolute",
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  tongue: {
+    width: "70%",
+    marginBottom: -4,
+    backgroundColor: "#FF7A93",
+  },
   happyEye: {
     position: "absolute",
     borderColor: INK,
@@ -571,3 +640,34 @@ const styles = StyleSheet.create({
     borderColor: "#E4DCFF",
   },
 });
+
+// ---- Lip-sync ----
+type Viseme = "a" | "i" | "u" | "e" | "o" | "rest";
+
+// wide: mouth width (1 = normal), open: how far it opens (0–1),
+// round: 0 = smile-shaped top, 1 = a full circle.
+const VISEMES: Record<Viseme, { wide: number; open: number; round: number }> = {
+  a: { wide: 1, open: 1, round: 0.5 }, // big oval, tongue shows
+  e: { wide: 1.15, open: 0.55, round: 0.35 },
+  i: { wide: 1.3, open: 0.22, round: 0.15 }, // wide and thin
+  o: { wide: 0.7, open: 0.85, round: 1 }, // big circle
+  u: { wide: 0.48, open: 0.45, round: 1 }, // small pucker
+  rest: { wide: 0.9, open: 0.08, round: 0.3 }, // a consonant: nearly closed
+};
+const VISEME_MS = 110;
+// Used when no Indonesian vowels are arriving (Chinese, or text running behind).
+const NATURAL_MIX: Viseme[] = ["a", "e", "o", "a", "i", "rest", "e", "u"];
+
+/** Mouth shapes for a piece of speech: each vowel, and a closing between words. */
+function visemesOf(text: string): Viseme[] {
+  const shapes: Viseme[] = [];
+  for (const word of text.toLowerCase().match(/[a-z]+/g) ?? []) {
+    for (const letter of word) {
+      if (letter === "a" || letter === "i" || letter === "u" || letter === "e" || letter === "o") {
+        shapes.push(letter);
+      }
+    }
+    shapes.push("rest");
+  }
+  return shapes;
+}
