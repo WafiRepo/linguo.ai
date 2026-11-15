@@ -263,7 +263,7 @@ export const zhTW: Record<TranslationKey, string> = {
   "signUp.logIn": "登入",
   "signUp.subtitle": "今天就開始你的語言學習之旅",
   "signUp.title": "建立帳號",
-  "story.title": "The Story Behind the App",
+  "story.title": "App 背後的故事",
   "tabs.aiTeacher": "AI 老師",
   "tabs.home": "首頁",
   "tabs.info": "資訊",

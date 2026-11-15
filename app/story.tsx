@@ -30,7 +30,7 @@ export default function StoryScreen() {
         {/* Hero */}
         <View className="mx-5 rounded-[28px] bg-[#ece2fc] overflow-hidden pt-6">
           <Text className="font-poppins-bold text-[32px] leading-[38px] text-[#5b3bf6] text-center px-4">
-            The Story Behind{"\n"}the App
+            {pick(STORY.title)}
           </Text>
           <Text className="font-poppins-medium text-base text-[#6c4ef5] text-center mt-2">
             Cerita di Balik Aplikasi
@@ -49,7 +49,7 @@ export default function StoryScreen() {
 
         {/* Our story */}
         <SectionTitle icon="leaf" zhLabel="我們的故事" enLabel="Our Story" zh={zh} />
-        <Text className="mx-5 mt-3 font-poppins-medium text-[15px] text-[#5b3bf6]">{STORY.ourStoryLead}</Text>
+        <Text className="mx-5 mt-3 font-poppins-medium text-[15px] text-[#5b3bf6]">{pick(STORY.ourStoryLead)}</Text>
         {STORY.ourStory.map((paragraph) => (
           <Text key={paragraph.en} className="mx-5 mt-3 font-poppins text-[15px] leading-7 text-text-primary">
             {pick(paragraph)}
@@ -58,7 +58,7 @@ export default function StoryScreen() {
 
         {/* Team */}
         <SectionTitle icon="people" zhLabel="認識研發團隊" enLabel="Meet Our Team" zh={zh} />
-        <Text className="mx-5 mt-3 font-poppins-medium text-[15px] text-[#5b3bf6]">{STORY.teamLead}</Text>
+        <Text className="mx-5 mt-3 font-poppins-medium text-[15px] text-[#5b3bf6]">{pick(STORY.teamLead)}</Text>
         <View className="mx-5 mt-4 gap-4">
           {STORY.team.map((member) => (
             <MemberCard key={member.name} member={member} zh={zh} />
@@ -66,16 +66,16 @@ export default function StoryScreen() {
         </View>
 
         {/* Partners */}
-        <SectionTitle icon="home" zhLabel="計畫執行單位" enLabel="Project Implementation" zh={zh} stacked />
+        <SectionTitle icon="home" zhLabel="計畫執行單位" enLabel="Project Implementation" zh={zh} />
         <PartnerCard org={STORY.implementation} zh={zh} />
-        <SectionTitle icon="heart" zhLabel="經費支持單位" enLabel="Funding Support" zh={zh} stacked />
+        <SectionTitle icon="heart" zhLabel="經費支持單位" enLabel="Funding Support" zh={zh} />
         <PartnerCard org={STORY.funding} zh={zh} />
 
         {/* Closing */}
         <View className="items-center mt-10 px-8">
           <Ionicons name="heart" size={44} color="#a78bfa" />
           <Text className="font-poppins-bold text-[26px] leading-8 text-[#4a32c9] text-center mt-3">
-            Made with Heart,{"\n"}Built for Learning.
+            {pick(STORY.closingTitle)}
           </Text>
           <Text className="font-poppins text-[15px] text-text-primary text-center mt-3">{pick(STORY.closing)}</Text>
           <Text className="font-poppins text-sm leading-6 text-[#6c4ef5] text-center mt-2">{STORY.thanksId}</Text>
@@ -90,23 +90,16 @@ function SectionTitle({
   zhLabel,
   enLabel,
   zh,
-  stacked = false,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   zhLabel: string;
   enLabel: string;
   zh: boolean;
-  stacked?: boolean;
 }) {
   return (
     <View className="mx-5 mt-8 flex-row items-center gap-3 rounded-2xl bg-[#ece6ff] px-4 py-3">
       <Ionicons name={icon} size={28} color={PURPLE} />
-      <View className={stacked ? "" : "flex-row items-baseline gap-2"}>
-        {zh ? <Text className="font-poppins-bold text-xl text-[#4a32c9]">{zhLabel}</Text> : null}
-        <Text className={`text-[#5b3bf6] ${zh ? "font-poppins-medium text-base" : "font-poppins-bold text-xl"}`}>
-          {enLabel}
-        </Text>
-      </View>
+      <Text className="flex-1 font-poppins-bold text-xl text-[#4a32c9]">{zh ? zhLabel : enLabel}</Text>
     </View>
   );
 }
@@ -133,8 +126,7 @@ function MemberCard({ member, zh }: { member: TeamMember; zh: boolean }) {
         <View className="flex-1">
           <Text className="font-poppins-bold text-lg text-text-primary">{member.name}</Text>
           <View className="flex-row flex-wrap gap-1.5 mt-1.5">
-            {zh ? <Chip strong>{member.role.zh}</Chip> : null}
-            <Chip>{member.role.en}</Chip>
+            <Chip strong>{zh ? member.role.zh : member.role.en}</Chip>
           </View>
           <View className="flex-row gap-2 mt-2">
             <Ionicons name="school-outline" size={18} color="#1f1f2e" style={{ marginTop: 2 }} />
@@ -160,10 +152,7 @@ function PartnerCard({ org, zh }: { org: PartnerOrg; zh: boolean }) {
       <View className="flex-row gap-3">
         {org.logo ? null : <Ionicons name="leaf" size={40} color="#7cc96b" />}
         <View className="flex-1">
-          {zh ? <Text className="font-poppins-bold text-lg text-text-primary">{org.zhName}</Text> : null}
-          <Text className={zh ? "font-poppins text-sm text-[#5b3bf6]" : "font-poppins-bold text-lg text-text-primary"}>
-            {org.enName}
-          </Text>
+          <Text className="font-poppins-bold text-lg text-text-primary">{zh ? org.zhName : org.enName}</Text>
         </View>
       </View>
       <Text className="font-poppins text-sm leading-6 text-text-primary mt-3">{zh ? org.about.zh : org.about.en}</Text>

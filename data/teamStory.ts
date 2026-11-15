@@ -37,7 +37,8 @@ export const STORY = {
     zh: "每一段學習旅程的背後，\n都有一群用心付出的人。",
     en: "Behind every learning journey\nis a team that truly cares.",
   },
-  ourStoryLead: "Learning a Language, Connecting Cultures.",
+  title: { zh: "App 背後的故事", en: "The Story Behind\nthe App" } as Bilingual,
+  ourStoryLead: { zh: "學習語言，連結文化。", en: "Learning a Language, Connecting Cultures." } as Bilingual,
   ourStory: [
     {
       zh: "我們相信，語言不只是溝通的工具，更是理解文化、連結彼此的橋梁。",
@@ -52,7 +53,7 @@ export const STORY = {
       en: "We hope every learner starts with a brave first sentence in Indonesian, grows in confidence, and discovers the joy of learning a language.",
     },
   ] as Bilingual[],
-  teamLead: "Three minds, one shared vision.",
+  teamLead: { zh: "三個人，一個共同的願景。", en: "Three minds, one shared vision." } as Bilingual,
   team: [
     {
       name: "郭翊姍 Yishan Kuo",
@@ -123,6 +124,7 @@ export const STORY = {
       en: "Thank you for funding the development of this Indonesian AI learning tool and helping educational innovation move forward.",
     },
   } as PartnerOrg,
+  closingTitle: { zh: "用心打造，\n為學習而生。", en: "Made with Heart,\nBuilt for Learning." } as Bilingual,
   closing: {
     zh: "用心研發，讓每一次學習都有更多可能。",
     en: "Built with care, so every lesson opens new possibilities.",
