@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 
@@ -54,6 +54,20 @@ export function TalkStage({
   onPressOut,
 }: TalkStageProps) {
   const [stageHeight, setStageHeight] = useState(190);
+
+  // Web: a long press starts a text selection (or the touch menu), which
+  // cancels the press and lets go of the microphone mid-sentence.
+  useEffect(() => {
+    if (Platform.OS !== "web" || !holding) return;
+    const block = (event: Event) => event.preventDefault();
+    document.addEventListener("selectstart", block);
+    document.addEventListener("contextmenu", block);
+    window.getSelection()?.removeAllRanges();
+    return () => {
+      document.removeEventListener("selectstart", block);
+      document.removeEventListener("contextmenu", block);
+    };
+  }, [holding]);
   const faceSize = Math.max(MIN_FACE, Math.min(MAX_FACE, (stageHeight - 8) / FACE_BOX));
   const glowSize = Math.min(300, stageHeight * 1.5);
   const studentGlow = useSharedValue(0);
@@ -79,7 +93,7 @@ export function TalkStage({
   }));
 
   return (
-    <View className="flex-1 items-center">
+    <View className="flex-1 items-center" style={NO_SELECT}>
       <View
         style={styles.stage}
         onLayout={(event) => setStageHeight(Math.round(event.nativeEvent.layout.height))}
@@ -100,6 +114,9 @@ export function TalkStage({
           onPressIn={canTalk ? onPressIn : undefined}
           onPressOut={canTalk ? onPressOut : undefined}
           disabled={!canTalk}
+          // A finger that drifts a little while talking must not let go.
+          pressRetentionOffset={HOLD_SLOP}
+          delayLongPress={60000}
           accessibilityRole="button"
           accessibilityLabel={status}
           testID="roleplay-hold-to-talk"
@@ -180,6 +197,15 @@ function VoiceBars({ active, level }: { active: boolean; level: number }) {
     </View>
   );
 }
+
+const HOLD_SLOP = { top: 400, bottom: 400, left: 400, right: 400 };
+
+// Web only: no text selection, touch menu or scrolling from the hold.
+const NO_SELECT = (
+  Platform.OS === "web"
+    ? { userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", touchAction: "none" }
+    : {}
+) as ViewStyle;
 
 const styles = StyleSheet.create({
   // Takes the room left between the comic and the transcript.
