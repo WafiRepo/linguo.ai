@@ -286,6 +286,36 @@ class AlternativeFeedbackTest(unittest.TestCase):
         self.assertEqual(feedback["corrections"], [])
 
 
+class LiveMissesTest(unittest.TestCase):
+    SCRIPT = [
+        {"guru": "Selamat pagi, anak-anak.", "student": "Selamat pagi, Bu Guru.", "answers": []},
+        {"guru": "Kalian sudah siap?", "student": "Ya, kami siap.", "answers": []},
+        {"guru": "Saya mulai mengabsen. Andi?", "student": "Hadir.", "answers": []},
+        {"guru": "Siti?", "student": "Hadir.", "answers": []},
+    ]
+
+    def test_only_dialogues_bu_guru_corrected_count(self):
+        # Log 07:42: she accepted "Saya sudah siap" and "Hadir juga", and
+        # corrected "Selamat pagi, Bapak" (which the report left out).
+        report = [
+            {"said": "Saya sudah siap", "better": "Ya, kami siap.", "tip": "kami"},
+            {"said": "Ya, kami siap Hadir, Bu Guru", "better": "Hadir.", "tip": ""},
+            {"said": "Hadir juga", "better": "Hadir.", "tip": ""},
+        ]
+        kept = roleplay.align_with_live_misses(report, self.SCRIPT, {0: "Selamat pagi, Bapak"}, "Traditional Chinese")
+        self.assertEqual([c["better"] for c in kept], ["Selamat pagi, Bu Guru."])
+        self.assertEqual(kept[0]["said"], "Selamat pagi, Bapak")
+
+    def test_keeps_the_report_wording_for_a_corrected_dialogue(self):
+        report = [{"said": "Hadir juga", "better": "Hadir.", "tip": "just Hadir"}]
+        kept = roleplay.align_with_live_misses(report, self.SCRIPT, {3: "Hadir juga"}, "English")
+        self.assertEqual(kept, report)
+
+    def test_no_live_misses_means_no_corrections(self):
+        report = [{"said": "Saya sudah siap", "better": "Ya, kami siap.", "tip": ""}]
+        self.assertEqual(roleplay.align_with_live_misses(report, self.SCRIPT, {}, "English"), [])
+
+
 class AskAgainLineTest(unittest.TestCase):
     def test_asks_the_current_teacher_line_again(self):
         turns = [{"guru": "Kalian sudah siap?", "student": "Ya, kami siap."},

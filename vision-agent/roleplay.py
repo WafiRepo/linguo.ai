@@ -483,6 +483,35 @@ def filter_comic_corrections(
     return kept
 
 
+def align_with_live_misses(
+    corrections: list[dict[str, str]],
+    script: list[dict[str, Any]],
+    live_misses: dict[int, str],
+    help_language: str,
+) -> list[dict[str, str]]:
+    """The score counts corrections, so they must match what happened in the
+    lesson: only dialogues Bu Guru actually corrected count. An answer she
+    accepted ("Saya sudah siap" for "Ya, kami siap") is not a mistake, and a
+    dialogue she did correct is listed even when the report model missed it."""
+    kept: list[dict[str, str]] = []
+    covered: set[int] = set()
+    for item in corrections:
+        better = _comparable(item["better"])
+        # "Hadir." can be the line of several dialogues.
+        indexes = {i for i, turn in enumerate(script) if _comparable(turn["student"]) == better}
+        hit = indexes & set(live_misses) - covered
+        if not hit:
+            continue
+        covered.add(min(hit))
+        kept.append(item)
+    tip = "照著漫畫的句子再說一次。" if is_chinese_help(help_language) else "Say it like the comic line."
+    for index in sorted(set(live_misses) - covered):
+        if len(kept) == MAX_CORRECTIONS:
+            break
+        kept.append({"said": live_misses[index][:120], "better": script[index]["student"], "tip": tip})
+    return kept
+
+
 def _script_text(script: list[dict[str, Any]]) -> str:
     lines = ["COMIC SCRIPT:"]
     for index, turn in enumerate(script, start=1):
@@ -531,9 +560,12 @@ async def generate_roleplay_feedback(
     turns: list[dict[str, str]],
     help_language: str,
     script: Optional[list[dict[str, Any]]] = None,
+    live_misses: Optional[dict[int, str]] = None,
 ) -> Optional[dict[str, Any]]:
     """End-of-session praise and corrections. With a comic script, corrections
-    must follow the script (prompt rules + filter_comic_corrections)."""
+    must follow the script (prompt rules + filter_comic_corrections). With
+    live_misses (Role Play: dialogue index -> what the student said when Bu
+    Guru corrected it), they also match what she corrected in the lesson."""
     transcript = "\n".join(
         f"{'STUDENT' if turn['speaker'] == 'user' else 'CHARACTER'}: {turn['text']}" for turn in turns
     )
@@ -553,6 +585,10 @@ async def generate_roleplay_feedback(
     feedback = parse_feedback(response.choices[0].message.content or "")
     if feedback and script:
         feedback["corrections"] = filter_comic_corrections(feedback["corrections"], script)
+        if live_misses is not None:
+            feedback["corrections"] = align_with_live_misses(
+                feedback["corrections"], script, live_misses, help_language
+            )
     return feedback
 
 

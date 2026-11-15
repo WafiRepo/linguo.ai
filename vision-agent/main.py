@@ -385,6 +385,11 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             except Exception as e:
                 print(f"[roleplay] event error ({payload.get('type')}): {e}")
 
+        # Comic Role Play: what the student said each time Bu Guru corrected
+        # a dialogue (index -> answer). The report's corrections, and so the
+        # score, follow this instead of judging the answers all over again.
+        live_misses: dict[int, str] = {}
+
         roleplay = RoleplayController(
             send_event=send_roleplay_event,
             tracker=tracker,
@@ -393,7 +398,12 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             append_instructions=agent.llm.append_thinking if is_gpt_live else None,
             # The comic script keeps corrections to the lines the student practised.
             generate_feedback=lambda history: generate_roleplay_feedback(
-                feedback_client, feedback_model, history, help_language, script=turns
+                feedback_client,
+                feedback_model,
+                history,
+                help_language,
+                script=turns,
+                live_misses=dict(live_misses) if is_comic_roleplay else None,
             ),
             status_text=status_text,
         )
@@ -418,6 +428,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
 
             async def record_comic_miss(said: str, index: int, agent_text: str) -> None:
                 wrong_attempts[index] = wrong_attempts.get(index, 0) + 1
+                live_misses.setdefault(index, said)
                 if wrong_attempts[index] >= MAX_WRONG_ATTEMPTS:
                     # Don't leave a child stuck: say it together and move on.
                     # Commentary is voiced as written, so the next teacher
