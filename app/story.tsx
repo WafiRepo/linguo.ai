@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useContentWidth } from "@/lib/layout";
 
@@ -167,6 +167,21 @@ function PartnerCard({ org, zh }: { org: PartnerOrg; zh: boolean }) {
         </View>
       </View>
       <Text className="font-poppins text-sm leading-6 text-text-primary mt-3">{zh ? org.about.zh : org.about.en}</Text>
+      {org.links?.length ? (
+        <View className="flex-row flex-wrap gap-2 mt-3">
+          {org.links.map((link) => (
+            <Pressable
+              key={link.url}
+              onPress={() => Linking.openURL(link.url)}
+              className="flex-row items-center gap-2 rounded-full bg-[#ece6ff] px-4 py-2 active:opacity-70"
+              accessibilityRole="link"
+            >
+              <Ionicons name={link.icon} size={20} color={link.icon === "logo-youtube" ? "#ff0000" : "#1877f2"} />
+              <Text className="font-poppins-semibold text-sm text-[#4a32c9]">{link.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

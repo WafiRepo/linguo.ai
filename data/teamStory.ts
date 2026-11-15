@@ -22,6 +22,14 @@ export interface PartnerOrg {
   about: Bilingual;
   /** Wide logo shown at the top of the partner card. */
   logo?: ImageSourcePropType;
+  /** Pages to follow the partner on (opened in the browser or app). */
+  links?: PartnerLink[];
+}
+
+export interface PartnerLink {
+  label: string;
+  url: string;
+  icon: "logo-facebook" | "logo-youtube";
 }
 
 export const STORY = {
@@ -93,6 +101,14 @@ export const STORY = {
     zhName: "新竹市新住民語文輔導團",
     enName: "Hsinchu City New Immigrant Languages Advisory Group",
     logo: images.logoCertificate,
+    links: [
+      { label: "Facebook", url: "https://www.facebook.com/hsinchuteach/?locale=zh_TW", icon: "logo-facebook" },
+      {
+        label: "YouTube",
+        url: "https://www.youtube.com/@%E7%AB%B9%E5%B8%82%E7%BF%BB%E8%BD%89%E6%9D%B1%E5%8D%97%E4%BA%9E%E8%AA%9E%E6%96%87%E6%95%B2",
+        icon: "logo-youtube",
+      },
+    ],
     about: {
       zh: "透過教學專業與教育現場的合作，推動印尼語數位學習資源的發展，讓語言學習有更多元的可能。",
       en: "Working with teachers and schools, they champion digital Indonesian learning resources and open up new ways to learn a language.",
