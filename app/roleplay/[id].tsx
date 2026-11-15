@@ -227,7 +227,11 @@ function LiveRoleplayScreen() {
       clientRef.current?.disconnectUser().catch(console.error);
       stopAgentSession(callRef.current?.id ?? null, agentSessionRef.current);
     };
-  }, [isLoaded, userId, scenario, comic, isPractice, tutorVoice, tutorEmotion]);
+    // Only a different person or lesson restarts the call: a settings value
+    // that arrived late (tutor voice/emotion) re-ran it and put a second AI
+    // teacher in the same call, so both spoke. They are read when it starts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, userId, scenario?.id, comic?.id, isPractice]);
 
   useEffect(() => {
     if (!missionComplete || !comic || rewardedRef.current) return;
@@ -353,14 +357,14 @@ function LiveRoleplayScreen() {
       setClient(streamClient);
       setCall(streamCall);
       setCallStatus("joined");
-      startAgentSession(callId);
+      startAgentSession(callId, run);
     } catch (err) {
       console.error("[roleplay] Stream call error:", err);
       setCallStatus("error");
     }
   }
 
-  async function startAgentSession(callId: string) {
+  async function startAgentSession(callId: string, run = callRunRef.current) {
     setAgentStatus("connecting");
     try {
       const clerkToken = await getToken();
@@ -375,6 +379,12 @@ function LiveRoleplayScreen() {
       });
       if (res.ok) {
         const { session_id } = await res.json();
+        if (callRunRef.current !== run) {
+          // The screen restarted or closed while the AI was starting: stop
+          // this one, or it stays in the call and talks over the next.
+          stopAgentSession(callId, session_id ?? null);
+          return;
+        }
         agentSessionRef.current = session_id ?? null;
         setAgentStatus("connected");
       } else {
