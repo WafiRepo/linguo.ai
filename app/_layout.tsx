@@ -1,7 +1,7 @@
 import "../global.css";
 import { AccountStorageGate } from "@/components/AccountStorageGate";
 
-import { ClerkProvider } from "@clerk/expo";
+import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -45,29 +45,46 @@ export default function RootLayout() {
         {/* iPad / desktop: a centred column; on phones it is the full screen. */}
         <View style={styles.page}>
         <View style={styles.column}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="onboarding" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="role-select" />
-          <Stack.Screen name="language-select" />
-          <Stack.Screen name="child-profile-setup" />
-          <Stack.Screen name="help" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="lesson/[id]" />
-          <Stack.Screen name="practice/[id]" />
-          <Stack.Screen name="roleplay/[id]" />
-          <Stack.Screen name="learning-material/[id]" />
-          <Stack.Screen name="today-plan" />
-          <Stack.Screen name="story" />
-          <Stack.Screen name="ebooks" />
-          <Stack.Screen name="portfolio" />
-          <Stack.Screen name="certificates" />
-        </Stack>
+        <AppStack />
         </View>
         </View>
         </AccountStorageGate>
       </ClerkProvider>
+  );
+}
+
+/**
+ * Every screen except the welcome and sign-in ones needs a signed-in user:
+ * opening /story (or any other page) by its web address while signed out
+ * goes back to the start, which leads to sign-in.
+ */
+function AppStack() {
+  const { isSignedIn, isLoaded } = useAuth();
+  // While Clerk is still loading, don't throw a signed-in user off a deep link.
+  const signedIn = !isLoaded || !!isSignedIn;
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="onboarding" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Protected guard={signedIn}>
+        <Stack.Screen name="role-select" />
+        <Stack.Screen name="language-select" />
+        <Stack.Screen name="child-profile-setup" />
+        <Stack.Screen name="help" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="lesson/[id]" />
+        <Stack.Screen name="practice/[id]" />
+        <Stack.Screen name="roleplay/[id]" />
+        <Stack.Screen name="learning-material/[id]" />
+        <Stack.Screen name="today-plan" />
+        <Stack.Screen name="story" />
+        <Stack.Screen name="ebooks" />
+        <Stack.Screen name="portfolio" />
+        <Stack.Screen name="certificates" />
+      </Stack.Protected>
+    </Stack>
   );
 }
 
