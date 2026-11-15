@@ -11,6 +11,11 @@ const PRODUCTION_API_URL = "https://ai-berbicara.expo.app";
 
 function resolveApiBase(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
+  // Web dev opened from another device (an iPad on the Wi-Fi): "localhost"
+  // would be that device, so use the page's own server (relative paths).
+  if (fromEnv && Platform.OS === "web" && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(fromEnv)) {
+    return "";
+  }
   if (fromEnv) return fromEnv;
 
   const fromExtra = Constants.expoConfig?.extra?.apiUrl;
