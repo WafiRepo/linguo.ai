@@ -286,6 +286,16 @@ class AlternativeFeedbackTest(unittest.TestCase):
         self.assertEqual(feedback["corrections"], [])
 
 
+class AskAgainLineTest(unittest.TestCase):
+    def test_asks_the_current_teacher_line_again(self):
+        turns = [{"guru": "Kalian sudah siap?", "student": "Ya, kami siap."},
+                 {"guru": "Saya mulai mengabsen. Andi?", "student": "Hadir."}]
+        zh = roleplay.comic_ask_again_line(turns, 1, "Traditional Chinese")
+        self.assertIn("Saya mulai mengabsen. Andi?", zh)
+        self.assertIn("剛剛說過", zh)
+        self.assertTrue(roleplay.comic_ask_again_line(turns, 1, "English").endswith("Andi?"))
+
+
 class AskedLineTest(unittest.IsolatedAsyncioTestCase):
     def test_says_line_matches_the_start_of_the_teacher_line(self):
         self.assertTrue(roleplay.says_line("很棒! Besarkan suaranya sedikit ya.", "Besarkan suaranya sedikit."))

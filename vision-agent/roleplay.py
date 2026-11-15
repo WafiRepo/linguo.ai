@@ -370,6 +370,16 @@ def comic_move_on_line(turns: list[dict[str, Any]], index: int, help_language: s
     return f"{together} {closing}"
 
 
+def comic_ask_again_line(turns: list[dict[str, Any]], index: int, help_language: str) -> str:
+    """What Bu Guru says when the student answers the dialogue they already
+    finished while she is asking the next one: point it out kindly and ask
+    the current line again, so the lesson stays in order."""
+    line = turns[index]["guru"]
+    if is_chinese_help(help_language):
+        return f"這一句我們剛剛說過了喔。老師再問一次：{line}"
+    return f"We just said that one. Listen again: {line}"
+
+
 def comic_status_text(
     tracker: RoleplayTracker,
     turns: list[dict[str, Any]],

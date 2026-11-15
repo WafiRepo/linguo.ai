@@ -45,6 +45,7 @@ from roleplay import (  # noqa: E402
     ai_corrected_answer,
     says_line,
     build_comic_roleplay_prompt,
+    comic_ask_again_line,
     comic_correction_note,
     comic_move_on_line,
     comic_objectives,
@@ -439,8 +440,33 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 if note and is_gpt_live:
                     await agent.llm.append_thinking(note)
 
+            async def ask_current_again(said: str, index: int, started_at: float) -> None:
+                # Let her own reaction land first; she may already re-ask.
+                await asyncio.sleep(CORRECTION_GRACE_SECONDS)
+                remaining = tracker.remaining
+                if not remaining or tracker.objectives.index(remaining[0]) != index:
+                    return
+                if says_line(roleplay.agent_speech_between(started_at, time.monotonic()), turns[index]["guru"]):
+                    return
+                _safe_log(f"[roleplay] {said!r} answers dialogue {index - 1} again; asking {index} again")
+                await agent.simple_response(comic_ask_again_line(turns, index, help_language))
+
             async def on_comic_miss(said: str, _recent_agent_text: str) -> None:
-                if not is_answer_attempt(said) or repeats_previous_line(tracker, said):
+                if not is_answer_attempt(said):
+                    return
+                if repeats_previous_line(tracker, said):
+                    # The previous dialogue's answer again ("Ya, kami siap"
+                    # while she asks "Andi?"). Only once she has asked the
+                    # current line; right after a correction it is practice.
+                    index = tracker.objectives.index(tracker.remaining[0])
+                    now = time.monotonic()
+                    if is_gpt_live and says_line(
+                        roleplay.agent_speech_between(now - 60, now), turns[index]["guru"]
+                    ):
+                        started_at = roleplay.user_started_at or now
+                        pending_miss.append(
+                            asyncio.create_task(ask_current_again(said, index, started_at))
+                        )
                     return
                 if tracker.remaining and roleplay.confirming.get(tracker.remaining[0].id, 0) > 0:
                     return  # its right answer is still waiting for Bu Guru's reaction
