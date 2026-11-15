@@ -61,7 +61,16 @@ export const STORY = {
       name: "郭翊姍 Yishan Kuo",
       initials: "YK",
       photo: images.teamYishan,
-      roles: [{ zh: "策劃統籌", en: "Project Planning & Coordination" }],
+      roles: [
+        { zh: "國立中央大學博士候選人", en: "Ph.D. Candidate, National Central University" },
+        { zh: "新竹市關埔國小學務主任", en: "Director of Student Affairs, Guanpu Elementary School" },
+        {
+          zh: "新竹市新住民語文輔導團副召集人",
+          en: "Deputy Convener, Hsinchu City New Immigrant Language Education Advisory Team",
+        },
+        { zh: "英語教師", en: "English Teacher" },
+        { zh: "印尼語教師", en: "Indonesian Language Instructor" },
+      ],
       school: {
         zh: "國立中央大學\n學習與教學研究所｜博士候選人",
         en: "National Central University\nGraduate Institute of Learning and Instruction | PhD Candidate",
