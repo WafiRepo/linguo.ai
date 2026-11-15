@@ -4,10 +4,12 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withSequence,
   withSpring,
   withTiming,
   ZoomIn,
+  ZoomOut,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
@@ -120,6 +122,17 @@ export function TalkStage({
       document.removeEventListener("contextmenu", block);
     };
   }, [holding]);
+  // Nobody has talked for a while although the child may: she waves
+  // "Ayo, coba!" (come on, try!) until the child holds her face.
+  const [nudge, setNudge] = useState(false);
+  const lastLine = lines[lines.length - 1]?.text ?? "";
+  useEffect(() => {
+    setNudge(false);
+    if (!canTalk || holding || teacherSpeaking) return;
+    const timer = setTimeout(() => setNudge(true), NUDGE_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [canTalk, holding, teacherSpeaking, lastLine]);
+
   const faceSize = Math.max(MIN_FACE, Math.min(MAX_FACE, (stageHeight - 8) / FACE_BOX));
   const glowSize = Math.min(300, stageHeight * 1.5);
   const studentGlow = useSharedValue(0);
@@ -164,6 +177,7 @@ export function TalkStage({
         </Animated.View>
         <VoiceBubbles active={holding} level={studentLevel} rise={stageHeight * 0.55} spread={faceSize * 1.6} />
         <StarBurst trigger={starBurst} distance={Math.min(140, stageHeight * 0.8)} />
+        {nudge ? <WaveNudge faceSize={faceSize} /> : null}
         {combo >= 2 ? (
           <Animated.View key={combo} entering={ZoomIn.springify().damping(7)} style={styles.combo} pointerEvents="none">
             <Ionicons name="flame" size={16} color="#fff" />
@@ -186,7 +200,7 @@ export function TalkStage({
         >
           <Animated.View style={squishStyle}>
             <TeacherFace
-              mood={mood}
+              mood={nudge && mood === "neutral" ? "happy" : mood}
               speaking={teacherSpeaking}
               audioLevel={teacherLevel}
               speechText={teacherText}
@@ -240,6 +254,40 @@ function Glow({ id, color, size }: { id: string; color: string; size: number }) 
       </Defs>
       <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${gradientId})`} />
     </Svg>
+  );
+}
+
+/** A waving hand and "Ayo, coba!" beside her face. */
+function WaveNudge({ faceSize }: { faceSize: number }) {
+  const wave = useSharedValue(0);
+  useEffect(() => {
+    wave.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 160 }),
+        withTiming(-1, { duration: 160 }),
+        withTiming(1, { duration: 160 }),
+        withTiming(0, { duration: 160 }),
+        withTiming(0, { duration: 900 }),
+      ),
+      -1,
+    );
+  }, [wave]);
+  const handStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${wave.value * 24}deg` }] }));
+  return (
+    <View pointerEvents="none" style={styles.bubbleAnchor}>
+      <Animated.View
+        entering={ZoomIn.springify().damping(8)}
+        exiting={ZoomOut.duration(150)}
+        style={[styles.nudge, { left: faceSize * 1.25, top: -faceSize * 1.1 }]}
+      >
+        <View style={styles.nudgeBubble}>
+          <Text className="font-poppins-bold text-[14px] text-lingua-purple">Ayo, coba!</Text>
+        </View>
+        <Animated.View style={[styles.hand, handStyle]}>
+          <Ionicons name="hand-left" size={30} color="#FFB443" />
+        </Animated.View>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -334,6 +382,9 @@ const TAP_MS = 300;
 const TICKLE_TAPS = 3;
 const TICKLE_WINDOW_MS = 1500;
 
+// Quiet this long while the child may talk: she waves them on.
+const NUDGE_AFTER_MS = 10000;
+
 const HOLD_SLOP = { top: 400, bottom: 400, left: 400, right: 400 };
 
 // Web only: no text selection, touch menu or scrolling from the hold.
@@ -355,6 +406,22 @@ const styles = StyleSheet.create({
   },
   glow: {
     position: "absolute",
+  },
+  nudge: {
+    position: "absolute",
+    alignItems: "center",
+  },
+  nudgeBubble: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "#fff",
+    borderWidth: 2,
+    borderColor: "#E4DCFF",
+  },
+  hand: {
+    marginTop: 2,
+    transformOrigin: "bottom",
   },
   combo: {
     position: "absolute",

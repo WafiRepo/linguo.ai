@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
   FadeIn,
@@ -37,7 +37,7 @@ export type TeacherMood =
 type Eyes = "round" | "happy" | "star" | "closed";
 type Brows = "none" | "raised" | "determined" | "worried";
 type Mouth = "smile" | "grin" | "o" | "flat";
-type Extra = "flames" | "blush" | "sweat" | "dots" | "zzz" | "sparkles";
+type Extra = "flames" | "blush" | "sweat" | "dots" | "zzz" | "sparkles" | "question" | "almost";
 type Motion = "none" | "hop" | "bounce" | "wiggle" | "dance";
 
 /** Something she wears for a combo: cool shades (3 right in a row) or a party hat (all done). */
@@ -63,7 +63,7 @@ const LOOKS: Record<TeacherMood, Look> = {
   happy: { eyes: "happy", brows: "none", mouth: "grin", extras: ["blush"], tilt: 0, gaze: [0, 0], motion: "hop" },
   onFire: { eyes: "round", brows: "determined", mouth: "grin", extras: ["flames"], tilt: 0, gaze: [0, 0], motion: "wiggle" },
   wow: { eyes: "star", brows: "raised", mouth: "o", extras: ["sparkles"], tilt: 0, gaze: [0, 0], motion: "hop" },
-  encourage: { eyes: "round", brows: "worried", mouth: "o", extras: ["sweat"], tilt: -8, gaze: [0.3, -0.2], motion: "none" },
+  encourage: { eyes: "round", brows: "raised", mouth: "o", extras: ["question"], tilt: -14, gaze: [0.3, -0.4], motion: "none" },
   comfort: { eyes: "happy", brows: "worried", mouth: "smile", extras: ["blush"], tilt: 7, gaze: [0, 0], motion: "none" },
   celebrate: { eyes: "star", brows: "raised", mouth: "grin", extras: ["blush", "sparkles"], tilt: 0, gaze: [0, 0], motion: "dance" },
 };
@@ -83,6 +83,19 @@ interface TeacherFaceProps {
   /** A combo prize she wears. */
   accessory?: TeacherAccessory | null;
 }
+
+// A wrong answer never looks sad: first a puzzled head tilt with a "?",
+// then a warm smile and "Hampir!" (almost!).
+const ALMOST: Look = {
+  eyes: "happy",
+  brows: "none",
+  mouth: "smile",
+  extras: ["almost", "blush"],
+  tilt: 6,
+  gaze: [0, 0],
+  motion: "hop",
+};
+const PUZZLED_MS = 900;
 
 const RED = "#FF4B3A";
 const INK = "#0B1020";
@@ -110,7 +123,14 @@ export function TeacherFace({
   name = "Bu Guru",
   accessory = null,
 }: TeacherFaceProps) {
-  const look = LOOKS[mood];
+  const [almost, setAlmost] = useState(false);
+  useEffect(() => {
+    setAlmost(false);
+    if (mood !== "encourage") return;
+    const timer = setTimeout(() => setAlmost(true), PUZZLED_MS);
+    return () => clearTimeout(timer);
+  }, [mood]);
+  const look = mood === "encourage" && almost ? ALMOST : LOOKS[mood];
   const isPakGuru = name === "Pak Guru";
   const shades = accessory === "shades";
   // Every measure comes from the design (a 210-high face), scaled to `size`.
@@ -480,6 +500,8 @@ export function TeacherFace({
         ) : null}
 
         {has("sweat") ? <SweatDrop left={faceLeft + faceW - 40 * s} top={faceTop - 18 * s} s={s} /> : null}
+        {has("question") ? <Bubble text="?" left={faceLeft + faceW - 36 * s} top={faceTop - 92 * s} s={s} big /> : null}
+        {has("almost") ? <Bubble text="Hampir!" left={faceLeft + faceW - 70 * s} top={faceTop - 86 * s} s={s} /> : null}
         {has("dots") ? <ThinkingDots left={faceLeft + faceW - 30 * s} top={faceTop - 70 * s} s={s} /> : null}
         {has("zzz") ? <Zzz left={faceLeft + faceW - 20 * s} top={faceTop - 60 * s} s={s} /> : null}
         {has("sparkles") ? (
@@ -572,6 +594,38 @@ function PartyHat({ left, top, width, height }: { left: number; top: number; wid
         <Path d="M10 116 Q50 130 90 116" stroke={GOLD} strokeWidth={9} fill="none" strokeLinecap="round" />
         <Circle cx={50} cy={8} r={12} fill={GOLD} stroke={INK} strokeWidth={4} />
       </Svg>
+    </Animated.View>
+  );
+}
+
+/** A little speech bubble that pops in and bobs: "?" or "Hampir!". */
+function Bubble({ text, left, top, s, big = false }: { text: string; left: number; top: number; s: number; big?: boolean }) {
+  const bobUp = useSharedValue(0);
+  useEffect(() => {
+    bobUp.value = withRepeat(withTiming(1, { duration: 420, easing: Easing.inOut(Easing.sin) }), -1, true);
+  }, [bobUp]);
+  const style = useAnimatedStyle(() => ({ transform: [{ translateY: -bobUp.value * 6 * s }] }));
+  return (
+    <Animated.View
+      entering={ZoomIn.springify().damping(8)}
+      exiting={FadeOut.duration(100)}
+      style={{ position: "absolute", left, top }}
+      pointerEvents="none"
+    >
+      <Animated.View
+        style={[
+          styles.bubble,
+          { position: "relative", paddingHorizontal: 18 * s, height: 64 * s, borderRadius: 32 * s, borderWidth: 4 * s },
+          style,
+        ]}
+      >
+        <Text
+          numberOfLines={1}
+          style={{ fontSize: (big ? 46 : 30) * s, fontWeight: "800", color: big ? "#7C5CFF" : "#FF6A2B" }}
+        >
+          {text}
+        </Text>
+      </Animated.View>
     </Animated.View>
   );
 }

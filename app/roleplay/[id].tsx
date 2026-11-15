@@ -22,6 +22,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AIPilotNotice } from "@/components/AIPilotNotice";
@@ -903,7 +912,15 @@ function CorrectionCard({
 }) {
   const { t } = useT();
   const saidWords = new Set(said.split(/\s+/).map(normalizeWord));
-  const parts = expected.split(/(\s+)/);
+  // Each word with the space after it, so wrapping works word by word.
+  const words = expected
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((text, index, all) => ({
+      text: index < all.length - 1 ? `${text} ` : text,
+      missed: !saidWords.has(normalizeWord(text)),
+    }));
+  const missedOrder = (index: number) => words.slice(0, index).filter((word) => word.missed).length;
 
   return (
     <View className="mx-4 mb-3 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-3">
@@ -913,11 +930,7 @@ function CorrectionCard({
       <Text className="font-poppins text-xs text-text-secondary">
         {t("roleplay.youSaid")}<Text className="text-text-primary">{said}</Text>
       </Text>
-      {reveal === "none" ? (
-        <Text className="font-poppins text-[13px] text-text-secondary mt-1">
-          {t("roleplay.thinkAgain")}
-        </Text>
-      ) : reveal === "first-word" ? (
+      {reveal === "none" ? null : reveal === "first-word" ? (
         <Text className="font-poppins text-[13px] text-text-secondary mt-1">
           {t("roleplay.hint")}
           <Text className="font-poppins-semibold text-[15px] text-text-primary">
@@ -927,26 +940,50 @@ function CorrectionCard({
       ) : (
         <>
           <Text className="font-poppins text-xs text-text-secondary mt-1">{t("roleplay.correctLine")}</Text>
-          <Text className="font-poppins-semibold text-[15px] text-text-primary">
-            {parts.map((part, index) => {
-              const word = normalizeWord(part);
-              const missed = word.length > 0 && !saidWords.has(word);
-              return (
-                <Text
-                  key={index}
-                  className={missed ? "bg-[#FDE68A] text-[#92400E]" : undefined}
-                >
-                  {part}
+          <View className="flex-row flex-wrap items-end">
+            {words.map((word, index) =>
+              word.missed ? (
+                <HopWord key={index} text={word.text} order={missedOrder(index)} />
+              ) : (
+                <Text key={index} className="font-poppins-semibold text-[15px] text-text-primary">
+                  {word.text}
                 </Text>
-              );
-            })}
-          </Text>
+              ),
+            )}
+          </View>
           {translation ? (
             <Text className="font-poppins text-xs text-text-secondary mt-1">{translation}</Text>
           ) : null}
         </>
       )}
     </View>
+  );
+}
+
+/** A missed word in the correction: highlighted, it hops now and then so
+ * the child sees which part to say again. */
+function HopWord({ text, order }: { text: string; order: number }) {
+  const hop = useSharedValue(0);
+  useEffect(() => {
+    hop.value = withDelay(
+      300 + order * 150,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 140 }),
+          withSpring(0, { damping: 5, stiffness: 300 }),
+          withTiming(0, { duration: 1600 }),
+        ),
+        -1,
+      ),
+    );
+  }, [hop, order]);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: -hop.value * 6 }, { scale: 1 + hop.value * 0.12 }],
+  }));
+  return (
+    <Animated.View style={style}>
+      <Text className="font-poppins-semibold text-[15px] bg-[#FDE68A] text-[#92400E] rounded">{text}</Text>
+    </Animated.View>
   );
 }
 
