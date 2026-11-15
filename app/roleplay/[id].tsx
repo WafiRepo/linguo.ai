@@ -41,7 +41,9 @@ import {
 import { getInstructionLanguages } from "@/lib/instructionLanguage";
 import { newSessionClientId, recordSessionResult } from "@/lib/portfolio";
 import { posthog } from "@/lib/posthog";
+import { playSfx } from "@/lib/sfx";
 import { ROLE_PLAY_PASS_SCORE, rolePlayScore } from "@/lib/rolePlayScore";
+import { StampSlam } from "@/components/StampSlam";
 import { useLanguageStore } from "@/store/languageStore";
 import { useLearningStore } from "@/store/learningStore";
 import { usePortfolioStore } from "@/store/portfolioStore";
@@ -509,8 +511,13 @@ function LiveRoleplayScreen() {
   const correctStreakRef = useRef(0);
   const correctedTurnRef = useRef<number | null>(null);
 
+  // Bumped on every right answer: stars fly out of Bu Guru's face.
+  const [starBurst, setStarBurst] = useState(0);
+
   const handleObjectiveDone = useCallback(
     (objectiveId: string) => {
+      setStarBurst((value) => value + 1);
+      playSfx("ding");
       correctStreakRef.current += 1;
       correctedTurnRef.current = null;
       react(correctStreakRef.current >= 2 ? "onFire" : "happy", 2200);
@@ -557,6 +564,10 @@ function LiveRoleplayScreen() {
   }, []);
 
   const handlePracticeResult = useCallback((turnIndex: number, value: number) => {
+    if (value >= 2) {
+      setStarBurst((burst) => burst + 1);
+      playSfx("ding");
+    }
     react(value >= 3 ? "wow" : value === 2 ? "happy" : "encourage", value >= 2 ? 2000 : 2600);
     setStars((prev) => {
       const next = [...prev];
@@ -684,6 +695,8 @@ function LiveRoleplayScreen() {
               missionComplete={missionComplete}
               resultsReady={resultsReady}
               reaction={missionComplete ? "celebrate" : reaction}
+              starBurst={starBurst}
+              onTickle={() => react("happy", 1500)}
               onObjectiveDone={handleObjectiveDone}
               onStudentTurn={handleStudentTurn}
               onAgentTurn={handleAgentTurn}
@@ -1036,6 +1049,8 @@ function ActiveRoleplayContent({
   missionComplete,
   resultsReady,
   reaction,
+  starBurst,
+  onTickle,
   onObjectiveDone,
   onStudentTurn,
   onAgentTurn,
@@ -1058,6 +1073,10 @@ function ActiveRoleplayContent({
   resultsReady: boolean;
   /** Bu Guru's reaction to the last answer (or the finished lesson), if any. */
   reaction: TeacherMood | null;
+  /** Bumped on every right answer: stars fly out of her face. */
+  starBurst: number;
+  /** Three quick taps on her face: she giggles. */
+  onTickle: () => void;
   onObjectiveDone: (objectiveId: string) => void;
   onStudentTurn: () => void;
   onAgentTurn: () => void;
@@ -1379,6 +1398,8 @@ function ActiveRoleplayContent({
             youLabel={t("roleplay.you")}
             onPressIn={startTalking}
             onPressOut={() => setHolding(false)}
+            starBurst={starBurst}
+            onTickle={onTickle}
           />
         )}
         {hintsCard}
@@ -1472,7 +1493,7 @@ function RoleplayReview({
         {score !== null ? (
           <View className="mx-4 mb-4 flex-row items-center gap-3 rounded-2xl border border-border bg-white p-4">
             {score >= ROLE_PLAY_PASS_SCORE ? (
-              <Image source={images.stampPass} contentFit="contain" style={styles.reviewStamp} />
+              <StampSlam size={64} />
             ) : null}
             <View className="flex-1">
               <Text className="font-poppins-semibold text-base text-text-primary">

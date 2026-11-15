@@ -1,9 +1,11 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 
+import { StarBurst } from "@/components/StarBurst";
 import { TeacherFace, TeacherMood } from "@/components/TeacherFace";
+import { playSfx } from "@/lib/sfx";
 
 // Role Play: hold Bu Guru's face to talk, let go and she answers.
 // A coloured glow behind her shows who is talking (red: the student,
@@ -29,6 +31,10 @@ interface TalkStageProps {
   youLabel: string;
   onPressIn: () => void;
   onPressOut: () => void;
+  /** Change it (e.g. +1) to throw a burst of stars: a right answer. */
+  starBurst?: number;
+  /** Three quick taps on the face: she giggles. */
+  onTickle?: () => void;
 }
 
 // The face shrinks when a correction card leaves less room (never overlapping
@@ -52,8 +58,36 @@ export function TalkStage({
   youLabel,
   onPressIn,
   onPressOut,
+  starBurst = 0,
+  onTickle,
 }: TalkStageProps) {
   const [stageHeight, setStageHeight] = useState(190);
+
+  // Touching the face: a jelly wobble and a "pop", always (also while she
+  // talks, it's fun). Three quick taps tickle her.
+  const squish = useSharedValue(0);
+  const pressStartRef = useRef(0);
+  const tapsRef = useRef<number[]>([]);
+  const squishStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleX: 1 + squish.value * 0.14 }, { scaleY: 1 - squish.value * 0.14 }],
+  }));
+  function handlePressIn() {
+    pressStartRef.current = Date.now();
+    squish.value = withSequence(withTiming(1, { duration: 90 }), withSpring(0, { damping: 4, stiffness: 260 }));
+    playSfx("pop", 0.5);
+    if (canTalk) onPressIn();
+  }
+  function handlePressOut() {
+    if (canTalk) onPressOut();
+    const now = Date.now();
+    if (now - pressStartRef.current > TAP_MS) return; // a hold to talk, not a tap
+    tapsRef.current = [...tapsRef.current.filter((at) => now - at < TICKLE_WINDOW_MS), now];
+    if (tapsRef.current.length >= TICKLE_TAPS) {
+      tapsRef.current = [];
+      playSfx("boing", 0.6);
+      onTickle?.();
+    }
+  }
 
   // Web: a long press starts a text selection (or the touch menu), which
   // cancels the press and lets go of the microphone mid-sentence.
@@ -110,10 +144,13 @@ export function TalkStage({
         >
           <Glow id="student-glow" color="#FF3B5C" size={glowSize} />
         </Animated.View>
+        <StarBurst trigger={starBurst} distance={Math.min(140, stageHeight * 0.8)} />
         <Pressable
-          onPressIn={canTalk ? onPressIn : undefined}
-          onPressOut={canTalk ? onPressOut : undefined}
-          disabled={!canTalk}
+          // Never disabled: the face reacts to every touch; talking only
+          // starts when canTalk.
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          accessibilityState={{ disabled: !canTalk }}
           // A finger that drifts a little while talking must not let go.
           pressRetentionOffset={HOLD_SLOP}
           delayLongPress={60000}
@@ -122,7 +159,9 @@ export function TalkStage({
           testID="roleplay-hold-to-talk"
           style={({ pressed }) => [styles.facePress, pressed && canTalk && styles.facePressed]}
         >
-          <TeacherFace mood={mood} speaking={teacherSpeaking} audioLevel={teacherLevel} size={faceSize} name={teacherName} />
+          <Animated.View style={squishStyle}>
+            <TeacherFace mood={mood} speaking={teacherSpeaking} audioLevel={teacherLevel} size={faceSize} name={teacherName} />
+          </Animated.View>
         </Pressable>
       </View>
 
@@ -197,6 +236,11 @@ function VoiceBars({ active, level }: { active: boolean; level: number }) {
     </View>
   );
 }
+
+// A press shorter than this is a tap; three taps this close together tickle.
+const TAP_MS = 300;
+const TICKLE_TAPS = 3;
+const TICKLE_WINDOW_MS = 1500;
 
 const HOLD_SLOP = { top: 400, bottom: 400, left: 400, right: 400 };
 
