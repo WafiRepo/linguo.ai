@@ -23,7 +23,7 @@ from openai import OpenAI
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "vision-agent"))
-from pronunciation import e_sound, word_guide, word_syllables  # noqa: E402
+from pronunciation import e_sound, sounded_syllables, word_guide, word_syllables  # noqa: E402
 
 DATA_FILE = ROOT / "data" / "learningMaterials.ts"
 AUDIO_DIR = ROOT / "assets" / "audio" / "vocab"
@@ -52,6 +52,19 @@ def guide(text: str) -> str:
     return "; ".join(parts)
 
 
+def ipa_hint(text: str) -> str:
+    """The KBBI lafal as IPA-like spelling: ê -> ə (schwa), é -> e. Empty without an e."""
+    parts = []
+    for word in re.findall(r"[A-Za-z]+", text):
+        lafal = word_guide().get(word.lower(), {}).get("lafal", "")
+        if not lafal:
+            parts.append(word.lower())
+            continue
+        parts.append(lafal.strip("/").replace("ê", "ə").replace("é", "e").replace(" ", ""))
+    hint = " ".join(parts)
+    return hint if "ə" in hint or any("e" in p for p in parts) else ""
+
+
 def instructions(text: str, slow: bool) -> str:
     speed = (
         "Say it SLOWLY, syllable by syllable, with a short even pause between the syllables, "
@@ -64,15 +77,26 @@ def instructions(text: str, slow: bool) -> str:
         "You are a friendly native Indonesian primary-school teacher from Jakarta. Say the "
         "Indonesian word or phrase once, in Bahasa Indonesia with a native accent, never "
         "English, Dutch or German. Pure Indonesian vowels (a = ah, i = ee, u = oo, o = oh). "
-        f"{E_SOUNDS} How it sounds: {guide(text)}. {speed} Warm and friendly. Say nothing else."
+        f"{E_SOUNDS} How it sounds: {guide(text)}. {ipa_line(text)}{speed} Warm and friendly. "
+        "Say nothing else."
+    )
+
+
+def ipa_line(text: str) -> str:
+    hint = ipa_hint(text)
+    if not hint:
+        return ""
+    return (
+        f"Pronounce it exactly as the IPA /{hint}/: every ə is a short, relaxed schwa (like the "
+        "a in English 'about'), NEVER an 'eh' or 'ay' sound; every plain e is a clear 'eh'. "
     )
 
 
 def spoken_input(text: str, slow: bool) -> str:
-    """The slow take reads the syllables: 'se - ko - lah'."""
+    """The slow take reads the syllables: 'sə - ko - lah'."""
     if not slow:
         return text
-    return ",  ".join(word_syllables(word).replace("-", " - ") for word in text.split())
+    return ",  ".join(sounded_syllables(word).replace("-", " - ") for word in text.split())
 
 
 def normalize(text: str) -> str:

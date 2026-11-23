@@ -51,7 +51,8 @@ class KbbiGuideTest(unittest.TestCase):
 
     def test_guide_marks_e_pepet_and_e_taling(self):
         rules = indonesian_pronunciation_rules(["Mari lihat video di depan."], "English")
-        self.assertIn("depan = de-pan /dêpan/ (e pepet)", rules)
+        self.assertIn("depan = də-pan /dêpan/ (e pepet)", rules)
+        self.assertIn("menjelaskan = mən-jə-las-kan", indonesian_pronunciation_rules(["menjelaskan"], "English"))
         self.assertIn("video = vi-de-o /vidéo/ (e taling)", rules)
         self.assertEqual(e_sound("/mêngabsén/"), "e pepet + e taling")
 
@@ -86,7 +87,7 @@ class PromptIncludesPronunciationTest(unittest.TestCase):
             roleplay.build_comic_roleplay_prompt(turns, "English"),
         ):
             self.assertIn("INDONESIAN PRONUNCIATION", prompt)
-            self.assertIn("mengabsen = me-ngab-sen", prompt)
+            self.assertIn("mengabsen = mə-ngab-sen", prompt)
             self.assertIn("hadir = ha-dir", prompt)
 
 

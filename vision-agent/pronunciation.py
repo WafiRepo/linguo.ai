@@ -31,6 +31,19 @@ def word_syllables(word: str) -> str:
     return indonesian_syllables(word)
 
 
+def sounded_syllables(word: str) -> str:
+    """Syllables with the KBBI e sounds written in: 'mən-jə-las-kan'. Read on
+    its own, a syllable like 'je' or 'se' comes out as 'jé' or 'say'; ə keeps
+    the e pepet a schwa."""
+    syllables = word_syllables(word)
+    lafal = word_guide().get(word.lower(), {}).get("lafal", "").strip("/").replace(" ", "")
+    letters = [ch for ch in syllables if ch != "-"]
+    if not lafal or len(lafal) != len(letters):
+        return syllables
+    sounds = iter(lafal.replace("ê", "ə").replace("é", "e"))
+    return "".join(ch if ch == "-" else next(sounds) for ch in syllables)
+
+
 def e_sound(lafal: str) -> str:
     """Which e the KBBI lafal has: ê = e pepet, é = e taling."""
     kinds = []
@@ -115,7 +128,7 @@ def indonesian_pronunciation_rules(phrases: list[str], help_language: str) -> st
     entries = []
     for word in words[:MAX_GUIDE_WORDS]:
         lafal = word_guide().get(word, {}).get("lafal", "")
-        entry = f"{word} = {word_syllables(word)}"
+        entry = f"{word} = {sounded_syllables(word)}"
         if lafal:
             entry += f" {lafal} ({e_sound(lafal)})"
         entries.append(entry)
@@ -129,7 +142,8 @@ def indonesian_pronunciation_rules(phrases: list[str], help_language: str) -> st
         "- The letter e has TWO sounds (the guide below marks each word, from the KBBI "
         "dictionary): ê = e pepet, a short relaxed \"uh\" like the a in English \"about\" "
         "(sekolah, depan, belajar); é = e taling, a clear \"eh\" like in English \"bed\" "
-        "(teks, video). Never swap them.\n"
+        "(teks, video). In the syllables below ə marks the e pepet. Never swap them, "
+        "also when saying one syllable on its own (jə, not jé).\n"
         "- SPEED: always say Indonesian at a natural, smooth speed, whole words, never syllable "
         "by syllable. The guide shows HOW the words sound; it is not a way of reading them.\n"
         "- MODELING A LINE (a correction, 'say it like this', saying it together): say the "
