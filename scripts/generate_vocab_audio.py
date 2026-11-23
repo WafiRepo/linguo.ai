@@ -4,19 +4,29 @@ Reads every `speakText` from data/learningMaterials.ts and asks OpenAI TTS for
 two Indonesian recordings of it, guided by the KBBI syllables and lafal in
 data/pronunciation.json (e pepet / e taling):
   - assets/audio/vocab/<slug>.mp3       natural speed
-  - assets/audio/vocab/<slug>-slow.mp3  slowly, syllable by syllable
+  - assets/audio/vocab/<slug>-slow.mp3  slowly (Google: the whole word at 60% speed)
 Each recording is checked by transcribing it back. constants/audio.ts is
 rewritten so the app can play the files offline.
 
 Usage (from the repo root, OPENAI_API_KEY in vision-agent/.env):
     vision-agent/.venv/Scripts/python.exe scripts/generate_vocab_audio.py
 Existing files are kept; pass --force to record them again.
+
+--google: record with a native Indonesian Google Cloud Text-to-Speech voice
+(GOOGLE_TTS_API_KEY in vision-agent/.env, voice GOOGLE_TTS_VOICE, default
+id-ID-Chirp3-HD-Kore). The OpenAI voice is not a native speaker and mixes up the
+e pepet / e taling. --list-voices prints Google's Indonesian voices.
+--sample <dir>: record a few test words into <dir> to listen to first.
 """
 
+import base64
+import os
 import re
 import sys
 import unicodedata
 from pathlib import Path
+
+import httpx
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -99,6 +109,49 @@ def spoken_input(text: str, slow: bool) -> str:
     return ",  ".join(sounded_syllables(word).replace("-", " - ") for word in text.split())
 
 
+# ---- Google Cloud Text-to-Speech (native Indonesian voices) ----
+GOOGLE_URL = "https://texttospeech.googleapis.com/v1"
+GOOGLE_VOICE = "id-ID-Chirp3-HD-Kore"  # chosen by ear (2026-11-23)
+
+
+def google_key() -> str:
+    key = os.environ.get("GOOGLE_TTS_API_KEY", "")
+    if not key:
+        raise SystemExit("GOOGLE_TTS_API_KEY is missing in vision-agent/.env")
+    return key
+
+
+# The slow take: the whole word at 60% speed (chosen by ear). Cutting it
+# into syllables with pauses made the voice drop syllables and change the e.
+GOOGLE_SLOW_RATE = 0.6
+
+
+def google_speak(text: str, slow: bool) -> bytes:
+    voice = os.environ.get("GOOGLE_TTS_VOICE", GOOGLE_VOICE)
+    response = httpx.post(
+        f"{GOOGLE_URL}/text:synthesize",
+        params={"key": google_key()},
+        json={
+            "input": {"text": text},
+            "voice": {"languageCode": "id-ID", "name": voice},
+            "audioConfig": {"audioEncoding": "MP3", "speakingRate": GOOGLE_SLOW_RATE if slow else 1.0},
+        },
+        timeout=60,
+    )
+    if response.status_code != 200:
+        raise SystemExit(f"Google TTS error {response.status_code}: {response.text[:300]}")
+    return base64.b64decode(response.json()["audioContent"])
+
+
+def list_google_voices() -> None:
+    response = httpx.get(
+        f"{GOOGLE_URL}/voices", params={"key": google_key(), "languageCode": "id-ID"}, timeout=30
+    )
+    response.raise_for_status()
+    for voice in response.json().get("voices", []):
+        print(voice["name"], voice.get("ssmlGender", ""))
+
+
 def normalize(text: str) -> str:
     # The transcriber may write the e pepet as "ə" or add accents ("Kəčilkan"):
     # those are right, so compare plain letters.
@@ -112,17 +165,21 @@ def similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, normalize(a), normalize(b)).ratio()
 
 
-def record(client: OpenAI, text: str, path: Path, slow: bool) -> None:
+def record(client: OpenAI, text: str, path: Path, slow: bool, google: bool = False) -> None:
     """Record, check by transcribing it back, keep the closest of a few tries."""
     best_score, best_audio = -1.0, b""
-    for attempt in range(1, MAX_TRIES + 1):
-        audio = client.audio.speech.create(
-            model=MODEL,
-            voice=VOICE,
-            input=spoken_input(text, slow),
-            instructions=instructions(text, slow),
-            response_format="mp3",
-        ).content
+    # Google's voice gives the same take every time: one try is enough.
+    for attempt in range(1, (1 if google else MAX_TRIES) + 1):
+        if google:
+            audio = google_speak(text, slow)
+        else:
+            audio = client.audio.speech.create(
+                model=MODEL,
+                voice=VOICE,
+                input=spoken_input(text, slow),
+                instructions=instructions(text, slow),
+                response_format="mp3",
+            ).content
         path.write_bytes(audio)
         with open(path, "rb") as f:
             heard = client.audio.transcriptions.create(
@@ -152,6 +209,20 @@ def camel(slug: str) -> str:
 def main() -> None:
     load_dotenv(ROOT / "vision-agent" / ".env")
     force = "--force" in sys.argv
+    google = "--google" in sys.argv
+    if "--list-voices" in sys.argv:
+        list_google_voices()
+        return
+    if "--sample" in sys.argv:
+        out = Path(sys.argv[sys.argv.index("--sample") + 1])
+        out.mkdir(parents=True, exist_ok=True)
+        client = OpenAI()
+        for text in ("menjelaskan", "sekolah", "setiap", "teks", "kecilkan suara", "steker"):
+            for slow in (False, True):
+                path = out / f"{slugify(text)}{'-slow' if slow else ''}.mp3"
+                print(f"sample{' (slow)' if slow else ''}: {text}")
+                record(client, text, path, slow, google)
+        return
     texts = sorted(set(re.findall(r'speakText:\s*"([^"]+)"', DATA_FILE.read_text(encoding="utf-8"))))
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
     client = OpenAI()
@@ -162,7 +233,7 @@ def main() -> None:
             if path.exists() and not force:
                 continue
             print(f"recording{' (slow)' if slow else ''}: {text}")
-            record(client, text, path, slow)
+            record(client, text, path, slow, google)
 
     lines = [
         "// Generated by scripts/generate_vocab_audio.py — do not edit by hand.",
