@@ -1,17 +1,21 @@
 """Generate the Learning material vocabulary audio (run once, not in the app).
 
-Reads every `speakText` from data/learningMaterials.ts, asks OpenAI TTS for a
-natural Indonesian recording, saves it to assets/audio/vocab/<slug>.mp3 and
-rewrites constants/audio.ts so the app can play the files offline.
+Reads every `speakText` from data/learningMaterials.ts and asks OpenAI TTS for
+two Indonesian recordings of it, guided by the KBBI syllables and lafal in
+data/pronunciation.json (e pepet / e taling):
+  - assets/audio/vocab/<slug>.mp3       natural speed
+  - assets/audio/vocab/<slug>-slow.mp3  slowly, syllable by syllable
+Each recording is checked by transcribing it back. constants/audio.ts is
+rewritten so the app can play the files offline.
 
 Usage (from the repo root, OPENAI_API_KEY in vision-agent/.env):
     vision-agent/.venv/Scripts/python.exe scripts/generate_vocab_audio.py
 Existing files are kept; pass --force to record them again.
 """
 
-import os
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -19,7 +23,7 @@ from openai import OpenAI
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "vision-agent"))
-from pronunciation import indonesian_syllables  # noqa: E402
+from pronunciation import e_sound, word_guide, word_syllables  # noqa: E402
 
 DATA_FILE = ROOT / "data" / "learningMaterials.ts"
 AUDIO_DIR = ROOT / "assets" / "audio" / "vocab"
@@ -29,20 +33,53 @@ MODEL = "gpt-4o-mini-tts"
 VOICE = "marin"  # same voice as Bu Guru in AI Teacher
 MAX_TRIES = 4
 
+E_SOUNDS = (
+    "The letter e has two sounds (KBBI): ê = e pepet, a short relaxed 'uh' like the a in "
+    "English 'about' (sekolah, depan); é = e taling, a clear 'eh' like in English 'bed' "
+    "(teks, video)."
+)
 
-def instructions(text: str) -> str:
-    syllables = " ".join(indonesian_syllables(word) for word in text.split())
+
+def guide(text: str) -> str:
+    """'sekolah = se-ko-lah /sêkolah/ (e pepet)' for each word."""
+    parts = []
+    for word in re.findall(r"[A-Za-z]+", text):
+        lafal = word_guide().get(word.lower(), {}).get("lafal", "")
+        entry = f"{word} = {word_syllables(word)}"
+        if lafal:
+            entry += f" {lafal} ({e_sound(lafal)})"
+        parts.append(entry)
+    return "; ".join(parts)
+
+
+def instructions(text: str, slow: bool) -> str:
+    speed = (
+        "Say it SLOWLY, syllable by syllable, with a short even pause between the syllables, "
+        "so a young learner can follow and copy each syllable."
+        if slow
+        else "Say it at a natural, clear speaking speed, as whole smooth words: not slow and "
+        "not syllable by syllable."
+    )
     return (
-        "You are a friendly native Indonesian primary-school teacher. Say the Indonesian "
-        "word or phrase exactly as written, once, in Bahasa Indonesia — never English or "
-        "German. Syllables: " + syllables + ". Pure Indonesian vowels (a = ah, e = eh or a "
-        "short schwa, i = ee, u = oo), every syllable clear. Speak a little slowly and "
-        "warmly, for young children. Say nothing else."
+        "You are a friendly native Indonesian primary-school teacher from Jakarta. Say the "
+        "Indonesian word or phrase once, in Bahasa Indonesia with a native accent, never "
+        "English, Dutch or German. Pure Indonesian vowels (a = ah, i = ee, u = oo, o = oh). "
+        f"{E_SOUNDS} How it sounds: {guide(text)}. {speed} Warm and friendly. Say nothing else."
     )
 
 
+def spoken_input(text: str, slow: bool) -> str:
+    """The slow take reads the syllables: 'se - ko - lah'."""
+    if not slow:
+        return text
+    return ",  ".join(word_syllables(word).replace("-", " - ") for word in text.split())
+
+
 def normalize(text: str) -> str:
-    return re.sub(r"[^a-z ]", "", text.lower()).strip()
+    # The transcriber may write the e pepet as "ə" or add accents ("Kəčilkan"):
+    # those are right, so compare plain letters.
+    plain = unicodedata.normalize("NFKD", text.lower().replace("ə", "e"))
+    return re.sub(r"[^a-z]", "", plain)
 
 
 def similarity(a: str, b: str) -> float:
@@ -51,15 +88,15 @@ def similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, normalize(a), normalize(b)).ratio()
 
 
-def record(client: OpenAI, text: str, path: Path) -> None:
+def record(client: OpenAI, text: str, path: Path, slow: bool) -> None:
     """Record, check by transcribing it back, keep the closest of a few tries."""
     best_score, best_audio = -1.0, b""
     for attempt in range(1, MAX_TRIES + 1):
         audio = client.audio.speech.create(
             model=MODEL,
             voice=VOICE,
-            input=text,
-            instructions=instructions(text),
+            input=spoken_input(text, slow),
+            instructions=instructions(text, slow),
             response_format="mp3",
         ).content
         path.write_bytes(audio)
@@ -67,6 +104,7 @@ def record(client: OpenAI, text: str, path: Path) -> None:
             heard = client.audio.transcriptions.create(
                 model="gpt-4o-transcribe", file=f, language="id"
             ).text
+        # Letters only: the slow take may come back as "se ko lah".
         score = similarity(text, heard)
         print(f"  try {attempt}: heard {heard!r} ({score:.2f})")
         if score > best_score:
@@ -95,23 +133,29 @@ def main() -> None:
     client = OpenAI()
 
     for text in texts:
-        path = AUDIO_DIR / f"{slugify(text)}.mp3"
-        if path.exists() and not force:
-            continue
-        print(f"recording: {text}")
-        record(client, text, path)
+        for slow in (False, True):
+            path = AUDIO_DIR / f"{slugify(text)}{'-slow' if slow else ''}.mp3"
+            if path.exists() and not force:
+                continue
+            print(f"recording{' (slow)' if slow else ''}: {text}")
+            record(client, text, path, slow)
 
     lines = [
         "// Generated by scripts/generate_vocab_audio.py — do not edit by hand.",
-        "// Vocabulary recordings for Learning materials, keyed by speakText.",
+        "// Vocabulary recordings for Learning materials, keyed by speakText:",
+        "// natural speed, and slowly syllable by syllable (KBBI syllables).",
         "",
     ]
     for text in texts:
         slug = slugify(text)
         lines.append(f'import {camel(slug)} from "@/assets/audio/vocab/{slug}.mp3";')
+        lines.append(f'import {camel(slug)}Slow from "@/assets/audio/vocab/{slug}-slow.mp3";')
     lines += ["", "export const vocabAudio: Record<string, number> = {"]
     for text in texts:
         lines.append(f'  "{text}": {camel(slugify(text))},')
+    lines += ["};", "", "export const vocabAudioSlow: Record<string, number> = {"]
+    for text in texts:
+        lines.append(f'  "{text}": {camel(slugify(text))}Slow,')
     lines += ["};", ""]
     INDEX_FILE.write_text("\n".join(lines), encoding="utf-8", newline="\n")
     print(f"done: {len(texts)} words -> {INDEX_FILE.relative_to(ROOT)}")

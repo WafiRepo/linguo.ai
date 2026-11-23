@@ -103,6 +103,8 @@ export const zhTW: Record<TranslationKey, string> = {
   "learn.unitCount": "共 {count} 個學習單元",
   "lessonCard.inProgress": "進行中",
   "lessonCard.meta": "{count} 個活動 · {xp} XP",
+  "material.play": "播放",
+  "material.playSlow": "慢速播放",
   "material.listenVocab": "聆聽單字",
   "material.notFound": "找不到這份教材",
   "mode.practice": "練習",

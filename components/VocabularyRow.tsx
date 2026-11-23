@@ -1,34 +1,59 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { colors } from "@/constants/theme";
+import { useT } from "@/lib/i18n";
+import { syllablesOf } from "@/lib/pronunciation";
 import { VocabularyItem } from "@/types/learningMaterial";
 
 interface VocabularyRowProps {
   item: VocabularyItem;
-  isPlaying: boolean;
+  /** Which recording of this word is playing, if any. */
+  playing: "normal" | "slow" | null;
   onPlay: () => void;
+  /** Slowly, syllable by syllable. */
+  onPlaySlow: () => void;
 }
 
-export function VocabularyRow({ item, isPlaying, onPlay }: VocabularyRowProps) {
+export function VocabularyRow({ item, playing, onPlay, onPlaySlow }: VocabularyRowProps) {
+  const { t } = useT();
   return (
     <View style={styles.row}>
       <View className="flex-1">
         <Text className="font-poppins-semibold text-sm text-text-primary">
           {item.word}
         </Text>
+        <Text className="font-poppins text-xs text-lingua-purple mt-0.5">
+          {syllablesOf(item.speakText)}
+        </Text>
         <Text className="caption mt-0.5">{item.translation}</Text>
       </View>
       <TouchableOpacity
         activeOpacity={0.8}
+        onPress={onPlaySlow}
+        style={[styles.playButton, playing === "slow" && styles.playButtonActive]}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel={t("material.playSlow")}
+      >
+        <MaterialCommunityIcons
+          name="tortoise"
+          size={19}
+          color={playing === "slow" ? "#fff" : colors.primary.purple}
+        />
+      </TouchableOpacity>
+      <TouchableOpacity
+        activeOpacity={0.8}
         onPress={onPlay}
-        style={[styles.playButton, isPlaying && styles.playButtonActive]}
-        hitSlop={8}
+        style={[styles.playButton, playing === "normal" && styles.playButtonActive]}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel={t("material.play")}
       >
         <Ionicons
-          name={isPlaying ? "volume-high" : "volume-medium-outline"}
+          name={playing === "normal" ? "volume-high" : "volume-medium-outline"}
           size={18}
-          color={isPlaying ? "#fff" : colors.primary.purple}
+          color={playing === "normal" ? "#fff" : colors.primary.purple}
         />
       </TouchableOpacity>
     </View>
@@ -39,7 +64,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     backgroundColor: "#fff",
     borderRadius: 14,
     paddingVertical: 10,

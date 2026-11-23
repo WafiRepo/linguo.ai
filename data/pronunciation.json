@@ -30,6 +30,12 @@
     "apakah": {
       "syllables": "a·pa·kah"
     },
+    "ayah": {
+      "syllables": "a·yah"
+    },
+    "baca": {
+      "syllables": "ba·ca"
+    },
     "bacalah": {
       "syllables": "ba·ca·lah"
     },
@@ -115,6 +121,9 @@
     "buka": {
       "syllables": "bu·ka"
     },
+    "buku": {
+      "syllables": "bu·ku"
+    },
     "bukumu": {
       "syllables": "bu·ku·mu"
     },
@@ -143,6 +152,9 @@
     "di": {
       "syllables": "di"
     },
+    "dimulai": {
+      "syllables": "di·mu·lai"
+    },
     "diri": {
       "syllables": "di·ri"
     },
@@ -156,6 +168,11 @@
       "syllables": "e·ja·an·nya",
       "lafal": "/êjaannya/",
       "note": "Dari 'eja': cek apakah KBBI /êja/ (pepet)."
+    },
+    "elektronik": {
+      "syllables": "e·lek·tro·nik",
+      "lafal": "/éléktronik/",
+      "note": "Kata serapan: cek /éléktronik/ (dua-duanya taling?)."
     },
     "gambar": {
       "syllables": "gam·bar"
@@ -184,6 +201,9 @@
     "hati": {
       "syllables": "ha·ti"
     },
+    "ibu": {
+      "syllables": "i·bu"
+    },
     "indonesia": {
       "syllables": "In·do·ne·si·a",
       "lafal": "/Indonésia/",
@@ -208,6 +228,9 @@
     },
     "jawab": {
       "syllables": "ja·wab"
+    },
+    "jawaban": {
+      "syllables": "ja·wa·ban"
     },
     "jawabanmu": {
       "syllables": "ja·wa·ban·mu"
@@ -252,6 +275,10 @@
       "syllables": "ke",
       "lafal": "/kê/",
       "note": "Kata depan, ditulis terpisah dari kata berikutnya."
+    },
+    "kecilkan": {
+      "syllables": "ke·cil·kan",
+      "lafal": "/kêcilkan/"
     },
     "kedua": {
       "syllables": "ke·du·a",
@@ -332,6 +359,9 @@
     "masukkan": {
       "syllables": "ma·suk·kan"
     },
+    "matikan": {
+      "syllables": "ma·ti·kan"
+    },
     "melihat": {
       "syllables": "me·li·hat",
       "lafal": "/mêlihat/"
@@ -390,6 +420,9 @@
     "nomor": {
       "syllables": "no·mor"
     },
+    "nyalakan": {
+      "syllables": "nya·la·kan"
+    },
     "oh": {
       "syllables": "oh"
     },
@@ -411,6 +444,9 @@
     "paling": {
       "syllables": "pa·ling"
     },
+    "papan": {
+      "syllables": "pa·pan"
+    },
     "pekerjaan": {
       "syllables": "pe·ker·ja·an",
       "lafal": "/pêkêrjaan/"
@@ -423,6 +459,10 @@
       "syllables": "pe·la·ja·ri",
       "lafal": "/pêlajari/"
     },
+    "pendapat": {
+      "syllables": "pen·da·pat",
+      "lafal": "/pêndapat/"
+    },
     "pendapatmu": {
       "syllables": "pen·da·pat·mu",
       "lafal": "/pêndapatmu/"
@@ -431,6 +471,10 @@
       "syllables": "pe·ngu·ca·pan",
       "lafal": "/pêngucapan/"
     },
+    "pensil": {
+      "syllables": "pen·sil",
+      "lafal": "/pênsil/"
+    },
     "pensilmu": {
       "syllables": "pen·sil·mu",
       "lafal": "/pênsilmu/"
@@ -438,6 +482,10 @@
     "penting": {
       "syllables": "pen·ting",
       "lafal": "/pênting/"
+    },
+    "perasaan": {
+      "syllables": "pe·ra·sa·an",
+      "lafal": "/pêrasaan/"
     },
     "perasaanmu": {
       "syllables": "pe·ra·sa·an·mu",
@@ -530,6 +578,10 @@
       "syllables": "se·nang",
       "lafal": "/sênang/"
     },
+    "sepuluh": {
+      "syllables": "se·pu·luh",
+      "lafal": "/sêpuluh/"
+    },
     "setelah": {
       "syllables": "se·te·lah",
       "lafal": "/sêtêlah/"
@@ -561,9 +613,22 @@
       "syllables": "Si·ti",
       "note": "Nama orang, bukan entri KBBI."
     },
+    "speaker": {
+      "syllables": "spi·ker",
+      "lafal": "/spikêr/",
+      "note": "Kata Inggris, bukan entri KBBI (padanan: pengeras suara). Diucapkan /spikêr/."
+    },
+    "steker": {
+      "syllables": "ste·ker",
+      "lafal": "/stékér/",
+      "note": "Dari Belanda 'stekker': cek /stékér/ (taling)."
+    },
     "stopkontak": {
       "syllables": "stop·kon·tak",
       "note": "Cek pemenggalan KBBI: stop.kon.tak."
+    },
+    "suara": {
+      "syllables": "su·a·ra"
     },
     "suaranya": {
       "syllables": "su·a·ra·nya"
@@ -590,6 +655,11 @@
     "teks": {
       "syllables": "teks",
       "lafal": "/téks/"
+    },
+    "tema": {
+      "syllables": "te·ma",
+      "lafal": "/téma/",
+      "note": "Cek /téma/ (taling)."
     },
     "teman": {
       "syllables": "te·man",
@@ -625,6 +695,9 @@
     "tolong": {
       "syllables": "to·long"
     },
+    "tombol": {
+      "syllables": "tom·bol"
+    },
     "tombolnya": {
       "syllables": "tom·bol·nya"
     },
@@ -641,6 +714,9 @@
       "syllables": "vi·de·o",
       "lafal": "/vidéo/",
       "note": "Kata serapan: cek /vidéo/ (taling)."
+    },
+    "waktunya": {
+      "syllables": "wak·tu·nya"
     },
     "ya": {
       "syllables": "ya"

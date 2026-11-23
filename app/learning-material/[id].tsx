@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-nati
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { VocabularyRow } from "@/components/VocabularyRow";
-import { vocabAudio } from "@/constants/audio";
+import { vocabAudio, vocabAudioSlow } from "@/constants/audio";
 import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
 import { getLearningMaterial } from "@/data/learningMaterials";
@@ -25,22 +25,24 @@ export default function LearningMaterialScreen() {
   // starts the new word from the beginning, so fast taps never overlap.
   const player = useAudioPlayer();
   const status = useAudioPlayerStatus(player);
-  const [playingWord, setPlayingWord] = useState<string | null>(null);
+  // Which word is playing, and at which speed.
+  const [playingWord, setPlayingWord] = useState<{ word: string; slow: boolean } | null>(null);
 
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
   }, []);
 
-  function playWord(item: VocabularyItem) {
+  // Natural speed, or slowly syllable by syllable (the turtle).
+  function playWord(item: VocabularyItem, slow = false) {
     // In case a finished AI call left the phone in call-audio mode.
     resetPhoneAudioToMedia();
-    const recording = vocabAudio[item.speakText];
+    const recording = (slow ? vocabAudioSlow : vocabAudio)[item.speakText];
     if (!recording) {
       player.pause();
-      speakWithDevice(item.speakText);
+      speakWithDevice(item.speakText, slow ? 0.6 : 0.9);
       return;
     }
-    setPlayingWord(item.word);
+    setPlayingWord({ word: item.word, slow });
     player.replace(recording);
     player.seekTo(0).catch(() => {});
     player.play();
@@ -91,8 +93,15 @@ export default function LearningMaterialScreen() {
             <VocabularyRow
               key={item.word}
               item={item}
-              isPlaying={status.playing && playingWord === item.word}
+              playing={
+                status.playing && playingWord?.word === item.word
+                  ? playingWord.slow
+                    ? "slow"
+                    : "normal"
+                  : null
+              }
               onPlay={() => playWord(item)}
+              onPlaySlow={() => playWord(item, true)}
             />
           ))}
         </View>

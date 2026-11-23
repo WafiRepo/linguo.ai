@@ -21,7 +21,7 @@ function ensureTtsReady(): Promise<void> {
   return ttsInitPromise;
 }
 
-export async function speakWithDevice(text: string): Promise<void> {
+export async function speakWithDevice(text: string, rate = 0.9): Promise<void> {
   await ensureTtsReady();
   try {
     // Some react-native-tts versions throw here on newer React Native; a
@@ -31,7 +31,7 @@ export async function speakWithDevice(text: string): Promise<void> {
   try {
     await Tts.speak(text, {
       iosVoiceId: "",
-      rate: 0.9,
+      rate,
       androidParams: {
         KEY_PARAM_STREAM: "STREAM_MUSIC",
         KEY_PARAM_VOLUME: 1.0,

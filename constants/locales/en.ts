@@ -102,6 +102,8 @@ export const en = {
   "learn.unitCount": "{count} units",
   "lessonCard.inProgress": "In progress",
   "lessonCard.meta": "{count} activities · {xp} XP",
+  "material.play": "Play",
+  "material.playSlow": "Play slowly",
   "material.listenVocab": "Listen to the vocabulary",
   "material.notFound": "Material not found",
   "mode.practice": "Practice",
