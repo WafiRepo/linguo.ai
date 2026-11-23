@@ -6,10 +6,14 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { Image } from "@/components/Image";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useT } from "@/lib/i18n";
+import { translate } from "@/lib/i18n";
+
+// The first screen, before anyone picks a language: Mandarin first (the
+// learners' language), with an English line under each text.
+const zh = (key: Parameters<typeof translate>[1]) => translate("zh-TW", key);
+const en = (key: Parameters<typeof translate>[1]) => translate("en", key);
 
 export default function OnboardingScreen() {
-  const { t } = useT();
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       <View className="flex-1 px-6">
@@ -21,15 +25,21 @@ export default function OnboardingScreen() {
           </Text>
         </View>
 
-        {/* Hero heading */}
+        {/* Hero heading: Mandarin, then English */}
         <Text className="h1 mt-8">
-          {t("onboarding.heading")}
-          <Text className="text-lingua-purple">{t("home.indonesian")}</Text>
+          {zh("onboarding.heading")}
+          <Text className="text-lingua-purple">{zh("home.indonesian")}</Text>
+        </Text>
+        <Text className="font-poppins-medium text-base text-text-secondary mt-1">
+          {en("onboarding.heading").trim()} <Text className="text-lingua-purple">{en("home.indonesian")}</Text>
         </Text>
 
-        {/* Subtitle */}
+        {/* Subtitle: Mandarin, then English */}
         <Text className="body-md text-text-secondary mt-3">
-          {t("onboarding.subtitle")}
+          {zh("onboarding.subtitle")}
+        </Text>
+        <Text className="font-poppins text-xs text-text-secondary mt-1">
+          {en("onboarding.subtitle")}
         </Text>
 
         {/* Mascot illustration with speech bubbles */}
@@ -63,14 +73,17 @@ export default function OnboardingScreen() {
             style={styles.shadow}
           >
             <Text className="font-poppins-medium text-sm text-error">
-              {t("onboarding.hello")}
+              {zh("onboarding.hello")}
+            </Text>
+            <Text className="font-poppins text-xs text-error">
+              {en("onboarding.hello")}
             </Text>
           </View>
         </View>
 
         {/* CTA button */}
         <TouchableOpacity
-          className="bg-lingua-purple rounded-2xl flex-row items-center justify-center mt-2 mb-6 py-4.5"
+          className="bg-lingua-purple rounded-2xl flex-row items-center justify-center mt-2 mb-6 py-3"
           activeOpacity={0.85}
           testID="get-started-button"
           onPress={() => {
@@ -78,9 +91,14 @@ export default function OnboardingScreen() {
             router.push("/(auth)/sign-up");
           }}
         >
-          <Text className="font-poppins-semibold text-base text-white">
-            {t("onboarding.start")}
-          </Text>
+          <View className="items-center">
+            <Text className="font-poppins-semibold text-base text-white">
+              {zh("onboarding.start")}
+            </Text>
+            <Text className="font-poppins text-xs text-white/80">
+              {en("onboarding.start")}
+            </Text>
+          </View>
           <Ionicons
             name="chevron-forward"
             size={22}
