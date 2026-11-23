@@ -1,0 +1,652 @@
+{
+  "_about": "Suku kata dan lafal untuk kata-kata di dialog komik. Lafal mengikuti notasi KBBI: ê = e pepet (seperti di 'sekolah'), é = e taling (seperti di 'enak'). DRAF: belum dicek dengan KBBI.",
+  "status": "draft",
+  "words": {
+    "ada": {
+      "syllables": "a·da"
+    },
+    "adalah": {
+      "syllables": "a·da·lah"
+    },
+    "akan": {
+      "syllables": "a·kan"
+    },
+    "ambil": {
+      "syllables": "am·bil"
+    },
+    "anak": {
+      "syllables": "a·nak"
+    },
+    "andi": {
+      "syllables": "An·di",
+      "note": "Nama orang, bukan entri KBBI."
+    },
+    "angka": {
+      "syllables": "ang·ka"
+    },
+    "apa": {
+      "syllables": "a·pa"
+    },
+    "apakah": {
+      "syllables": "a·pa·kah"
+    },
+    "bacalah": {
+      "syllables": "ba·ca·lah"
+    },
+    "bagaimana": {
+      "syllables": "ba·gai·ma·na"
+    },
+    "bagus": {
+      "syllables": "ba·gus"
+    },
+    "bahasa": {
+      "syllables": "ba·ha·sa"
+    },
+    "baik": {
+      "syllables": "ba·ik"
+    },
+    "banyak": {
+      "syllables": "ba·nyak"
+    },
+    "baru": {
+      "syllables": "ba·ru"
+    },
+    "beberapa": {
+      "syllables": "be·be·ra·pa",
+      "lafal": "/bêbêrapa/"
+    },
+    "bekerja": {
+      "syllables": "be·ker·ja",
+      "lafal": "/bêkêrja/"
+    },
+    "belajar": {
+      "syllables": "be·la·jar",
+      "lafal": "/bêlajar/"
+    },
+    "belum": {
+      "syllables": "be·lum",
+      "lafal": "/bêlum/"
+    },
+    "benar": {
+      "syllables": "be·nar",
+      "lafal": "/bênar/"
+    },
+    "berapa": {
+      "syllables": "be·ra·pa",
+      "lafal": "/bêrapa/"
+    },
+    "berbicara": {
+      "syllables": "ber·bi·ca·ra",
+      "lafal": "/bêrbicara/"
+    },
+    "berlatih": {
+      "syllables": "ber·la·tih",
+      "lafal": "/bêrlatih/"
+    },
+    "bermain": {
+      "syllables": "ber·ma·in",
+      "lafal": "/bêrmain/"
+    },
+    "bersama": {
+      "syllables": "ber·sa·ma",
+      "lafal": "/bêrsama/"
+    },
+    "besarkan": {
+      "syllables": "be·sar·kan",
+      "lafal": "/bêsarkan/"
+    },
+    "betul": {
+      "syllables": "be·tul",
+      "lafal": "/bêtul/"
+    },
+    "bicara": {
+      "syllables": "bi·ca·ra"
+    },
+    "bisa": {
+      "syllables": "bi·sa"
+    },
+    "bu": {
+      "syllables": "Bu"
+    },
+    "budi": {
+      "syllables": "Bu·di",
+      "note": "Nama orang, bukan entri KBBI."
+    },
+    "buka": {
+      "syllables": "bu·ka"
+    },
+    "bukumu": {
+      "syllables": "bu·ku·mu"
+    },
+    "cara": {
+      "syllables": "ca·ra"
+    },
+    "coba": {
+      "syllables": "co·ba"
+    },
+    "contoh": {
+      "syllables": "con·toh"
+    },
+    "dadu": {
+      "syllables": "da·du"
+    },
+    "dalam": {
+      "syllables": "da·lam"
+    },
+    "dan": {
+      "syllables": "dan"
+    },
+    "depan": {
+      "syllables": "de·pan",
+      "lafal": "/dêpan/"
+    },
+    "di": {
+      "syllables": "di"
+    },
+    "diri": {
+      "syllables": "di·ri"
+    },
+    "duduk": {
+      "syllables": "du·duk"
+    },
+    "dulu": {
+      "syllables": "du·lu"
+    },
+    "ejaannya": {
+      "syllables": "e·ja·an·nya",
+      "lafal": "/êjaannya/",
+      "note": "Dari 'eja': cek apakah KBBI /êja/ (pepet)."
+    },
+    "gambar": {
+      "syllables": "gam·bar"
+    },
+    "guru": {
+      "syllables": "gu·ru"
+    },
+    "hadir": {
+      "syllables": "ha·dir"
+    },
+    "hafalkan": {
+      "syllables": "ha·fal·kan"
+    },
+    "halaman": {
+      "syllables": "ha·la·man"
+    },
+    "halo": {
+      "syllables": "ha·lo"
+    },
+    "hari": {
+      "syllables": "ha·ri"
+    },
+    "harus": {
+      "syllables": "ha·rus"
+    },
+    "hati": {
+      "syllables": "ha·ti"
+    },
+    "indonesia": {
+      "syllables": "In·do·ne·si·a",
+      "lafal": "/Indonésia/",
+      "note": "Nama diri: cek /Indonésia/ (taling)."
+    },
+    "indonesianya": {
+      "syllables": "In·do·ne·si·a·nya",
+      "lafal": "/Indonésianya/",
+      "note": "Indonesia + -nya."
+    },
+    "ingat": {
+      "syllables": "i·ngat"
+    },
+    "ini": {
+      "syllables": "i·ni"
+    },
+    "jalan": {
+      "syllables": "ja·lan"
+    },
+    "jangan": {
+      "syllables": "ja·ngan"
+    },
+    "jawab": {
+      "syllables": "ja·wab"
+    },
+    "jawabanmu": {
+      "syllables": "ja·wa·ban·mu"
+    },
+    "jawabannya": {
+      "syllables": "ja·wa·ban·nya"
+    },
+    "jelas": {
+      "syllables": "je·las",
+      "lafal": "/jêlas/"
+    },
+    "jika": {
+      "syllables": "ji·ka"
+    },
+    "jumpa": {
+      "syllables": "jum·pa"
+    },
+    "kalian": {
+      "syllables": "ka·li·an"
+    },
+    "kami": {
+      "syllables": "ka·mi"
+    },
+    "kamu": {
+      "syllables": "ka·mu"
+    },
+    "karena": {
+      "syllables": "ka·re·na",
+      "lafal": "/karêna/",
+      "note": "Kadang diucapkan 'karna'; yang baku /karêna/."
+    },
+    "kartu": {
+      "syllables": "kar·tu"
+    },
+    "kasih": {
+      "syllables": "ka·sih"
+    },
+    "kata": {
+      "syllables": "ka·ta"
+    },
+    "ke": {
+      "syllables": "ke",
+      "lafal": "/kê/",
+      "note": "Kata depan, ditulis terpisah dari kata berikutnya."
+    },
+    "kedua": {
+      "syllables": "ke·du·a",
+      "lafal": "/kêdua/"
+    },
+    "kelompok": {
+      "syllables": "ke·lom·pok",
+      "lafal": "/kêlompok/"
+    },
+    "keluarga": {
+      "syllables": "ke·lu·ar·ga",
+      "lafal": "/kêluarga/"
+    },
+    "keluarkan": {
+      "syllables": "ke·lu·ar·kan",
+      "lafal": "/kêluarkan/"
+    },
+    "kemarin": {
+      "syllables": "ke·ma·rin",
+      "lafal": "/kêmarin/",
+      "note": "Kadang diucapkan 'kemaren'; yang baku /kêmarin/."
+    },
+    "keras": {
+      "syllables": "ke·ras",
+      "lafal": "/kêras/"
+    },
+    "kerjakan": {
+      "syllables": "ker·ja·kan",
+      "lafal": "/kêrjakan/"
+    },
+    "ketiga": {
+      "syllables": "ke·ti·ga",
+      "lafal": "/kêtiga/"
+    },
+    "kita": {
+      "syllables": "ki·ta"
+    },
+    "koreksi": {
+      "syllables": "ko·rek·si",
+      "lafal": "/koréksi/",
+      "note": "Cek apakah KBBI /koréksi/ (taling)."
+    },
+    "kosakata": {
+      "syllables": "ko·sa·ka·ta"
+    },
+    "kumpulkan": {
+      "syllables": "kum·pul·kan"
+    },
+    "lagi": {
+      "syllables": "la·gi"
+    },
+    "latihan": {
+      "syllables": "la·ti·han"
+    },
+    "lebih": {
+      "syllables": "le·bih",
+      "lafal": "/lêbih/"
+    },
+    "lempar": {
+      "syllables": "lem·par",
+      "lafal": "/lêmpar/"
+    },
+    "lihat": {
+      "syllables": "li·hat"
+    },
+    "lima": {
+      "syllables": "li·ma"
+    },
+    "lupa": {
+      "syllables": "lu·pa"
+    },
+    "mari": {
+      "syllables": "ma·ri"
+    },
+    "masih": {
+      "syllables": "ma·sih"
+    },
+    "masukkan": {
+      "syllables": "ma·suk·kan"
+    },
+    "melihat": {
+      "syllables": "me·li·hat",
+      "lafal": "/mêlihat/"
+    },
+    "membaca": {
+      "syllables": "mem·ba·ca",
+      "lafal": "/mêmbaca/"
+    },
+    "memberikan": {
+      "syllables": "mem·be·ri·kan",
+      "lafal": "/mêmbêrikan/"
+    },
+    "menarik": {
+      "syllables": "me·na·rik",
+      "lafal": "/mênarik/"
+    },
+    "mengabsen": {
+      "syllables": "me·ngab·sen",
+      "lafal": "/mêngabsén/",
+      "note": "Dari 'absen': cek apakah KBBI /absén/ (taling)."
+    },
+    "mengerjakan": {
+      "syllables": "me·nger·ja·kan",
+      "lafal": "/mêngêrjakan/"
+    },
+    "mengerti": {
+      "syllables": "me·nger·ti",
+      "lafal": "/mêngêrti/"
+    },
+    "mengulas": {
+      "syllables": "me·ngu·las",
+      "lafal": "/mêngulas/"
+    },
+    "menit": {
+      "syllables": "me·nit",
+      "lafal": "/mênit/",
+      "note": "Cek /mênit/ (pepet)."
+    },
+    "menjelaskan": {
+      "syllables": "men·je·las·kan",
+      "lafal": "/mênjêlaskan/"
+    },
+    "menurut": {
+      "syllables": "me·nu·rut",
+      "lafal": "/mênurut/"
+    },
+    "minggu": {
+      "syllables": "ming·gu"
+    },
+    "mulai": {
+      "syllables": "mu·lai"
+    },
+    "nama": {
+      "syllables": "na·ma"
+    },
+    "nomor": {
+      "syllables": "no·mor"
+    },
+    "oh": {
+      "syllables": "oh"
+    },
+    "orang": {
+      "syllables": "o·rang"
+    },
+    "pada": {
+      "syllables": "pa·da"
+    },
+    "pagi": {
+      "syllables": "pa·gi"
+    },
+    "paham": {
+      "syllables": "pa·ham"
+    },
+    "pak": {
+      "syllables": "Pak"
+    },
+    "paling": {
+      "syllables": "pa·ling"
+    },
+    "pekerjaan": {
+      "syllables": "pe·ker·ja·an",
+      "lafal": "/pêkêrjaan/"
+    },
+    "pelajaran": {
+      "syllables": "pe·la·ja·ran",
+      "lafal": "/pêlajaran/"
+    },
+    "pelajari": {
+      "syllables": "pe·la·ja·ri",
+      "lafal": "/pêlajari/"
+    },
+    "pendapatmu": {
+      "syllables": "pen·da·pat·mu",
+      "lafal": "/pêndapatmu/"
+    },
+    "pengucapan": {
+      "syllables": "pe·ngu·ca·pan",
+      "lafal": "/pêngucapan/"
+    },
+    "pensilmu": {
+      "syllables": "pen·sil·mu",
+      "lafal": "/pênsilmu/"
+    },
+    "penting": {
+      "syllables": "pen·ting",
+      "lafal": "/pênting/"
+    },
+    "perasaanmu": {
+      "syllables": "pe·ra·sa·an·mu",
+      "lafal": "/pêrasaanmu/"
+    },
+    "perhatikan": {
+      "syllables": "per·ha·ti·kan",
+      "lafal": "/pêrhatikan/"
+    },
+    "persiapkan": {
+      "syllables": "per·si·ap·kan",
+      "lafal": "/pêrsiapkan/"
+    },
+    "pertama": {
+      "syllables": "per·ta·ma",
+      "lafal": "/pêrtama/"
+    },
+    "pertanyaan": {
+      "syllables": "per·ta·nya·an",
+      "lafal": "/pêrtanyaan/"
+    },
+    "pertanyaannya": {
+      "syllables": "per·ta·nya·an·nya",
+      "lafal": "/pêrtanyaannya/"
+    },
+    "pr": {
+      "syllables": "pé·ér",
+      "lafal": "/pé ér/",
+      "note": "Singkatan 'pekerjaan rumah', dibaca per huruf: pé-ér."
+    },
+    "punya": {
+      "syllables": "pu·nya"
+    },
+    "rumah": {
+      "syllables": "ru·mah"
+    },
+    "salam": {
+      "syllables": "sa·lam"
+    },
+    "sampai": {
+      "syllables": "sam·pai"
+    },
+    "sangat": {
+      "syllables": "sa·ngat"
+    },
+    "satu": {
+      "syllables": "sa·tu"
+    },
+    "saya": {
+      "syllables": "sa·ya"
+    },
+    "sederhana": {
+      "syllables": "se·der·ha·na",
+      "lafal": "/sêdêrhana/"
+    },
+    "sedikit": {
+      "syllables": "se·di·kit",
+      "lafal": "/sêdikit/"
+    },
+    "sekali": {
+      "syllables": "se·ka·li",
+      "lafal": "/sêkali/"
+    },
+    "sekarang": {
+      "syllables": "se·ka·rang",
+      "lafal": "/sêkarang/"
+    },
+    "sekolah": {
+      "syllables": "se·ko·lah",
+      "lafal": "/sêkolah/"
+    },
+    "selamat": {
+      "syllables": "se·la·mat",
+      "lafal": "/sêlamat/"
+    },
+    "selanjutnya": {
+      "syllables": "se·lan·jut·nya",
+      "lafal": "/sêlanjutnya/"
+    },
+    "selesai": {
+      "syllables": "se·le·sai",
+      "lafal": "/sêlêsai/",
+      "note": "Sering diucapkan /sêlésai/; cek KBBI: pepet atau taling di suku kedua?"
+    },
+    "semua": {
+      "syllables": "se·mu·a",
+      "lafal": "/sêmua/"
+    },
+    "senang": {
+      "syllables": "se·nang",
+      "lafal": "/sênang/"
+    },
+    "setelah": {
+      "syllables": "se·te·lah",
+      "lafal": "/sêtêlah/"
+    },
+    "setiap": {
+      "syllables": "se·ti·ap",
+      "lafal": "/sêtiap/"
+    },
+    "setuju": {
+      "syllables": "se·tu·ju",
+      "lafal": "/sêtuju/"
+    },
+    "siap": {
+      "syllables": "si·ap"
+    },
+    "siapa": {
+      "syllables": "si·a·pa"
+    },
+    "silakan": {
+      "syllables": "si·la·kan"
+    },
+    "sini": {
+      "syllables": "si·ni"
+    },
+    "siswa": {
+      "syllables": "sis·wa"
+    },
+    "siti": {
+      "syllables": "Si·ti",
+      "note": "Nama orang, bukan entri KBBI."
+    },
+    "stopkontak": {
+      "syllables": "stop·kon·tak",
+      "note": "Cek pemenggalan KBBI: stop.kon.tak."
+    },
+    "suaranya": {
+      "syllables": "su·a·ra·nya"
+    },
+    "sudah": {
+      "syllables": "su·dah"
+    },
+    "suka": {
+      "syllables": "su·ka"
+    },
+    "sukai": {
+      "syllables": "su·ka·i"
+    },
+    "sulit": {
+      "syllables": "su·lit"
+    },
+    "tahu": {
+      "syllables": "ta·hu"
+    },
+    "tekan": {
+      "syllables": "te·kan",
+      "lafal": "/têkan/"
+    },
+    "teks": {
+      "syllables": "teks",
+      "lafal": "/téks/"
+    },
+    "teman": {
+      "syllables": "te·man",
+      "lafal": "/têman/"
+    },
+    "temanya": {
+      "syllables": "te·ma·nya",
+      "lafal": "/témanya/",
+      "note": "Dalam 'Tulis temanya' = tema + -nya (topik), BUKAN teman. Cek /téma/ (taling)."
+    },
+    "tentang": {
+      "syllables": "ten·tang",
+      "lafal": "/têntang/"
+    },
+    "tepat": {
+      "syllables": "te·pat",
+      "lafal": "/têpat/"
+    },
+    "terima": {
+      "syllables": "te·ri·ma",
+      "lafal": "/têrima/"
+    },
+    "teruslah": {
+      "syllables": "te·rus·lah",
+      "lafal": "/têruslah/"
+    },
+    "tidak": {
+      "syllables": "ti·dak"
+    },
+    "tiga": {
+      "syllables": "ti·ga"
+    },
+    "tolong": {
+      "syllables": "to·long"
+    },
+    "tombolnya": {
+      "syllables": "tom·bol·nya"
+    },
+    "topik": {
+      "syllables": "to·pik"
+    },
+    "tulis": {
+      "syllables": "tu·lis"
+    },
+    "untuk": {
+      "syllables": "un·tuk"
+    },
+    "video": {
+      "syllables": "vi·de·o",
+      "lafal": "/vidéo/",
+      "note": "Kata serapan: cek /vidéo/ (taling)."
+    },
+    "ya": {
+      "syllables": "ya"
+    },
+    "yang": {
+      "syllables": "yang"
+    }
+  }
+}
