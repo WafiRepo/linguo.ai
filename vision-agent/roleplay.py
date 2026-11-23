@@ -726,14 +726,24 @@ class RoleplayController:
         (they carry their own spaces: ' suar' + 'anya' -> ' suaranya')."""
         return "".join(s for t, s in self._recent_agent if start <= t <= end)
 
-    async def complete_current(self) -> None:
-        """Mark the current in-order objective done because the AI accepted
-        the answer even though the transcript didn't match."""
-        remaining = self.tracker.remaining
-        if not remaining:
+    async def complete_current(self, index: Optional[int] = None) -> None:
+        """Mark a dialogue done: the one at `index`, or the current in-order
+        one (the AI accepted an answer the transcript didn't match). Marking
+        an already finished dialogue does nothing, so a repeated call can
+        never finish the NEXT dialogue by mistake."""
+        if index is None:
+            remaining = self.tracker.remaining
+            if not remaining:
+                return
+            objective = remaining[0]
+        elif 0 <= index < len(self.tracker.objectives):
+            objective = self.tracker.objectives[index]
+        else:
             return
-        self.tracker.completed.add(remaining[0].id)
-        await self.send_event({"type": "roleplay_objective", "objectiveId": remaining[0].id})
+        if objective.id in self.tracker.completed:
+            return
+        self.tracker.completed.add(objective.id)
+        await self.send_event({"type": "roleplay_objective", "objectiveId": objective.id})
 
     async def on_agent_final(self, text: str) -> None:
         self.agent_spoke.set()

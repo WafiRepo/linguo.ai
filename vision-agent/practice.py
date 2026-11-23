@@ -152,6 +152,9 @@ class ComicPractice:
     _pending: Optional[asyncio.Task] = None
     _attempt_parts: list[str] = field(default_factory=list)
     _attempt_started_at: Optional[float] = None
+    # The current attempt has been judged and is being acted on (praise,
+    # next step): a late piece of the same answer must not restart it.
+    _settling: bool = False
 
     async def start(self) -> None:
         await self._begin_dialogue(0)
@@ -162,6 +165,10 @@ class ComicPractice:
 
     async def on_answer(self, text: str) -> None:
         if self.step not in ("repeat", "answer") or not is_answer_attempt(text):
+            return
+        if self._settling:
+            # "Saya melihat" … "sekolah": the first piece was already judged
+            # right; this tail belongs to it, not to a new attempt.
             return
         # A pause splits one answer into pieces ("Selamat" … "pagi"). Pieces
         # arriving while the previous one is still being judged belong to the
@@ -185,6 +192,14 @@ class ComicPractice:
         agent_text = await self._await_ai_verdict(matched, started_at)
         if (self.index, self.step) != (index, step):
             return
+        self._settling = True
+        try:
+            await self._settle(said, index, step, matched, agent_text)
+        finally:
+            self._settling = False
+
+    async def _settle(self, said: str, index: int, step: str, matched: bool, agent_text: str) -> None:
+        turn = self.turns[index]
         # The AI hears the audio while we only have a transcript: a correction
         # from it wins over a text match, and its praise wins over a mismatch.
         if (matched and not ai_corrected_answer(agent_text)) or ai_accepted_answer(agent_text):
@@ -242,7 +257,7 @@ class ComicPractice:
         stars = stars_for(self.wrong)
         self.stars.append(stars)
         await self.send_event({"type": "practice_result", "turnIndex": self.index, "stars": stars})
-        await self.controller.complete_current()
+        await self.controller.complete_current(self.index)
         if self.index + 1 < len(self.turns):
             await self._begin_dialogue(self.index + 1)
         else:

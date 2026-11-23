@@ -154,6 +154,43 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.steps()[-1], (0, "answer"))
         self.practice.close()
 
+    async def test_tail_of_a_right_answer_does_not_finish_the_next_dialogue(self):
+        # From the screenshot: "Saya melihat" was judged right, then "sekolah"
+        # arrived while it moved on; judging again finished dialogue 2 too.
+        await self.practice.start()
+        await self.answer("Selamat pagi, Bu Guru")  # repeat step
+        self.assertEqual(self.steps()[-1], (0, "answer"))
+
+        gate = asyncio.Event()
+        real_send = self.practice.send_event
+
+        async def slow_send(payload):
+            await real_send(payload)
+            if payload["type"] == "practice_result":
+                gate.set()
+                await asyncio.sleep(0.05)  # still acting on the right answer
+
+        self.practice.send_event = slow_send
+        await self.controller.on_user_partial("Selamat pagi")
+        await self.controller.on_user_final("Selamat pagi")
+        await gate.wait()
+        await self.controller.on_user_partial("Bu Guru")
+        await self.controller.on_user_final("Bu Guru")  # the tail, mid-settle
+        await asyncio.sleep(0.2)
+
+        done = [e["objectiveId"] for e in self.events if e["type"] == "roleplay_objective"]
+        self.assertEqual(done, ["turn-0"])
+        results = [e for e in self.events if e["type"] == "practice_result"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(self.steps()[-1], (1, "repeat"))
+        self.practice.close()
+
+    async def test_complete_current_never_skips_ahead(self):
+        await self.controller.complete_current(0)
+        await self.controller.complete_current(0)  # again: nothing more
+        done = [e["objectiveId"] for e in self.events if e["type"] == "roleplay_objective"]
+        self.assertEqual(done, ["turn-0"])
+
     async def test_silent_bu_guru_gets_the_line_resent_once(self):
         calls: list[str] = []
 
