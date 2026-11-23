@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Optional
 
 from feedback import _normalize
-from pronunciation import indonesian_pronunciation_rules
+from pronunciation import indonesian_pronunciation_rules, slow_line
 from roleplay import (
     CORRECTION_GRACE_SECONDS,
     SAFETY_RULES,
@@ -76,8 +76,9 @@ def build_comic_practice_prompt(
         "else.\n"
         f"  • Wrong words: start gently in {help_language} (e.g. {almost_example}), say the "
         "correct Indonesian student line once, plus ONE short tip about what was different.\n"
-        "  • Clearly mispronounced word: start the same way, say that word slowly syllable by "
-        "syllable (e.g. \"Gu-ru\"), plus ONE short tip on how to say it.\n"
+        "  • Clearly mispronounced word: start the same way, say that word by its syllables "
+        "from the guide (e.g. \"Gu… ru\"), then the whole word normally, plus ONE short tip "
+        "on how to say it.\n"
         "- Never praise and correct in the same reply. Only correct clear mistakes, never an accent.\n"
         f"- If the student asks something in {help_language}, answer in one short sentence.\n"
         "- You may get quiet CORRECTION notes; correct at most once per attempt.\n\n"
@@ -94,8 +95,14 @@ def listen_line(turn: dict[str, Any], help_language: str) -> str:
     if is_chinese_help(help_language):
         meaning_zh = turn["student_zh"].rstrip("。.")
         meaning = f"意思是「{meaning_zh}」。" if meaning_zh else ""
-        return f"仔細聽。老師說：「{guru}」你回答：「{student}」{meaning}現在跟著說：「{student}」"
-    return f'Listen. The teacher says: "{guru}" You answer: "{student}" Now repeat: "{student}"'
+        return (
+            f"仔細聽。老師說：「{guru}」你回答：「{student}」{meaning}"
+            f"慢慢再聽一次：「{slow_line(student)}」現在跟著說：「{student}」"
+        )
+    return (
+        f'Listen. The teacher says: "{guru}" You answer: "{student}" '
+        f'Once more, slowly: "{slow_line(student)}" Now repeat: "{student}"'
+    )
 
 
 def answer_prompt_line(turn: dict[str, Any], help_language: str) -> str:
@@ -106,8 +113,11 @@ def answer_prompt_line(turn: dict[str, Any], help_language: str) -> str:
 
 def modeled_line(turn: dict[str, Any], help_language: str) -> str:
     if is_chinese_help(help_language):
-        return f"聽好：「{turn['student']}」沒關係，我們繼續。"
-    return f'Listen: "{turn["student"]}" That\'s okay, let\'s go on.'
+        return f"聽好：「{turn['student']}」慢慢再說一次：「{slow_line(turn['student'])}」沒關係，我們繼續。"
+    return (
+        f'Listen: "{turn["student"]}" Once more, slowly: "{slow_line(turn["student"])}" '
+        "That's okay, let's go on."
+    )
 
 
 def closing_line(help_language: str) -> str:

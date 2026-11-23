@@ -2,7 +2,52 @@
 
 from __future__ import annotations
 
+import json
+from functools import lru_cache
+from pathlib import Path
+
 from instruction_language import uses_indonesian_teacher, uses_zh_tw_teacher
+
+# Syllables and lafal (KBBI notation) for every word of the comic dialogues,
+# shared with the app: data/pronunciation.json at the repository root.
+PRONUNCIATION_FILE = Path(__file__).resolve().parent.parent / "data" / "pronunciation.json"
+
+
+@lru_cache(maxsize=1)
+def word_guide() -> dict[str, dict[str, str]]:
+    """word -> {"syllables": "se·ka·rang", "lafal": "/sêkarang/"}; empty when the file is missing."""
+    try:
+        data = json.loads(PRONUNCIATION_FILE.read_text(encoding="utf-8"))
+        return dict(data.get("words", {}))
+    except (OSError, ValueError):
+        return {}
+
+
+def word_syllables(word: str) -> str:
+    """Syllables from the KBBI data (se-ka-rang), else the rough split."""
+    entry = word_guide().get(word.lower())
+    if entry and entry.get("syllables"):
+        return entry["syllables"].replace("·", "-")
+    return indonesian_syllables(word)
+
+
+def e_sound(lafal: str) -> str:
+    """Which e the KBBI lafal has: ê = e pepet, é = e taling."""
+    kinds = []
+    if "ê" in lafal:
+        kinds.append("e pepet")
+    if "é" in lafal:
+        kinds.append("e taling")
+    return " + ".join(kinds)
+
+
+def slow_line(line: str) -> str:
+    """The line said slowly: word by word, a short pause between words
+    ("Baik… Pak… Guru."). Clear, but not chopped into syllables."""
+    words = line.split()
+    if len(words) <= 1:
+        return line
+    return "… ".join(word.rstrip(",") for word in words)
 
 
 VOWELS = set("aeiou")
@@ -67,20 +112,38 @@ def indonesian_pronunciation_rules(phrases: list[str], help_language: str) -> st
             word = "".join(ch for ch in raw.lower() if ch.isalpha())
             if len(word) > 1 and word not in words:
                 words.append(word)
-    guide = ", ".join(f"{w} = {indonesian_syllables(w)}" for w in words[:MAX_GUIDE_WORDS])
+    entries = []
+    for word in words[:MAX_GUIDE_WORDS]:
+        lafal = word_guide().get(word, {}).get("lafal", "")
+        entry = f"{word} = {word_syllables(word)}"
+        if lafal:
+            entry += f" {lafal} ({e_sound(lafal)})"
+        entries.append(entry)
+    guide = ", ".join(entries)
     return (
         f"INDONESIAN PRONUNCIATION (critical — also inside {help_language} sentences):\n"
         "- Read every Indonesian word with standard Indonesian sounds, never with English or "
         "Chinese (pinyin) readings: a = \"ah\" (never \"ay\" or \"ai\"), i = \"ee\", u = \"oo\", "
-        "e = \"eh\" or a short \"uh\", o = \"oh\". Pronounce every letter; never turn a single "
+        "o = \"oh\". Pronounce every letter; never turn a single "
         "vowel into a diphthong. Example: hadir = ha-dir, NOT \"hai-dir\".\n"
+        "- The letter e has TWO sounds (the guide below marks each word, from the KBBI "
+        "dictionary): ê = e pepet, a short relaxed \"uh\" like the a in English \"about\" "
+        "(sekolah, depan, belajar); é = e taling, a clear \"eh\" like in English \"bed\" "
+        "(teks, video). Never swap them.\n"
+        "- SPEED: always say Indonesian at a natural, smooth speed, whole words, never syllable "
+        "by syllable. The guide shows HOW the words sound; it is not a way of reading them.\n"
+        "- MODELING A LINE (a correction, 'say it like this', saying it together): say the "
+        "Indonesian line ONCE at natural speed, then ONCE more slowly, word by word with a short "
+        "pause between the words (e.g. \"Baik, Pak Guru.\" then \"Baik… Pak… Guru.\"). Only "
+        "when fixing ONE mispronounced word, say that word by its syllables from the guide "
+        "(e.g. \"Gu… ru\"), then the whole word normally.\n"
         "- Leave a tiny pause before and after each Indonesian phrase and switch fully to an "
         "Indonesian accent for it.\n"
         "- ONE VOICE: always speak in your own teacher voice, in every language. When you model "
         "the student's line ('say it like this: ...'), say it in your own voice: never act out "
         "the student, never imitate a child, a boy, a man or a woman, never change your pitch "
         "or voice.\n"
-        f"- Syllables: {guide}."
+        f"- Syllables and sounds: {guide}."
     )
 
 

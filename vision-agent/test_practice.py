@@ -191,7 +191,7 @@ class PracticeHelpersTest(unittest.TestCase):
         self.assertEqual(
             line,
             "仔細聽。老師說：「Siapa yang tidak hadir?」你回答：「Semua hadir.」"
-            "意思是「大家都到了」。現在跟著說：「Semua hadir.」",
+            "意思是「大家都到了」。慢慢再聽一次：「Semua… hadir.」現在跟著說：「Semua hadir.」",
         )
         self.assertNotIn("」。」", line)
 

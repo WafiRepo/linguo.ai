@@ -2,7 +2,7 @@ import unittest
 
 import roleplay
 from practice import build_comic_practice_prompt
-from pronunciation import indonesian_pronunciation_rules, indonesian_syllables
+from pronunciation import e_sound, indonesian_pronunciation_rules, indonesian_syllables, slow_line, word_guide
 
 
 class SyllableTest(unittest.TestCase):
@@ -24,11 +24,45 @@ class SyllableTest(unittest.TestCase):
 
     def test_rules_list_each_word_once(self):
         rules = indonesian_pronunciation_rules(["Hadir.", "Selamat pagi, anak-anak.", "Hadir."], "English")
-        guide = rules.split("- Syllables:")[1]
+        guide = rules.split("- Syllables and sounds:")[1]
         self.assertIn("hadir = ha-dir", guide)
         self.assertEqual(guide.count("hadir = "), 1)
         self.assertIn("anak = a-nak", rules)
         self.assertIn('NOT "hai-dir"', rules)
+
+
+class KbbiGuideTest(unittest.TestCase):
+    """data/pronunciation.json (KBBI syllables and lafal) feeds the AI's guide."""
+
+    def test_every_comic_word_has_an_entry(self):
+        import json
+        import re
+        from pathlib import Path
+
+        source = (Path(__file__).resolve().parent.parent / "data" / "classManagement.ts").read_text("utf-8")
+        lines = re.findall(r'(?:guruLine|studentLine):\s*\{\s*id:\s*"((?:[^"\\]|\\.)*)"', source)
+        words = {w.lower() for line in lines for w in re.findall(r"[A-Za-z]+", line)}
+        guide = word_guide()
+        self.assertTrue(guide, "data/pronunciation.json is missing")
+        self.assertEqual(sorted(words - set(guide)), [])
+        for word, entry in guide.items():
+            if "e" in word and word != "stopkontak":
+                self.assertIn("lafal", entry, word)
+
+    def test_guide_marks_e_pepet_and_e_taling(self):
+        rules = indonesian_pronunciation_rules(["Mari lihat video di depan."], "English")
+        self.assertIn("depan = de-pan /dêpan/ (e pepet)", rules)
+        self.assertIn("video = vi-de-o /vidéo/ (e taling)", rules)
+        self.assertEqual(e_sound("/mêngabsén/"), "e pepet + e taling")
+
+    def test_model_a_line_normal_then_slow(self):
+        rules = indonesian_pronunciation_rules(["Baik, Pak Guru."], "English")
+        self.assertIn("ONCE at natural speed, then ONCE more slowly", rules)
+        self.assertIn("never syllable by syllable", rules)
+
+    def test_slow_line_pauses_between_words(self):
+        self.assertEqual(slow_line("Baik, Pak Guru."), "Baik… Pak… Guru.")
+        self.assertEqual(slow_line("Hadir."), "Hadir.")
 
 
 class TeacherNameTest(unittest.TestCase):

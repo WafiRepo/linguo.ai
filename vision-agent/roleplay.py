@@ -13,7 +13,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 from feedback import _normalize
 from instruction_language import uses_english_teacher
-from pronunciation import indonesian_pronunciation_rules
+from pronunciation import indonesian_pronunciation_rules, slow_line
 
 logger = logging.getLogger(__name__)
 
@@ -242,7 +242,8 @@ def build_comic_roleplay_prompt(
         f"{help_language} about what was different. Let them try again (the lesson system "
         "helps them say it together after two tries).\n"
         "- WRONG PRONUNCIATION (right words, clearly mispronounced — you can hear it): say that "
-        "word slowly, syllable by syllable (e.g. \"Gu-ru\"), give ONE short tip in "
+        "word by its syllables from the guide (e.g. \"Gu… ru\"), then the whole word normally, "
+        "give ONE short tip in "
         f"{help_language} on how to say it, and ask them to say the line once more. Only correct "
         "clear mistakes — never nitpick an accent.\n"
         f"- Praise (e.g. {praise_example}) ONLY a right answer. For a wrong one, start gently "
@@ -345,7 +346,8 @@ def comic_correction_note(
     return (
         "CORRECTION (for your information, do not read aloud): the student said "
         f'"{said}" but their comic line is "{expected}". If you have not corrected them yet, '
-        f'kindly do it now: model the line "{expected}" once, with one short tip in '
+        f'kindly do it now: model the line "{expected}" (natural speed, then once more slowly, '
+        f'word by word), with one short tip in '
         f"{help_language}, then wait. Do not move to the next TEACHER line yet."
     )
 
@@ -359,10 +361,10 @@ def comic_move_on_line(turns: list[dict[str, Any]], index: int, help_language: s
     the comic lines are Indonesian; the framing is in the help language."""
     line = turns[index]["student"]
     if is_chinese_help(help_language):
-        together = f"沒關係，我們一起說：「{line}」"
+        together = f"沒關係，我們一起說：「{line}」慢慢再說一次：「{slow_line(line)}」"
         closing = "謝謝你，你很認真，做得很好！"
     else:
-        together = f"That's okay, let's say it together: \"{line}\"."
+        together = f"That's okay, let's say it together: \"{line}\" Once more, slowly: \"{slow_line(line)}\""
         closing = "Thank you, you tried really hard. Well done!"
     if index + 1 < len(turns):
         return together  # the turn director says the next TEACHER line
