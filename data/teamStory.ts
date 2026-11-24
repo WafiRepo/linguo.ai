@@ -144,8 +144,8 @@ export const STORY = {
     },
   } as PartnerOrg,
   funding: {
-    zhName: "國立臺北教育大學東協中心",
-    enName: "ASEAN Center, National Taipei University of Education",
+    zhName: "東協人力教育中心",
+    enName: "ASEAN Human Resources Education Center",
     logo: images.partnerAseanCenter,
     about: {
       zh: "感謝提供經費支持，讓印尼語 AI 學習工具的研發與教育創新得以持續推進。",
