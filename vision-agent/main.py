@@ -646,11 +646,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 ),
             )
             if is_hybrid:
-                # Testers see what the server heard and how it judged it.
-                agent.llm.debug_sink = agent.send_custom_event
                 agent.llm.partial_sink = agent.send_custom_event
-                # Load the phoneme checker now (it takes a while to start).
-                asyncio.create_task(pron_check.WORKER.warm_up())
                 # Record every line of this lesson now (cached after the first time).
                 asyncio.create_task(
                     line_voice.prewarm(all_script_lines(turns, help_language), agent.llm.voice)

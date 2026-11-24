@@ -1007,54 +1007,6 @@ function HopWord({ text, order }: { text: string; order: number }) {
   );
 }
 
-type PronResult = {
-  correct?: boolean;
-  problem?: string;
-  problems?: string[];
-  heard?: string;
-  want?: string;
-  error?: string;
-};
-type HearingInfo = {
-  expected: string;
-  hinted: string;
-  plain: string;
-  verdict: string;
-  gemini?: PronResult;
-  phonemes?: PronResult;
-};
-
-function pronLine(result: PronResult | undefined): string {
-  if (!result) return "…";
-  if (result.error) return `error: ${result.error}`;
-  const problem = result.problem || (result.problems ?? []).join("; ");
-  return `${result.correct ? "✅" : "❌"} ${problem}${result.heard ? `  [${result.heard}]` : ""}`;
-}
-
-const VERDICT_LABEL: Record<string, string> = {
-  pass: "✅ pass",
-  unclear: "⚠️ unclear (pronunciation)",
-  wrong: "❌ wrong",
-};
-
-/** Testers only (hybrid Practice): the two transcripts and the verdict. */
-function HearingCard({ info }: { info: HearingInfo }) {
-  return (
-    <View className="mx-4 mb-2 rounded-xl border border-dashed border-[#C9BEFB] bg-[#F7F5FF] px-3 py-2">
-      <Text className="font-poppins-semibold text-[11px] text-lingua-purple">Server heard (test)</Text>
-      <Text className="font-poppins text-[11px] text-text-secondary">Expected: {info.expected}</Text>
-      <Text className="font-poppins text-[12px] text-text-primary">With hint: {info.hinted}</Text>
-      <Text className="font-poppins text-[12px] text-text-primary">No hint: {info.plain || "—"}</Text>
-      <Text className="font-poppins-semibold text-[12px] text-text-primary">
-        {VERDICT_LABEL[info.verdict] ?? info.verdict}
-      </Text>
-      <Text className="font-poppins text-[11px] text-text-secondary mt-1">Pronunciation (test, not graded)</Text>
-      <Text className="font-poppins text-[11px] text-text-primary">Gemini: {pronLine(info.gemini)}</Text>
-      <Text className="font-poppins text-[11px] text-text-primary">wav2vec2: {pronLine(info.phonemes)}</Text>
-    </View>
-  );
-}
-
 /**
  * Web: the microphone's loudness (0-1) measured right here with Web Audio,
  * so the voice wave follows the student even when the call reports no level.
@@ -1191,13 +1143,6 @@ interface RoleplayCustomEvent {
     stars?: number;
     praise?: unknown;
     corrections?: unknown;
-    // "hearing" (hybrid Practice trial, testers only)
-    expected?: string;
-    hinted?: string;
-    plain?: string;
-    verdict?: string;
-    gemini?: unknown;
-    phonemes?: unknown;
     pronunciation?: unknown;
   };
 }
@@ -1269,8 +1214,6 @@ function ActiveRoleplayContent({
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [partials, setPartials] = useState<Partial<Record<Speaker, string>>>({});
   const [showHints, setShowHints] = useState(false);
-  // Hybrid Practice trial (testers only): what the server heard and its verdict.
-  const [hearing, setHearing] = useState<HearingInfo | null>(null);
   // Role Play: the student holds Bu Guru's face to talk.
   const [holding, setHolding] = useState(false);
   const nextMessageIdRef = useRef(0);
@@ -1354,26 +1297,6 @@ function ActiveRoleplayContent({
         typeof data.stars === "number"
       ) {
         onPracticeResult(data.turnIndex, data.stars);
-        return;
-      }
-
-      if (data.type === "hearing_pron" && typeof data.hinted === "string") {
-        const hinted = data.hinted;
-        setHearing((prev) =>
-          prev && prev.hinted === hinted
-            ? { ...prev, gemini: data.gemini as PronResult, phonemes: data.phonemes as PronResult }
-            : prev,
-        );
-        return;
-      }
-
-      if (data.type === "hearing" && typeof data.hinted === "string") {
-        setHearing({
-          expected: String(data.expected ?? ""),
-          hinted: data.hinted,
-          plain: String(data.plain ?? ""),
-          verdict: String(data.verdict ?? ""),
-        });
         return;
       }
 
@@ -1599,7 +1522,6 @@ function ActiveRoleplayContent({
             teacherText={partials.agent ?? ""}
           />
         )}
-        {hearing ? <HearingCard info={hearing} /> : null}
         {hintsCard}
         {missionComplete ? (
           donePanel

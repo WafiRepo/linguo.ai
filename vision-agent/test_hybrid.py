@@ -240,13 +240,13 @@ class GeminiPronunciationTest(unittest.IsolatedAsyncioTestCase):
             verdict = await make_judge(engine, tracker, turns)("Baik, Bu Guru.", 0)
         return verdict, engine.pron_notes
 
-    async def test_both_runs_wrong_is_unclear_with_a_note(self):
+    async def test_a_sound_error_is_unclear_with_a_note(self):
         wrong = {"correct": False, "word": "Guru", "problem": "r said as l", "problem_zh": "guru 的 r 唸成 l 了"}
-        verdict, notes = await self.judge_with([wrong, wrong])
+        verdict, notes = await self.judge_with([wrong])
         self.assertEqual(verdict, "unclear")
         self.assertEqual(notes[0], {"word": "Guru", "problem": "guru 的 r 唸成 l 了"})
 
-    async def test_one_odd_run_is_no_false_alarm(self):
-        verdict, notes = await self.judge_with([{"correct": False, "word": "Guru"}, {"correct": True}])
+    async def test_a_failed_check_counts_as_correct(self):
+        verdict, notes = await self.judge_with([{"error": "timeout"}])
         self.assertEqual(verdict, "pass")
         self.assertEqual(notes, {})

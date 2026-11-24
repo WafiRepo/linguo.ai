@@ -261,9 +261,9 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
     - otherwise: wrong
     The no-hint transcript is NOT used for the grade (on short lines like
     "Baik, Bu Guru" it garbled right answers too).
-    Pronunciation: when the words fit, Gemini listens to the audio twice; if
-    both runs hear a clear sound error the answer is "unclear" (Bu Guru
-    models the line and the student says it again). wav2vec2 is only logged.
+    Pronunciation: when the words fit, Gemini listens to the audio once; if
+    it hears a clear sound error the answer is "unclear" (Bu Guru models the
+    line and the student says it again).
     """
     from difflib import SequenceMatcher
 
@@ -293,7 +293,8 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
             verdict = "pass" if await _model_accepts(turns[index], said) else "wrong"
         else:
             verdict = "wrong"
-        print(f"[hybrid] judge dialogue {index}: {said!r} / plain {plain!r} -> {verdict}")
+        problem = f" ({pron.get('problem')})" if pron and not pron["correct"] else ""
+        print(f"[hybrid] judge dialogue {index}: {said!r} / plain {plain!r} -> {verdict}{problem}")
         sink = getattr(engine, "debug_sink", None)
         if sink is not None:
             try:

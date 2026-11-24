@@ -167,10 +167,10 @@ class PhonemeWorker:
 WORKER = PhonemeWorker()
 
 
-async def gemini_verdict(pcm16: bytes, line: str, runs: int = 2) -> dict[str, Any]:
-    """Gemini listens `runs` times; the sounds count as wrong only when EVERY
-    run says so (no false alarm from one odd answer). An error or a timeout
-    counts as correct."""
+async def gemini_verdict(pcm16: bytes, line: str, runs: int = 1) -> dict[str, Any]:
+    """Gemini listens `runs` times (once by default: quicker); the sounds
+    count as wrong only when EVERY run says so. An error or a timeout counts
+    as correct."""
     results = await asyncio.gather(*(gemini_check(pcm16, line) for _ in range(runs)))
     wrong = [r for r in results if r.get("correct") is False]
     if len(wrong) == runs:
