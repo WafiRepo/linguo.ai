@@ -262,7 +262,9 @@ def _roleplay_engine(call_id: str) -> str:
         # Practice: recorded lines and careful listening, for every student
         # (PRACTICE_ENGINE=default switches back to the live engine).
         return "hybrid"
-    if call_id.startswith("roleplay-comic-") and listed("HYBRID_TEST_USERS"):
+    if call_id.startswith("roleplay-comic-") and (
+        os.getenv("ROLEPLAY_ENGINE", "hybrid") == "hybrid" or listed("HYBRID_TEST_USERS")
+    ):
         # Role Play trial: Bu Guru's lines recorded (right accent per
         # language), answers judged like Practice.
         return "hybrid"

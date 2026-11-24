@@ -29,12 +29,12 @@ class EngineChoiceTest(unittest.TestCase):
         with patch.dict(os.environ, env):
             os.environ.pop("PRACTICE_ENGINE", None)
             self.assertEqual(main._roleplay_engine("roleplay-practice-c-topik-4-user_xyz"), "hybrid")
-            # Role Play stays on the live engine.
-            self.assertEqual(main._roleplay_engine("roleplay-comic-topik-2-user_xyz"), "gpt-live")
+            # Role Play too, for everyone.
+            self.assertEqual(main._roleplay_engine("roleplay-comic-topik-2-user_xyz"), "hybrid")
 
     def test_switch_back_keeps_hybrid_only_for_testers(self):
         env = {"HYBRID_TEST_USERS": "user_abc", "GEMINI_TEST_USERS": "", "ROLEPLAY_LLM": "gpt-live",
-               "PRACTICE_ENGINE": "default"}
+               "PRACTICE_ENGINE": "default", "ROLEPLAY_ENGINE": "default"}
         with patch.dict(os.environ, env):
             self.assertEqual(main._roleplay_engine("roleplay-practice-topik-2-user_abc"), "hybrid")
             # Testers also get the hybrid Role Play; everyone else the live engine.
