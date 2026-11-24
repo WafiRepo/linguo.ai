@@ -345,6 +345,12 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
 
         ok, pron = await asyncio.gather(words_ok(), gemini())
         sound_error = pron is not None and pron.get("correct") is False
+        if ok and sound_error and fits(plain, index):
+            # Heard exactly right even without the hint: Gemini is too strict
+            # here (it flags soft final consonants, e.g. the r of "belajar").
+            # A real slip like r -> l shows in this transcript too ("Gulu").
+            print(f"[hybrid] dialogue {index}: no-hint transcript is exact, Gemini overruled ({pron.get('problem')})")
+            sound_error = False
         if not ok:
             verdict = "wrong"
         elif sound_error:

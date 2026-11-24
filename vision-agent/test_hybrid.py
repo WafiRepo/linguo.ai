@@ -221,14 +221,14 @@ class LiveWordsTest(unittest.IsolatedAsyncioTestCase):
 
 
 class GeminiPronunciationTest(unittest.IsolatedAsyncioTestCase):
-    async def judge_with(self, runs, said="Baik, Bu Guru."):
+    async def judge_with(self, runs, said="Baik, Bu Guru.", plain="Baik, Bu Gulu."):
         import pron_check
 
         turns = roleplay.comic_turns([{"guruLine": "Mari kita mengulas pelajaran kemarin.",
                                        "studentLine": "Baik, Bu Guru.", "expectedAnswers": ["Baik, Bu Guru"]}])
         tracker = RoleplayTracker(roleplay.comic_objectives(turns), sequential=True)
         engine = HybridEngine()
-        engine._plain[said] = "Baik, Bu Gulu."
+        engine._plain[said] = plain
         engine._audio[said] = b"\x00\x01" * 800
         answers = iter(runs)
 
@@ -261,6 +261,14 @@ class GeminiPronunciationTest(unittest.IsolatedAsyncioTestCase):
         wrong = {"correct": False, "word": "Guru", "problem_zh": "r 唸成 l 了", "heard_text": "Vai, Bu Gulu"}
         verdict, notes = await self.judge_with([wrong])
         self.assertEqual(notes[0]["heard"], "Vai, Bu Gulu")
+
+    async def test_an_exact_no_hint_transcript_overrules_gemini(self):
+        # "Kami belajar salam" heard exactly without the hint, yet Gemini
+        # flagged soft final consonants again and again.
+        wrong = {"correct": False, "problems": [{"word": "Guru", "problem_zh": "少了尾音"}]}
+        verdict, notes = await self.judge_with([wrong], plain="Baik, Bu Guru.")
+        self.assertEqual(verdict, "pass")
+        self.assertEqual(notes, {})
 
     async def test_a_failed_check_counts_as_correct(self):
         verdict, notes = await self.judge_with([{"error": "timeout"}])
