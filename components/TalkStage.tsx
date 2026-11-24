@@ -109,6 +109,45 @@ export function TalkStage({
     }
   }
 
+  // Web: holding the Space bar works like holding her face.
+  const pressHandlersRef = useRef({ handlePressIn, handlePressOut });
+  pressHandlersRef.current = { handlePressIn, handlePressOut };
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    let down = false;
+    const typing = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      return !!target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || typing(event)) return;
+      event.preventDefault(); // no page scroll, no button "click"
+      if (down || event.repeat) return;
+      down = true;
+      pressHandlersRef.current.handlePressIn();
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || !down) return;
+      event.preventDefault();
+      down = false;
+      pressHandlersRef.current.handlePressOut();
+    };
+    // Switching tabs mid-hold: let go, or the microphone stays on.
+    const onBlur = () => {
+      if (!down) return;
+      down = false;
+      pressHandlersRef.current.handlePressOut();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
   // Web: a long press starts a text selection (or the touch menu), which
   // cancels the press and lets go of the microphone mid-sentence.
   useEffect(() => {

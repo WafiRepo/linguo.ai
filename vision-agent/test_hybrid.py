@@ -246,6 +246,11 @@ class GeminiPronunciationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(verdict, "unclear")
         self.assertEqual(notes[0], {"word": "Guru", "problem": "guru 的 r 唸成 l 了", "heard": "Baik, Bu Gulu."})
 
+    async def test_the_shown_words_are_what_gemini_heard(self):
+        wrong = {"correct": False, "word": "Guru", "problem_zh": "guru 的 r 唸成 l 了", "heard_text": "Vai, Bu Gulu"}
+        verdict, notes = await self.judge_with([wrong])
+        self.assertEqual(notes[0]["heard"], "Vai, Bu Gulu")
+
     async def test_a_failed_check_counts_as_correct(self):
         verdict, notes = await self.judge_with([{"error": "timeout"}])
         self.assertEqual(verdict, "pass")

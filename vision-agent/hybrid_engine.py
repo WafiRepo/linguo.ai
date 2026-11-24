@@ -300,9 +300,10 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
                 if not pron["correct"]:
                     verdict = "unclear"
                     if hasattr(engine, "pron_notes"):
-                        # "heard": the no-hint transcript, closer to what was really said.
+                        # "heard": what Gemini heard, in plain letters (so it matches its
+                        # correction); the no-hint transcript if it gave none.
                         engine.pron_notes[index] = {"word": pron.get("word", ""), "problem": pron.get("problem_zh", ""),
-                                                    "heard": plain}
+                                                    "heard": pron.get("heard_text") or plain}
         elif SequenceMatcher(None, _normalize(said), _normalize(expected)).ratio() >= GRAY_ZONE_SIMILARITY:
             verdict = "pass" if await _model_accepts(turns[index], said) else "wrong"
         else:

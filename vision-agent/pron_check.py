@@ -40,7 +40,9 @@ Judge ONLY the sounds, not the voice, speed or accent. Standard Indonesian: a fi
 e pepet said as "é" or "a", r said as l, ng said as n, b said as p, d said as t, a missing or extra syllable.
 If you hear no speech, only noise, or not this line at all, answer correct=false.
 If you are not sure about a sound, answer correct.
-Return JSON: {{"heard": "<what you heard, in IPA>", "correct": true|false,
+Return JSON: {{"heard": "<what you heard, in IPA>",
+"heard_text": "<what the child really said, written with normal Indonesian letters as it sounded, e.g. Baik, Bu Gulu>",
+"correct": true|false,
 "problem": "<short reason in English, empty if correct>",
 "word": "<the Indonesian word with the problem, exactly as written in the line, empty if correct>",
 "problem_zh": "<the same reason for a young child, in Traditional Chinese (Taiwan), max 20 characters, e.g. guru 的 r 唸成 l 了>"}}"""
@@ -97,7 +99,8 @@ async def gemini_check(pcm16: bytes, line: str) -> dict[str, Any]:
     try:
         result = await asyncio.wait_for(asyncio.to_thread(call), GEMINI_SECONDS)
         return {"correct": bool(result.get("correct")), "problem": str(result.get("problem") or ""),
-                "heard": str(result.get("heard") or ""), "word": str(result.get("word") or ""),
+                "heard": str(result.get("heard") or ""), "heard_text": str(result.get("heard_text") or ""),
+                "word": str(result.get("word") or ""),
                 "problem_zh": str(result.get("problem_zh") or "")}
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)[:120]}
@@ -177,6 +180,7 @@ async def gemini_verdict(pcm16: bytes, line: str, runs: int = 1) -> dict[str, An
     if len(wrong) == runs:
         first = wrong[0]
         return {"correct": False, "runs": results, "word": first.get("word", ""),
+                "heard_text": first.get("heard_text", ""),
                 "problem": first.get("problem", ""), "problem_zh": first.get("problem_zh", "")}
     return {"correct": True, "runs": results}
 
