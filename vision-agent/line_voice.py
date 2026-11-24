@@ -34,6 +34,17 @@ _flash_resting_until = 0.0
 # Last resort, so Bu Guru never stays silent: OpenAI's voice (cached apart,
 # so a later Gemini recording of the line still replaces it).
 OPENAI_TTS_MODEL = os.getenv("LINE_OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
+# Before OpenAI: Google Cloud TTS with one voice per language, so the accent
+# is always right - Taiwan Mandarin (cmn-TW Wavenet) for the Chinese parts,
+# a native Indonesian voice (Chirp3 HD, as the vocabulary recordings) for
+# the Indonesian parts. Needs GOOGLE_TTS_API_KEY; only for Chinese help lines.
+GOOGLE_TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize"
+GOOGLE_VOICES = {
+    "Kore": {"zh": ("cmn-TW", "cmn-TW-Wavenet-A"), "id": ("id-ID", "id-ID-Chirp3-HD-Kore")},
+    "Charon": {"zh": ("cmn-TW", "cmn-TW-Wavenet-B"), "id": ("id-ID", "id-ID-Chirp3-HD-Charon")},
+}
+GOOGLE_GAP_SECONDS = 0.12
+_CJK = "\u3000-\u303f\u4e00-\u9fff\uff00-\uffef"
 OPENAI_VOICES = {"Kore": "coral", "Charon": "ash"}
 SAMPLE_RATE = 24000
 CACHE_DIR = Path(__file__).resolve().parent / ".line-audio-cache"
@@ -65,6 +76,57 @@ def _style(text: str, voice: str) -> str:
 def cache_path(text: str, voice: str) -> Path:
     key = hashlib.sha1(f"{TTS_MODEL}|{voice}|{text}".encode("utf-8")).hexdigest()
     return CACHE_DIR / f"{key}.pcm"
+
+
+def language_parts(text: str) -> list[tuple[str, str]]:
+    """The text in runs of Chinese ("zh") and Indonesian ("id"); the corner
+    quotes are dropped (they are not read)."""
+    import re
+
+    parts: list[tuple[str, str]] = []
+    for run in re.findall(f"[{_CJK}]+|[^{_CJK}]+", text):
+        run = run.replace("「", "").replace("」", "").strip()
+        if not run or not re.search(r"\w", run):
+            continue
+        parts.append(("zh" if re.search("[\u4e00-\u9fff]", run) else "id", run))
+    return parts
+
+
+def google_cache_path(text: str, voice: str) -> Path:
+    key = hashlib.sha1(f"google-split|{voice}|{text}".encode("utf-8")).hexdigest()
+    return CACHE_DIR / "google" / f"{key}.pcm"
+
+
+def _google_tts(text: str, language: str, name: str) -> bytes:
+    import httpx
+
+    response = httpx.post(
+        GOOGLE_TTS_URL,
+        params={"key": os.environ["GOOGLE_TTS_API_KEY"]},
+        json={"input": {"text": text}, "voice": {"languageCode": language, "name": name},
+              "audioConfig": {"audioEncoding": "LINEAR16", "sampleRateHertz": SAMPLE_RATE}},
+        timeout=30,
+    )
+    response.raise_for_status()
+    import base64
+
+    wav = base64.b64decode(response.json()["audioContent"])
+    with wave.open(io.BytesIO(wav)) as w:
+        return w.readframes(w.getnframes())
+
+
+def _synthesize_google(text: str, voice: str) -> bytes:
+    """24 kHz PCM16: each language part in its own voice, short gaps between."""
+    voices = GOOGLE_VOICES.get(voice, GOOGLE_VOICES["Kore"])
+    gap = b"\x00\x00" * int(SAMPLE_RATE * GOOGLE_GAP_SECONDS)
+    pcm = b""
+    for language, part in language_parts(text):
+        pcm += _google_tts(part, *voices[language]) + gap
+    return pcm
+
+
+def _google_ready(text: str) -> bool:
+    return bool(os.getenv("GOOGLE_TTS_API_KEY")) and any(lang == "zh" for lang, _ in language_parts(text))
 
 
 def openai_cache_path(text: str, voice: str) -> Path:
@@ -178,6 +240,19 @@ async def line_audio(text: str, voice: str, fallback: bool = True) -> Optional[b
             return pcm
     if not fallback:
         return None
+    if _google_ready(text):
+        spare = google_cache_path(text, voice)
+        if spare.exists():
+            return spare.read_bytes()
+        try:
+            pcm = await asyncio.to_thread(_synthesize_google, text, voice)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[line-voice] Google voice failed: %s", str(e)[:160])
+            pcm = b""
+        if pcm:
+            spare.parent.mkdir(parents=True, exist_ok=True)
+            spare.write_bytes(pcm)
+            return pcm
     spare = openai_cache_path(text, voice)
     if spare.exists():
         return spare.read_bytes()

@@ -262,6 +262,10 @@ def _roleplay_engine(call_id: str) -> str:
         # Practice: recorded lines and careful listening, for every student
         # (PRACTICE_ENGINE=default switches back to the live engine).
         return "hybrid"
+    if call_id.startswith("roleplay-comic-") and listed("HYBRID_TEST_USERS"):
+        # Role Play trial: Bu Guru's lines recorded (right accent per
+        # language), answers judged like Practice.
+        return "hybrid"
     if listed("GEMINI_TEST_USERS"):
         return "gemini"
     return os.getenv("ROLEPLAY_LLM", "gpt-live")
@@ -439,6 +443,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         feedback_model = os.getenv("ROLEPLAY_FEEDBACK_MODEL", "gpt-5.4-mini")
 
         director: ComicTurnDirector | None = None
+        # Role Play on the hybrid engine runs on the practice flow (roleplay mode).
+        hybrid_roleplay = is_comic_roleplay and isinstance(agent.llm, HybridEngine)
 
         async def send_roleplay_event(payload: dict) -> None:
             try:
@@ -481,7 +487,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             status_text=status_text,
         )
 
-        if is_comic_roleplay:
+        if is_comic_roleplay and not hybrid_roleplay:
             director = ComicTurnDirector(
                 turns=turns,
                 controller=roleplay,
@@ -626,7 +632,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
 
             roleplay.confirm_match = confirm_comic_match
 
-        if is_comic_practice:
+        if is_comic_practice or hybrid_roleplay:
             async def say_script(text: str) -> None:
                 # Straight to the model (no local interrupt), so a praise
                 # Bu Guru is still saying isn't cut off mid-word.
@@ -647,6 +653,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 set_listening=agent.llm.set_listening if (is_gpt_live or is_hybrid) else None,
                 judge=make_judge(agent.llm, tracker, turns) if is_hybrid else None,
                 expect=agent.llm.expect if is_hybrid else None,
+                roleplay=hybrid_roleplay,
                 correction_extra=(
                     (lambda index, verdict: {"pronunciation": {**agent.llm.pron_notes[index],
                                                                "soundOnly": verdict == "unclear"}}
@@ -662,7 +669,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 roleplay.generate_feedback = practice.report
                 # Record every line of this lesson now (cached after the first time).
                 asyncio.create_task(
-                    line_voice.prewarm(all_script_lines(turns, help_language), agent.llm.voice)
+                    line_voice.prewarm(all_script_lines(turns, help_language, hybrid_roleplay), agent.llm.voice)
                 )
             roleplay.on_user_answer = practice.on_answer
 

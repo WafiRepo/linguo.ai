@@ -146,20 +146,32 @@ def unclear_line(turn: dict[str, Any], help_language: str) -> str:
     return f'Almost! Listen to the sounds: "{line}" Slowly: "{slow_line(line)}" Say it again.'
 
 
-def all_script_lines(turns: list[dict[str, Any]], help_language: str) -> list[str]:
+def all_script_lines(turns: list[dict[str, Any]], help_language: str, roleplay: bool = False) -> list[str]:
     """Every line Bu Guru can say in this practice (to record them ahead)."""
     lines: list[str] = []
     for turn in turns:
+        lines += (
+            [turn["guru"]] if roleplay
+            else [listen_line(turn, help_language), answer_prompt_line(turn, help_language)]
+        )
         lines += [
-            listen_line(turn, help_language),
-            answer_prompt_line(turn, help_language),
             correction_line(turn, help_language),
             unclear_line(turn, help_language),
             modeled_line(turn, help_language),
         ]
     lines += [praise_line(help_language, n) for n in range(3)]
-    lines.append(closing_line(help_language))
+    lines.append(roleplay_closing_line(help_language) if roleplay else closing_line(help_language))
     return lines
+
+
+def roleplay_closing_line(help_language: str) -> str:
+    if is_chinese_help(help_language):
+        return "對話完成了，你很棒！"
+    return "The conversation is finished. You did great!"
+
+
+# Role Play: after this many missed tries Bu Guru says it together and moves on.
+ROLEPLAY_MAX_ATTEMPTS = 2
 
 
 def closing_line(help_language: str) -> str:
@@ -193,6 +205,9 @@ class ComicPractice:
     expect: Optional[Callable[[str], None]] = None
     # Hybrid Practice: extra fields for a correction (the pronunciation note).
     correction_extra: Optional[Callable[[int, str], dict[str, Any]]] = None
+    # Hybrid Role Play: no listen/repeat steps; Bu Guru says her comic line
+    # and the student answers it, judged and corrected the same way.
+    roleplay: bool = False
     index: int = 0
     step: str = "listen"
     wrong: int = 0
@@ -314,7 +329,7 @@ class ComicPractice:
             "attempt": self.step_wrong,
             **extra,
         })
-        if self.step_wrong >= MAX_STEP_ATTEMPTS:
+        if self.step_wrong >= (ROLEPLAY_MAX_ATTEMPTS if self.roleplay else MAX_STEP_ATTEMPTS):
             await self._speak_and_wait(modeled_line(turn, self.help_language), confirm=turn["student"])
             await self._passed()
             return
@@ -358,6 +373,16 @@ class ComicPractice:
     async def _passed(self) -> None:
         turn = self.turns[self.index]
         self.step_wrong = 0
+        if self.roleplay:
+            await self.controller.complete_current(self.index)
+            if self.index + 1 < len(self.turns):
+                await self._begin_dialogue(self.index + 1)
+            else:
+                await self._set_step("done")
+                await self.send_event({"type": "roleplay_turn", "turnIndex": len(self.turns), "done": True})
+                await self.say(roleplay_closing_line(self.help_language))
+                await self.controller.send_feedback_now()
+            return
         if self.step == "repeat":
             await self._set_step("answer-intro")
             await self._speak_and_wait(
@@ -384,6 +409,12 @@ class ComicPractice:
         turn = self.turns[index]
         if self.expect is not None:
             self.expect(turn["student"])
+        if self.roleplay:
+            # The comic moves as she starts her line; then it's the student's turn.
+            await self.send_event({"type": "roleplay_turn", "turnIndex": index})
+            await self._speak_and_wait(turn["guru"], confirm=turn["guru"])
+            await self._set_step("answer")
+            return
         await self._speak_and_wait(
             listen_line(turn, self.help_language), confirm=turn["student"]
         )
@@ -393,7 +424,8 @@ class ComicPractice:
         self.step = step
         if self.set_listening is not None:
             await self.set_listening(step in LISTENING_STEPS)
-        await self.send_event({"type": "practice_step", "turnIndex": self.index, "step": step})
+        if not self.roleplay:  # Role Play shows no steps
+            await self.send_event({"type": "practice_step", "turnIndex": self.index, "step": step})
 
     async def _speak_and_wait(self, text: str, confirm: str) -> None:
         """Voice a script line, then wait until Bu Guru has said `confirm` (its

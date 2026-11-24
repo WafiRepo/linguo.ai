@@ -263,3 +263,63 @@ class PracticeHelpersTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HybridRoleplayFlowTest(unittest.IsolatedAsyncioTestCase):
+    """Role Play on the practice flow: Bu Guru says her line, the student answers."""
+
+    async def asyncSetUp(self):
+        self.turns = roleplay.comic_turns(TURNS_RAW)
+        self.events: list[dict] = []
+        self.spoken: list[str] = []
+
+        async def send(payload):
+            self.events.append(payload)
+
+        self.controller = RoleplayController(
+            send_event=send,
+            tracker=RoleplayTracker(roleplay.comic_objectives(self.turns), sequential=True),
+        )
+
+        async def say(text):
+            self.spoken.append(text)
+            self.controller.on_agent_partial(text)
+            await self.controller.on_agent_final(text)
+
+        self.verdicts: list[str] = []
+
+        async def judge(said, index):
+            return self.verdicts.pop(0) if self.verdicts else "pass"
+
+        self.practice = ComicPractice(
+            turns=self.turns, controller=self.controller, send_event=send, say=say,
+            note=None, help_language=ZH, judge=judge, roleplay=True,
+        )
+        self.controller.on_user_answer = self.practice.on_answer
+
+    async def answer(self, text):
+        await self.controller.on_user_final(text)
+        await asyncio.sleep(0.05)
+
+    async def test_lines_answers_and_the_end(self):
+        await self.practice.start()
+        self.assertEqual(self.spoken, ["Selamat pagi, anak-anak."])
+        self.assertIn({"type": "roleplay_turn", "turnIndex": 0}, self.events)
+        self.assertFalse([e for e in self.events if e["type"] == "practice_step"])
+        await self.answer("Selamat pagi, Bu Guru.")
+        self.assertIn("Siapa yang tidak hadir?", self.spoken)
+        await self.answer("Semua hadir.")
+        self.assertIn({"type": "roleplay_turn", "turnIndex": 2, "done": True}, self.events)
+        self.assertIn("對話完成", self.spoken[-1])
+        self.assertEqual(self.controller.tracker.remaining, [])
+        self.practice.close()
+
+    async def test_two_misses_then_together(self):
+        await self.practice.start()
+        self.verdicts = ["wrong", "wrong"]
+        await self.answer("Selamat malam.")
+        await self.answer("Selamat siang.")
+        self.assertIn("沒關係", self.spoken[-2] if "Siapa" in self.spoken[-1] else self.spoken[-1])
+        self.assertEqual(len([e for e in self.events if e["type"] == "roleplay_correction"]), 2)
+        self.assertIn("Siapa yang tidak hadir?", self.spoken)
+        self.practice.close()

@@ -37,7 +37,9 @@ class EngineChoiceTest(unittest.TestCase):
                "PRACTICE_ENGINE": "default"}
         with patch.dict(os.environ, env):
             self.assertEqual(main._roleplay_engine("roleplay-practice-topik-2-user_abc"), "hybrid")
-            self.assertEqual(main._roleplay_engine("roleplay-comic-topik-2-user_abc"), "gpt-live")
+            # Testers also get the hybrid Role Play; everyone else the live engine.
+            self.assertEqual(main._roleplay_engine("roleplay-comic-topik-2-user_abc"), "hybrid")
+            self.assertEqual(main._roleplay_engine("roleplay-comic-topik-2-user_xyz"), "gpt-live")
             self.assertEqual(main._roleplay_engine("roleplay-practice-topik-2-user_xyz"), "gpt-live")
 
 
@@ -349,3 +351,15 @@ class ChangedWordsTest(unittest.TestCase):
         self.assertEqual(changed_words("Kami belajar salam.", "Kami belajar salah."), [("salam", "說成 salah 了")])
         self.assertEqual(changed_words("Kami belajar salam.", "Belajar salam."), [("Kami", "漏掉了")])
         self.assertEqual(changed_words("Baik, Bu Guru.", "Baik, Bu Guru."), [])
+
+
+class LanguagePartsTest(unittest.TestCase):
+    def test_chinese_and_indonesian_runs(self):
+        import line_voice
+
+        self.assertEqual(
+            line_voice.language_parts("差一點喔。跟著我說：「Baik, Bu Guru.」慢慢再說一次：「Baik… Bu… Guru.」"),
+            [("zh", "差一點喔。跟著我說："), ("id", "Baik, Bu Guru."), ("zh", "慢慢再說一次："),
+             ("id", "Baik… Bu… Guru.")],
+        )
+        self.assertEqual(line_voice.language_parts("Selamat pagi, anak-anak."), [("id", "Selamat pagi, anak-anak.")])
