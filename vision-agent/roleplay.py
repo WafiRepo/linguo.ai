@@ -623,11 +623,16 @@ class RoleplayController:
     user_started_at: Optional[float] = None
     # How many matched answers per dialogue are waiting for Bu Guru's reaction.
     confirming: dict[str, int] = field(default_factory=dict)
+    # False: the student's words are not sent to the app (hybrid Practice
+    # sends what Gemini heard instead, once the answer is judged).
+    show_user_text: bool = True
 
     async def on_user_partial(self, fragment: str) -> None:
         if not self._user_partial:
             self.user_started_at = time.monotonic()
         self._user_partial.append(fragment)
+        if not self.show_user_text:
+            return
         await self.send_event({
             "type": "transcript_partial",
             "speaker": "user",
@@ -637,7 +642,8 @@ class RoleplayController:
     async def on_user_final(self, text: str) -> None:
         self._user_partial.clear()
         self._add_turn("user", text)
-        await self.send_event({"type": "transcript_final", "speaker": "user", "text": text})
+        if self.show_user_text:
+            await self.send_event({"type": "transcript_final", "speaker": "user", "text": text})
 
         if self.on_user_answer is not None:
             await self.on_user_answer(text)

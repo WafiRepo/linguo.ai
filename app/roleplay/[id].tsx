@@ -1305,14 +1305,14 @@ function ActiveRoleplayContent({
         return;
       }
 
-      // Hybrid Practice: what Gemini really heard replaces the student's words.
+      // Hybrid Practice: the student's words appear only once Gemini has
+      // heard and judged the answer.
       if (data.type === "user_heard" && typeof data.text === "string" && data.text) {
         const heard = data.text;
-        setMessages((prev) => {
-          const index = prev.map((message) => message.speaker).lastIndexOf("user");
-          if (index < 0) return prev;
-          return prev.map((message, i) => (i === index ? { ...message, text: heard } : message));
-        });
+        nextMessageIdRef.current += 1;
+        const id = nextMessageIdRef.current;
+        setMessages((prev) => [...prev, { id, speaker: "user", text: heard }]);
+        onStudentTurn();
         return;
       }
 

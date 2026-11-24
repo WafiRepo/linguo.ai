@@ -106,6 +106,8 @@ class HybridEngine(realtime.Realtime):
         self.pron_notes: dict[int, dict[str, Any]] = {}
         # Live words while the student talks (set by main.py).
         self.partial_sink: Any = None
+        # False: no words while the student talks (only Gemini's, afterwards).
+        self.live_words = True
         self._turn_id = 0
         self._partial_busy = False
         self._last_partial_at = 0.0
@@ -201,6 +203,7 @@ class HybridEngine(realtime.Realtime):
             self._silent_since = None
             if (
                 self.partial_sink is not None
+                and self.live_words
                 and not self._partial_busy
                 and now - self._last_partial_at >= PARTIAL_EVERY_SECONDS
                 and self._turn_samples / INPUT_RATE >= MIN_PARTIAL_SECONDS
@@ -376,7 +379,8 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
         # "You:" shows what Gemini heard for every answer (the hinted
         # transcript leans toward the right line); when Gemini was overruled,
         # the exact no-hint transcript.
-        heard_text = plain if overruled else (pron or {}).get("heard_text", "")
+        # If Gemini gave nothing (an error, a timeout), the transcript.
+        heard_text = (plain if overruled else (pron or {}).get("heard_text", "")) or said
         sink_words = getattr(engine, "partial_sink", None)
         if heard_text and sink_words is not None:
             try:

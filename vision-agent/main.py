@@ -629,6 +629,9 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                     pass
 
             is_hybrid = isinstance(agent.llm, HybridEngine)
+            if is_hybrid:
+                # "You:" stays empty until Gemini has heard the answer.
+                roleplay.show_user_text = False
             practice = ComicPractice(
                 turns=turns,
                 controller=roleplay,
@@ -648,6 +651,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             )
             if is_hybrid:
                 agent.llm.partial_sink = agent.send_custom_event
+                agent.llm.live_words = False
                 # Record every line of this lesson now (cached after the first time).
                 asyncio.create_task(
                     line_voice.prewarm(all_script_lines(turns, help_language), agent.llm.voice)
