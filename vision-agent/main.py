@@ -640,6 +640,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 expect=agent.llm.expect if is_hybrid else None,
             )
             if is_hybrid:
+                # Testers see what the server heard and how it judged it.
+                agent.llm.debug_sink = agent.send_custom_event
                 # Record every line of this lesson now (cached after the first time).
                 asyncio.create_task(
                     line_voice.prewarm(all_script_lines(turns, help_language), agent.llm.voice)

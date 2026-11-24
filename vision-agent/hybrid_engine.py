@@ -72,6 +72,8 @@ class HybridEngine(realtime.Realtime):
         self._silent_since: Optional[float] = None
         self._plain: dict[str, str] = {}
         self._openai: Any = None
+        # Testers see what was heard and the verdict (set by main.py).
+        self.debug_sink: Any = None
 
     # ---- lifecycle ----
     async def connect(self) -> None:
@@ -235,6 +237,13 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
         else:
             verdict = "wrong"
         print(f"[hybrid] judge dialogue {index}: {said!r} / plain {plain!r} -> {verdict}")
+        sink = getattr(engine, "debug_sink", None)
+        if sink is not None:
+            try:
+                await sink({"type": "hearing", "turnIndex": index, "expected": expected,
+                            "hinted": said, "plain": plain, "verdict": verdict})
+            except Exception as e:  # noqa: BLE001
+                logger.warning("[hybrid] hearing event failed: %s", e)
         return verdict
 
     return judge

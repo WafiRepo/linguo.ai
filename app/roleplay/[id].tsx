@@ -987,6 +987,29 @@ function HopWord({ text, order }: { text: string; order: number }) {
   );
 }
 
+type HearingInfo = { expected: string; hinted: string; plain: string; verdict: string };
+
+const VERDICT_LABEL: Record<string, string> = {
+  pass: "✅ pass",
+  unclear: "⚠️ unclear (pronunciation)",
+  wrong: "❌ wrong",
+};
+
+/** Testers only (hybrid Practice): the two transcripts and the verdict. */
+function HearingCard({ info }: { info: HearingInfo }) {
+  return (
+    <View className="mx-4 mb-2 rounded-xl border border-dashed border-[#C9BEFB] bg-[#F7F5FF] px-3 py-2">
+      <Text className="font-poppins-semibold text-[11px] text-lingua-purple">Server heard (test)</Text>
+      <Text className="font-poppins text-[11px] text-text-secondary">Expected: {info.expected}</Text>
+      <Text className="font-poppins text-[12px] text-text-primary">With hint: {info.hinted}</Text>
+      <Text className="font-poppins text-[12px] text-text-primary">No hint: {info.plain || "—"}</Text>
+      <Text className="font-poppins-semibold text-[12px] text-text-primary">
+        {VERDICT_LABEL[info.verdict] ?? info.verdict}
+      </Text>
+    </View>
+  );
+}
+
 const PRACTICE_STEPS: ("listen" | "repeat" | "answer")[] = ["listen", "repeat", "answer"];
 
 function PracticePanel({
@@ -1088,6 +1111,11 @@ interface RoleplayCustomEvent {
     stars?: number;
     praise?: unknown;
     corrections?: unknown;
+    // "hearing" (hybrid Practice trial, testers only)
+    expected?: string;
+    hinted?: string;
+    plain?: string;
+    verdict?: string;
   };
 }
 
@@ -1158,6 +1186,8 @@ function ActiveRoleplayContent({
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [partials, setPartials] = useState<Partial<Record<Speaker, string>>>({});
   const [showHints, setShowHints] = useState(false);
+  // Hybrid Practice trial (testers only): what the server heard and its verdict.
+  const [hearing, setHearing] = useState<HearingInfo | null>(null);
   // Role Play: the student holds Bu Guru's face to talk.
   const [holding, setHolding] = useState(false);
   const nextMessageIdRef = useRef(0);
@@ -1236,6 +1266,16 @@ function ActiveRoleplayContent({
         typeof data.stars === "number"
       ) {
         onPracticeResult(data.turnIndex, data.stars);
+        return;
+      }
+
+      if (data.type === "hearing" && typeof data.hinted === "string") {
+        setHearing({
+          expected: String(data.expected ?? ""),
+          hinted: data.hinted,
+          plain: String(data.plain ?? ""),
+          verdict: String(data.verdict ?? ""),
+        });
         return;
       }
 
@@ -1460,6 +1500,7 @@ function ActiveRoleplayContent({
             teacherText={partials.agent ?? ""}
           />
         )}
+        {hearing ? <HearingCard info={hearing} /> : null}
         {hintsCard}
         {missionComplete ? (
           donePanel
