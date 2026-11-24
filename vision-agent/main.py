@@ -652,6 +652,9 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
             if is_hybrid:
                 agent.llm.partial_sink = agent.send_custom_event
                 agent.llm.live_words = False
+                # The report follows Gemini's notes from the lesson (no
+                # second judgement from the transcript, which hides sound errors).
+                roleplay.generate_feedback = practice.report
                 # Record every line of this lesson now (cached after the first time).
                 asyncio.create_task(
                     line_voice.prewarm(all_script_lines(turns, help_language), agent.llm.voice)

@@ -68,6 +68,19 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
     def steps(self):
         return [(e["turnIndex"], e["step"]) for e in self.events if e["type"] == "practice_step"]
 
+    async def test_hybrid_report_follows_the_lesson(self):
+        # A judged miss (Gemini's note) is the report; nothing else is.
+        self.practice.correction_extra = lambda index, verdict: {
+            "pronunciation": {"heard": "Saya masih inggat", "words": ["ingat"], "problem": "ingat：多了 g"}}
+        self.practice.index, self.practice.step = 1, "repeat"
+        await self.practice._settle_judged("Saya masih ingat.", 1, "repeat", "unclear")
+        report = await self.practice.report()
+        self.assertEqual(report["corrections"], [{
+            "said": "Saya masih inggat", "better": self.turns[1]["student"], "tip": "ingat：多了 g",
+            "words": ["ingat"], "turnIndex": 1}])
+        self.practice.misses.clear()
+        self.assertEqual((await self.practice.report())["corrections"], [])
+
     async def answer(self, text):
         await self.controller.on_user_partial(text)
         await self.controller.on_user_final(text)

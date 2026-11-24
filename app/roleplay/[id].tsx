@@ -35,6 +35,7 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AIPilotNotice } from "@/components/AIPilotNotice";
+import { ReportCorrection } from "@/components/ReportCorrection";
 import { TalkStage } from "@/components/TalkStage";
 import { TeacherAccessory, TeacherMood } from "@/components/TeacherFace";
 import { CHILD_AI_RELEASE_READY } from "@/constants/releaseSafety";
@@ -1684,26 +1685,30 @@ function RoleplayReview({
                 {t("roleplay.nothingToFix")}
               </Text>
             ) : (
-              feedback.corrections.map((correction, index) => (
-                <View
-                  key={`${index}-${correction.said}`}
-                  className="rounded-2xl border border-border bg-white p-4 mb-3"
-                >
-                  <Text className="font-poppins text-xs text-text-secondary">{t("roleplay.saidLabel")}</Text>
-                  <Text className="font-poppins text-sm text-text-secondary mb-2">
-                    {correction.said}
-                  </Text>
-                  <Text className="font-poppins text-xs text-lingua-green">{t("roleplay.betterLabel")}</Text>
-                  <Text className="font-poppins-semibold text-[15px] text-text-primary mb-2">
-                    {correction.better}
-                  </Text>
-                  {correction.tip ? (
-                    <Text className="font-poppins text-[13px] leading-5 text-text-secondary">
-                      💡 {correction.tip}
+              feedback.corrections.map((correction, index) =>
+                correction.words ? (
+                  <ReportCorrection key={`${index}-${correction.said}`} correction={correction} />
+                ) : (
+                  <View
+                    key={`${index}-${correction.said}`}
+                    className="rounded-2xl border border-border bg-white p-4 mb-3"
+                  >
+                    <Text className="font-poppins text-xs text-text-secondary">{t("roleplay.saidLabel")}</Text>
+                    <Text className="font-poppins text-sm text-text-secondary mb-2">
+                      {correction.said}
                     </Text>
-                  ) : null}
-                </View>
-              ))
+                    <Text className="font-poppins text-xs text-lingua-green">{t("roleplay.betterLabel")}</Text>
+                    <Text className="font-poppins-semibold text-[15px] text-text-primary mb-2">
+                      {correction.better}
+                    </Text>
+                    {correction.tip ? (
+                      <Text className="font-poppins text-[13px] leading-5 text-text-secondary">
+                        💡 {correction.tip}
+                      </Text>
+                    ) : null}
+                  </View>
+                ),
+              )
             )}
 
             {/* Right answers in other words: shown, never counted as mistakes. */}

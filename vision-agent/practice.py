@@ -198,6 +198,9 @@ class ComicPractice:
     wrong: int = 0
     step_wrong: int = 0
     stars: list[int] = field(default_factory=list)
+    # Hybrid Practice: the latest miss of each dialogue (what was heard, the
+    # words with a problem and why) for the end-of-lesson report.
+    misses: dict[int, dict[str, Any]] = field(default_factory=dict)
     _pending: Optional[asyncio.Task] = None
     _attempt_parts: list[str] = field(default_factory=list)
     _attempt_started_at: Optional[float] = None
@@ -297,6 +300,12 @@ class ComicPractice:
         self.wrong += 1
         self.step_wrong += 1
         extra = self.correction_extra(index, verdict) if self.correction_extra else {}
+        note = extra.get("pronunciation") or {}
+        self.misses[index] = {
+            "said": note.get("heard") or said,
+            "words": list(note.get("words") or []),
+            "tip": note.get("problem") or "",
+        }
         await self.send_event({
             "type": "roleplay_correction",
             "turnIndex": index,
@@ -311,6 +320,23 @@ class ComicPractice:
             return
         line = unclear_line(turn, self.help_language) if verdict == "unclear" else correction_line(turn, self.help_language)
         await self._speak_and_wait(line, confirm=turn["student"])
+
+    async def report(self, _history: Any = None) -> dict[str, Any]:
+        """Hybrid Practice: the end-of-lesson report, built from what happened
+        in the lesson (Gemini's notes), so it always matches the stars."""
+        zh = is_chinese_help(self.help_language)
+        corrections = []
+        for index in sorted(self.misses):
+            miss = self.misses[index]
+            tip = miss["tip"] or ("照著句子再說一次。" if zh else "Say it like the line.")
+            corrections.append({"said": miss["said"][:120], "better": self.turns[index]["student"],
+                                "tip": tip[:160], "words": miss["words"][:6], "turnIndex": index})
+        if not corrections:
+            praise = "每一句都說對了，發音很棒！" if zh else "Every line right - great pronunciation!"
+        else:
+            praise = ("說得很好！聽聽下面的字，再練習一下會更棒。" if zh
+                      else "Well done! Listen to the words below and practise them once more.")
+        return {"praise": praise, "corrections": corrections, "alternatives": []}
 
     async def _await_ai_verdict(self, matched: bool, started_at: Optional[float]) -> str:
         """Wait (at most the grace period) for the AI's reaction to the answer

@@ -17,6 +17,8 @@ export interface RoleplayCorrection {
   said: string;
   better: string;
   tip: string;
+  /** Hybrid Practice: the words of `better` that were off (Gemini). */
+  words?: string[];
 }
 
 /** A right answer in other words than the comic (Role Play): not a mistake. */
