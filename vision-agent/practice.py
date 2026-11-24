@@ -139,11 +139,11 @@ def correction_line(turn: dict[str, Any], help_language: str) -> str:
 
 
 def unclear_line(turn: dict[str, Any], help_language: str) -> str:
-    """Right words, unclear sounds: praise, and the line once more to copy."""
+    """The sounds weren't clear: the line to copy, normal then slow, try again."""
     line = turn["student"]
     if is_chinese_help(help_language):
-        return f"說對了！注意發音，再聽一次：「{line}」慢慢說：「{slow_line(line)}」"
-    return f'That\'s right! Listen to the sounds once more: "{line}" Slowly: "{slow_line(line)}"'
+        return f"差一點，注意發音喔。聽好：「{line}」慢慢說：「{slow_line(line)}」再說一次。"
+    return f'Almost! Listen to the sounds: "{line}" Slowly: "{slow_line(line)}" Say it again.'
 
 
 def all_script_lines(turns: list[dict[str, Any]], help_language: str) -> list[str]:
@@ -290,13 +290,8 @@ class ComicPractice:
             await self.say(praise_line(self.help_language, index + len(self.stars)))
             await self._passed()
             return
-        if verdict == "unclear":
-            # The words were right but the sounds unclear: one star less,
-            # the line once more to copy, and on.
-            self.wrong += 1
-            await self._speak_and_wait(unclear_line(turn, self.help_language), confirm=turn["student"])
-            await self._passed()
-            return
+        # Unclear sounds count like a wrong answer: the card shows what was
+        # heard, Bu Guru models the line and the student tries again.
         self.wrong += 1
         self.step_wrong += 1
         await self.send_event({
@@ -310,7 +305,8 @@ class ComicPractice:
             await self._speak_and_wait(modeled_line(turn, self.help_language), confirm=turn["student"])
             await self._passed()
             return
-        await self._speak_and_wait(correction_line(turn, self.help_language), confirm=turn["student"])
+        line = unclear_line(turn, self.help_language) if verdict == "unclear" else correction_line(turn, self.help_language)
+        await self._speak_and_wait(line, confirm=turn["student"])
 
     async def _await_ai_verdict(self, matched: bool, started_at: Optional[float]) -> str:
         """Wait (at most the grace period) for the AI's reaction to the answer
@@ -378,6 +374,9 @@ class ComicPractice:
         deadline = started + SPEECH_WAIT_SECONDS
         resent = False
         await self.say(text)
+        # A recorded line (hybrid) has fully played when say() returns, even
+        # one longer than the usual wait: check it at least once.
+        deadline = max(deadline, time.monotonic() + 2.0)
         while time.monotonic() < deadline:
             self.controller.agent_spoke.clear()
             spoken_raw = self.controller.agent_text_since(started)

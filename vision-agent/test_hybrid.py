@@ -64,6 +64,30 @@ class JudgeTest(unittest.IsolatedAsyncioTestCase):
     async def test_wrong_answer(self):
         self.assertEqual(await self.verdict("Saya tidak tahu.", "Saya tidak tahu."), "wrong")
 
+    async def test_a_changed_word_does_not_fit(self):
+        # "Kita" for "Kami": not the accepted answer; the model decides (no).
+        turns = roleplay.comic_turns([{"guruLine": "Apa yang kita pelajari kemarin?",
+                                       "studentLine": "Kami belajar salam.", "expectedAnswers": ["Kami belajar salam"]}])
+        engine = FakeEngine({"Kita belajar salam.": "Kita belajar salam."})
+
+        async def says_no(turn, text):
+            return False
+
+        tracker = RoleplayTracker(roleplay.comic_objectives(turns), sequential=True)
+        with patch.object(hybrid_engine, "_model_accepts", says_no):
+            verdict = await make_judge(engine, tracker, turns)("Kita belajar salam.", 0)
+        self.assertEqual(verdict, "wrong")
+
+    async def test_extra_garbled_words_are_unclear(self):
+        # "Baik, mulu-mulu" without the hint: not "Baik" alone, not the line.
+        engine = FakeEngine({"Baik, Bu Guru.": "Baik, mulu-mulu."})
+        turns = roleplay.comic_turns([{"guruLine": "Mari kita mengulas pelajaran kemarin.",
+                                       "studentLine": "Baik, Bu Guru.", "expectedAnswers": ["Baik, Bu Guru", "Baik"]}])
+        tracker = RoleplayTracker(roleplay.comic_objectives(turns), sequential=True)
+        self.assertEqual(await make_judge(engine, tracker, turns)("Baik, Bu Guru.", 0), "unclear")
+        engine = FakeEngine({"Baik.": "Baik"})
+        self.assertEqual(await make_judge(engine, tracker, turns)("Baik.", 0), "pass")
+
     async def test_close_answer_goes_to_the_model(self):
         self.assertEqual(await self.verdict("Semuanya hadir.", "Semuanya hadir.", model_says=True), "pass")
         self.assertEqual(await self.verdict("Semuanya hadir.", "Semuanya hadir.", model_says=False), "wrong")
@@ -118,8 +142,12 @@ class HybridPracticeFlowTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.spoken[-1], correction_line(self.turns[0], ZH))
         self.assertEqual(self.steps()[-1], (0, "answer"))
         self.verdicts = ["unclear"]
-        await self.answer("Selamat pagi, Bu Guru")       # right words, unclear
-        self.assertIn(unclear_line(self.turns[0], ZH), self.spoken)
+        await self.answer("Selamat pagi, Bu Guru")       # right words, unclear sounds
+        self.assertEqual(self.spoken[-1], unclear_line(self.turns[0], ZH))
+        self.assertNotIn("說對了", self.spoken[-1])
+        self.assertEqual(self.steps()[-1], (0, "answer"))  # says it again
+        self.verdicts = ["pass"]
+        await self.answer("Selamat pagi, Bu Guru")
         results = [e for e in self.events if e["type"] == "practice_result"]
         self.assertEqual(results[0]["stars"], 2)         # one wrong + one unclear
         self.assertEqual(self.expected[-1], "Semua hadir.")

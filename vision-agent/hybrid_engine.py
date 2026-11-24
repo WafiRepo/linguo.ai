@@ -242,23 +242,29 @@ JUDGE_MODEL = "gpt-4o-mini"
 def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]):
     """judge(said, index) -> "pass" | "unclear" | "wrong".
 
-    - the hinted and the plain transcription both fit the line: pass
+    An answer "fits" only when ALL its words are one of the accepted answers
+    (the comic line, or a shorter accepted one like "Baik"): a different
+    word ("Kita" for "Kami") or a garbled one ("Bu Kulu") does not fit.
+    - the hinted and the plain transcription both fit: pass
     - only the hinted one fits: right words, unclear sounds
-    - neither fits but it's close: a text model decides (meaning-equivalent
-      answers count), quietly
+    - neither fits but it's close: a text model decides, quietly; a word
+      that changes the meaning is wrong
     - otherwise: wrong
     """
     from difflib import SequenceMatcher
 
     from feedback import _normalize
-    from roleplay import objective_hit
+
+    def fits(text: str, index: int) -> bool:
+        heard = _normalize(text)
+        answers = [turns[index]["student"], *(turns[index].get("answers") or [])]
+        return bool(heard) and any(heard == _normalize(answer) for answer in answers)
 
     async def judge(said: str, index: int) -> str:
-        objective = tracker.objectives[index]
         expected = turns[index]["student"]
         plain = engine.plain_for(said) or ""
-        hinted_ok = objective_hit(objective, said)
-        plain_ok = bool(plain) and objective_hit(objective, plain)
+        hinted_ok = fits(said, index)
+        plain_ok = bool(plain) and fits(plain, index)
         if hinted_ok and plain_ok:
             verdict = "pass"
         elif hinted_ok:
@@ -288,8 +294,10 @@ async def _model_accepts(turn: dict[str, Any], said: str) -> bool:
         "A child practising Indonesian answers the teacher in a comic dialogue.\n"
         f'Teacher: "{turn["guru"]}"\nComic answer: "{turn["student"]}"\n'
         f"Also accepted: {accepted}\nThe child said: \"{said}\"\n"
-        "Is the child's answer acceptable (same meaning, correct Indonesian; small "
-        "differences in word order or a missing polite word are fine)? Reply only yes or no."
+        "Is the child's answer acceptable? It must mean exactly the same as the comic answer in "
+        "correct Indonesian. A missing or added polite word (Bu Guru, Pak Guru) is fine. A word "
+        "that changes the meaning is NOT fine (e.g. 'kita' vs 'kami', 'sudah' vs 'belum', "
+        "another person or object). Reply only yes or no."
     )
     try:
         result = await AsyncOpenAI().chat.completions.create(
