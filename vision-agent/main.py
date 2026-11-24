@@ -37,6 +37,7 @@ from gpt_live import GptLive  # noqa: E402
 from gemini_live import GeminiLive  # noqa: E402
 import gemini_live  # noqa: E402
 import line_voice  # noqa: E402
+import pron_check  # noqa: E402
 from hybrid_engine import HybridEngine, make_judge  # noqa: E402
 from practice import ComicPractice, all_script_lines, build_comic_practice_prompt  # noqa: E402
 from pronunciation import append_pronunciation_guide  # noqa: E402
@@ -643,6 +644,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 # Testers see what the server heard and how it judged it.
                 agent.llm.debug_sink = agent.send_custom_event
                 agent.llm.partial_sink = agent.send_custom_event
+                # Load the phoneme checker now (it takes a while to start).
+                asyncio.create_task(pron_check.WORKER.warm_up())
                 # Record every line of this lesson now (cached after the first time).
                 asyncio.create_task(
                     line_voice.prewarm(all_script_lines(turns, help_language), agent.llm.voice)

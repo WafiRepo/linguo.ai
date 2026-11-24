@@ -74,6 +74,8 @@ class HybridEngine(realtime.Realtime):
         self._turn_samples = 0
         self._silent_since: Optional[float] = None
         self._plain: dict[str, str] = {}
+        # The audio of each heard turn (for the pronunciation checks).
+        self._audio: dict[str, bytes] = {}
         self._openai: Any = None
         # Testers see what was heard and the verdict (set by main.py).
         self.debug_sink: Any = None
@@ -142,6 +144,10 @@ class HybridEngine(realtime.Realtime):
     def expect(self, line: str) -> None:
         """The line the student should say next (the transcription hint)."""
         self._expected = line
+
+    def audio_for(self, hinted: str) -> Optional[bytes]:
+        """The audio (16 kHz PCM16) of the turn that was heard as `hinted`."""
+        return self._audio.get(hinted.strip())
 
     def plain_for(self, hinted: str) -> Optional[str]:
         """The no-hint transcription of the turn that was heard as `hinted`."""
@@ -215,6 +221,7 @@ class HybridEngine(realtime.Realtime):
         if not hinted:
             return
         self._plain[hinted] = plain
+        self._audio[hinted] = audio
         self._emit_user_speech_transcription(hinted, mode="delta")
         self._emit_user_speech_transcription(hinted, mode="final")
 
@@ -242,14 +249,17 @@ JUDGE_MODEL = "gpt-4o-mini"
 def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]):
     """judge(said, index) -> "pass" | "unclear" | "wrong".
 
-    An answer "fits" only when ALL its words are one of the accepted answers
-    (the comic line, or a shorter accepted one like "Baik"): a different
-    word ("Kita" for "Kami") or a garbled one ("Bu Kulu") does not fit.
-    - the hinted and the plain transcription both fit: pass
-    - only the hinted one fits: right words, unclear sounds
-    - neither fits but it's close: a text model decides, quietly; a word
-      that changes the meaning is wrong
+    Judged on the hinted transcript (accurate for the words). An answer fits
+    only when ALL its words are one of the accepted answers (the comic line,
+    or a shorter accepted one like "Baik"): a different word ("Kita" for
+    "Kami") or a garbled one ("Bu Kulu") does not fit.
+    - it fits: pass
+    - it doesn't but it's close: a text model decides, quietly; a word that
+      changes the meaning is wrong
     - otherwise: wrong
+    The no-hint transcript is NOT used for the grade (on short lines like
+    "Baik, Bu Guru" it garbled right answers too). Pronunciation is checked
+    separately by Gemini and wav2vec2 and only shown to testers for now.
     """
     from difflib import SequenceMatcher
 
@@ -263,12 +273,8 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
     async def judge(said: str, index: int) -> str:
         expected = turns[index]["student"]
         plain = engine.plain_for(said) or ""
-        hinted_ok = fits(said, index)
-        plain_ok = bool(plain) and fits(plain, index)
-        if hinted_ok and plain_ok:
+        if fits(said, index):
             verdict = "pass"
-        elif hinted_ok:
-            verdict = "unclear"
         elif SequenceMatcher(None, _normalize(said), _normalize(expected)).ratio() >= GRAY_ZONE_SIMILARITY:
             verdict = "pass" if await _model_accepts(turns[index], said) else "wrong"
         else:
@@ -281,9 +287,26 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
                             "hinted": said, "plain": plain, "verdict": verdict})
             except Exception as e:  # noqa: BLE001
                 logger.warning("[hybrid] hearing event failed: %s", e)
+            audio = engine.audio_for(said) if hasattr(engine, "audio_for") else None
+            if audio:
+                asyncio.create_task(_pronunciation_report(sink, index, said, expected, audio))
         return verdict
 
     return judge
+
+
+async def _pronunciation_report(sink: Any, index: int, said: str, expected: str, audio: bytes) -> None:
+    """Gemini and wav2vec2 on the turn's audio: logged and shown to testers."""
+    import pron_check
+
+    result = await pron_check.check_both(audio, expected)
+    gemini, phonemes = result["gemini"], result["phonemes"]
+    print(f"[pron] dialogue {index} {said!r}: gemini {gemini} | phonemes {phonemes}")
+    try:
+        await sink({"type": "hearing_pron", "turnIndex": index, "hinted": said,
+                    "gemini": gemini, "phonemes": phonemes})
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[hybrid] pronunciation event failed: %s", e)
 
 
 async def _model_accepts(turn: dict[str, Any], said: str) -> bool:

@@ -57,9 +57,9 @@ class JudgeTest(unittest.IsolatedAsyncioTestCase):
     async def test_both_transcripts_fit(self):
         self.assertEqual(await self.verdict("Semua hadir.", "Semua hadir."), "pass")
 
-    async def test_only_the_hinted_one_fits_is_unclear(self):
-        # With the hint it heard the line; without it, something else.
-        self.assertEqual(await self.verdict("Semua hadir.", "Sama adil."), "unclear")
+    async def test_the_no_hint_transcript_does_not_grade(self):
+        # It garbled right answers ("Bahagi komuno" for "Baik, Bu Guru").
+        self.assertEqual(await self.verdict("Semua hadir.", "Sama adil."), "pass")
 
     async def test_wrong_answer(self):
         self.assertEqual(await self.verdict("Saya tidak tahu.", "Saya tidak tahu."), "wrong")
@@ -78,13 +78,13 @@ class JudgeTest(unittest.IsolatedAsyncioTestCase):
             verdict = await make_judge(engine, tracker, turns)("Kita belajar salam.", 0)
         self.assertEqual(verdict, "wrong")
 
-    async def test_extra_garbled_words_are_unclear(self):
-        # "Baik, mulu-mulu" without the hint: not "Baik" alone, not the line.
+    async def test_hinted_transcript_decides(self):
         engine = FakeEngine({"Baik, Bu Guru.": "Baik, mulu-mulu."})
         turns = roleplay.comic_turns([{"guruLine": "Mari kita mengulas pelajaran kemarin.",
                                        "studentLine": "Baik, Bu Guru.", "expectedAnswers": ["Baik, Bu Guru", "Baik"]}])
         tracker = RoleplayTracker(roleplay.comic_objectives(turns), sequential=True)
-        self.assertEqual(await make_judge(engine, tracker, turns)("Baik, Bu Guru.", 0), "unclear")
+        self.assertEqual(await make_judge(engine, tracker, turns)("Baik, Bu Guru.", 0), "pass")
+        self.assertEqual(await make_judge(FakeEngine({}), tracker, turns)("Baik, Bu Kulu.", 0), "wrong")
         engine = FakeEngine({"Baik.": "Baik"})
         self.assertEqual(await make_judge(engine, tracker, turns)("Baik.", 0), "pass")
 

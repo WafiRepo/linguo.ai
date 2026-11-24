@@ -988,7 +988,29 @@ function HopWord({ text, order }: { text: string; order: number }) {
   );
 }
 
-type HearingInfo = { expected: string; hinted: string; plain: string; verdict: string };
+type PronResult = {
+  correct?: boolean;
+  problem?: string;
+  problems?: string[];
+  heard?: string;
+  want?: string;
+  error?: string;
+};
+type HearingInfo = {
+  expected: string;
+  hinted: string;
+  plain: string;
+  verdict: string;
+  gemini?: PronResult;
+  phonemes?: PronResult;
+};
+
+function pronLine(result: PronResult | undefined): string {
+  if (!result) return "…";
+  if (result.error) return `error: ${result.error}`;
+  const problem = result.problem || (result.problems ?? []).join("; ");
+  return `${result.correct ? "✅" : "❌"} ${problem}${result.heard ? `  [${result.heard}]` : ""}`;
+}
 
 const VERDICT_LABEL: Record<string, string> = {
   pass: "✅ pass",
@@ -1007,6 +1029,9 @@ function HearingCard({ info }: { info: HearingInfo }) {
       <Text className="font-poppins-semibold text-[12px] text-text-primary">
         {VERDICT_LABEL[info.verdict] ?? info.verdict}
       </Text>
+      <Text className="font-poppins text-[11px] text-text-secondary mt-1">Pronunciation (test, not graded)</Text>
+      <Text className="font-poppins text-[11px] text-text-primary">Gemini: {pronLine(info.gemini)}</Text>
+      <Text className="font-poppins text-[11px] text-text-primary">wav2vec2: {pronLine(info.phonemes)}</Text>
     </View>
   );
 }
@@ -1152,6 +1177,8 @@ interface RoleplayCustomEvent {
     hinted?: string;
     plain?: string;
     verdict?: string;
+    gemini?: unknown;
+    phonemes?: unknown;
   };
 }
 
@@ -1302,6 +1329,16 @@ function ActiveRoleplayContent({
         typeof data.stars === "number"
       ) {
         onPracticeResult(data.turnIndex, data.stars);
+        return;
+      }
+
+      if (data.type === "hearing_pron" && typeof data.hinted === "string") {
+        const hinted = data.hinted;
+        setHearing((prev) =>
+          prev && prev.hinted === hinted
+            ? { ...prev, gemini: data.gemini as PronResult, phonemes: data.phonemes as PronResult }
+            : prev,
+        );
         return;
       }
 
