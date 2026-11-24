@@ -14,6 +14,7 @@ import hashlib
 import io
 import logging
 import os
+import time
 import wave
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -22,6 +23,11 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 TTS_MODEL = os.getenv("LINE_TTS_MODEL", "gemini-2.5-pro-preview-tts")
+# The pro model allows only a few requests (Tier 1: 10 a minute, 50 a day).
+# When it is used up, the flash model (its own quota) voices the line.
+FALLBACK_MODEL = os.getenv("LINE_TTS_FALLBACK_MODEL", "gemini-2.5-flash-preview-tts")
+PRO_REST_SECONDS = 3600
+_pro_resting_until = 0.0
 SAMPLE_RATE = 24000
 CACHE_DIR = Path(__file__).resolve().parent / ".line-audio-cache"
 MAX_TRIES = 3
@@ -58,13 +64,13 @@ def _plain(text: str) -> str:
     return "".join(ch for ch in text.lower() if ch.isalnum())
 
 
-def _synthesize_once(text: str, voice: str) -> bytes:
+def _synthesize_once(text: str, voice: str, model: str = TTS_MODEL) -> bytes:
     from google import genai
     from google.genai import types
 
     client = genai.Client()
     response = client.models.generate_content(
-        model=TTS_MODEL,
+        model=model,
         contents=f"{_style(text, voice)}\n{text}",
         config=types.GenerateContentConfig(
             response_modalities=["AUDIO"],
@@ -96,11 +102,19 @@ def _transcribe_check(pcm: bytes) -> str:
 def synthesize(text: str, voice: str) -> bytes:
     """Mono 24 kHz PCM16 for `text`; the closest of a few takes."""
     best, best_score = b"", -1.0
+    global _pro_resting_until
     for attempt in range(1, MAX_TRIES + 1):
+        model = TTS_MODEL if time.monotonic() >= _pro_resting_until else FALLBACK_MODEL
         try:
-            pcm = _synthesize_once(text, voice)
+            pcm = _synthesize_once(text, voice, model)
         except Exception as e:  # noqa: BLE001 - try again, then give up
-            logger.warning("[line-voice] TTS failed (try %d): %s", attempt, e)
+            if model == TTS_MODEL and "RESOURCE_EXHAUSTED" in str(e):
+                logger.warning("[line-voice] %s quota used up; using %s for a while", TTS_MODEL, FALLBACK_MODEL)
+                _pro_resting_until = time.monotonic() + PRO_REST_SECONDS
+            else:
+                logger.warning("[line-voice] TTS failed (try %d, %s): %s", attempt, model, str(e)[:160])
+            continue
+        if not pcm:
             continue
         try:
             heard = _transcribe_check(pcm)
