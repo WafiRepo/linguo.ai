@@ -351,6 +351,9 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
             # A real slip like r -> l shows in this transcript too ("Gulu").
             print(f"[hybrid] dialogue {index}: no-hint transcript is exact, Gemini overruled ({pron.get('problem')})")
             sound_error = False
+            overruled = True
+        else:
+            overruled = False
         if not ok:
             verdict = "wrong"
         elif sound_error:
@@ -370,6 +373,16 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
                 # the no-hint transcript if it gave none.
                 "heard": pron.get("heard_text") or plain,
             }
+        # "You:" shows what Gemini heard for every answer (the hinted
+        # transcript leans toward the right line); when Gemini was overruled,
+        # the exact no-hint transcript.
+        heard_text = plain if overruled else (pron or {}).get("heard_text", "")
+        sink_words = getattr(engine, "partial_sink", None)
+        if heard_text and sink_words is not None:
+            try:
+                await sink_words({"type": "user_heard", "turnIndex": index, "text": heard_text})
+            except Exception as e:  # noqa: BLE001
+                logger.warning("[hybrid] heard event failed: %s", e)
         problem = f" ({pron.get('problem')})" if sound_error and pron else ""
         print(f"[hybrid] judge dialogue {index}: {said!r} / plain {plain!r} -> {verdict}{problem}")
         sink = getattr(engine, "debug_sink", None)

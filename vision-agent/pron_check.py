@@ -190,7 +190,8 @@ async def gemini_verdict(pcm16: bytes, line: str, runs: int = 1) -> dict[str, An
         return {"correct": False, "runs": results, "word": first.get("word", ""),
                 "heard_text": first.get("heard_text", ""), "problems": first.get("problems", []),
                 "problem": first.get("problem", ""), "problem_zh": first.get("problem_zh", "")}
-    return {"correct": True, "runs": results}
+    heard_text = next((r.get("heard_text") for r in results if r.get("heard_text")), "")
+    return {"correct": True, "runs": results, "heard_text": heard_text}
 
 
 async def check_both(pcm16: bytes, line: str) -> dict[str, Any]:

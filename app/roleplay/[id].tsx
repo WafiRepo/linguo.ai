@@ -1305,6 +1305,17 @@ function ActiveRoleplayContent({
         return;
       }
 
+      // Hybrid Practice: what Gemini really heard replaces the student's words.
+      if (data.type === "user_heard" && typeof data.text === "string" && data.text) {
+        const heard = data.text;
+        setMessages((prev) => {
+          const index = prev.map((message) => message.speaker).lastIndexOf("user");
+          if (index < 0) return prev;
+          return prev.map((message, i) => (i === index ? { ...message, text: heard } : message));
+        });
+        return;
+      }
+
       if (data.type === "practice_step" && data.step) {
         onPracticeStep(data.step as PracticeStep);
         return;

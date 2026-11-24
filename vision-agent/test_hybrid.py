@@ -270,6 +270,30 @@ class GeminiPronunciationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(verdict, "pass")
         self.assertEqual(notes, {})
 
+    async def test_you_shows_what_gemini_heard_also_on_a_pass(self):
+        import pron_check
+
+        sent = []
+
+        async def sink(event):
+            sent.append(event)
+
+        turns = roleplay.comic_turns([{"guruLine": "Mari kita mengulas pelajaran kemarin.",
+                                       "studentLine": "Baik, Bu Guru.", "expectedAnswers": ["Baik, Bu Guru"]}])
+        tracker = RoleplayTracker(roleplay.comic_objectives(turns), sequential=True)
+        engine = HybridEngine()
+        engine.partial_sink = sink
+        engine._plain["Baik, Bu Guru."] = "Bahagi komuno."
+        engine._audio["Baik, Bu Guru."] = b"\x00\x01" * 800
+
+        async def right(pcm, line):
+            return {"correct": True, "heard_text": "Baik, Bu Guru"}
+
+        with patch.object(pron_check, "gemini_check", right):
+            verdict = await make_judge(engine, tracker, turns)("Baik, Bu Guru.", 0)
+        self.assertEqual(verdict, "pass")
+        self.assertEqual(sent, [{"type": "user_heard", "turnIndex": 0, "text": "Baik, Bu Guru"}])
+
     async def test_a_failed_check_counts_as_correct(self):
         verdict, notes = await self.judge_with([{"error": "timeout"}])
         self.assertEqual(verdict, "pass")
