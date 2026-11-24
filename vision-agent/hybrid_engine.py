@@ -37,6 +37,9 @@ ACTIVE_LEVEL = 40          # peak |sample| above this = the mic is open
 END_SILENCE_SECONDS = 0.5  # this much silence after a turn ends it
 MIN_TURN_SECONDS = 0.35    # shorter = a tap, not an answer
 CHUNK_SECONDS = 0.1
+# While a turn is going on, its words are transcribed about this often.
+PARTIAL_EVERY_SECONDS = 1.0
+MIN_PARTIAL_SECONDS = 0.6
 
 
 def _wav(pcm16: bytes, rate: int) -> io.BytesIO:
@@ -74,6 +77,11 @@ class HybridEngine(realtime.Realtime):
         self._openai: Any = None
         # Testers see what was heard and the verdict (set by main.py).
         self.debug_sink: Any = None
+        # Live words while the student talks (set by main.py).
+        self.partial_sink: Any = None
+        self._turn_id = 0
+        self._partial_busy = False
+        self._last_partial_at = 0.0
 
     # ---- lifecycle ----
     async def connect(self) -> None:
@@ -150,10 +158,21 @@ class HybridEngine(realtime.Realtime):
         now = time.monotonic()
         if active:
             if not self._turn:
+                self._turn_id += 1
+                self._last_partial_at = now
                 self._emit_user_speech_started()
             self._turn.append(samples.astype(np.int16).tobytes())
             self._turn_samples += samples.size
             self._silent_since = None
+            if (
+                self.partial_sink is not None
+                and not self._partial_busy
+                and now - self._last_partial_at >= PARTIAL_EVERY_SECONDS
+                and self._turn_samples / INPUT_RATE >= MIN_PARTIAL_SECONDS
+            ):
+                self._last_partial_at = now
+                self._partial_busy = True
+                asyncio.create_task(self._live_words(b"".join(self._turn), self._turn_id, self._expected))
             return
         if not self._turn:
             return
@@ -166,6 +185,18 @@ class HybridEngine(realtime.Realtime):
             self._emit_user_speech_ended()
             if seconds >= MIN_TURN_SECONDS:
                 asyncio.create_task(self._transcribe_turn(audio, self._expected))
+
+    async def _live_words(self, audio: bytes, turn_id: int, expected: str) -> None:
+        """The words so far, shown under the voice wave while the student talks."""
+        try:
+            text = (await self._transcribe(audio, hint_prompt(expected) if expected else None)).strip()
+            # Only for the turn still going on (its final text wins afterwards).
+            if text and turn_id == self._turn_id and self._turn and self.partial_sink is not None:
+                await self.partial_sink({"type": "transcript_partial", "speaker": "user", "text": text})
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[hybrid] live words failed: %s", e)
+        finally:
+            self._partial_busy = False
 
     def _reset_turn(self) -> None:
         self._turn = []

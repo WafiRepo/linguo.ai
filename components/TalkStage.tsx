@@ -60,7 +60,7 @@ const MAX_FACE = 78;
 const MIN_FACE = 36;
 // TeacherFace is about 1.8x its size tall (room for flames and the shadow).
 const FACE_BOX = 380 / 210;
-const BAR_COUNT = 9;
+const BAR_COUNT = 21;
 
 export function TalkStage({
   mood,
@@ -362,10 +362,11 @@ function VoiceBars({ active, level }: { active: boolean; level: number }) {
   return (
     <View style={styles.bars}>
       {Array.from({ length: BAR_COUNT }, (_, index) => {
-        // Taller in the middle; a little random so it feels alive.
-        const centre = 1 - Math.abs(index - (BAR_COUNT - 1) / 2) / BAR_COUNT;
-        const loud = Math.min(1, level * 2.5);
-        const height = active ? 4 + (6 + loud * 18) * centre * (0.6 + Math.random() * 0.4) : 4;
+        // A wave: taller in the middle, rippling with the voice.
+        const centre = 1 - Math.abs(index - (BAR_COUNT - 1) / 2) / ((BAR_COUNT + 1) / 2);
+        const loud = Math.min(1, level * 3);
+        const ripple = 0.55 + 0.45 * Math.abs(Math.sin(Date.now() / 140 + index * 0.7));
+        const height = active ? 4 + (4 + loud * 32) * (0.35 + 0.65 * centre) * ripple : 4;
         return (
           <View
             key={index}
@@ -465,13 +466,13 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.96 }],
   },
   bars: {
-    height: 30,
+    height: 44,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
   bar: {
-    width: 4,
+    width: 3,
     borderRadius: 2,
   },
 });

@@ -165,3 +165,28 @@ class TurnCuttingTest(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LiveWordsTest(unittest.IsolatedAsyncioTestCase):
+    async def test_words_are_sent_while_the_student_talks(self):
+        engine = HybridEngine()
+        sent = []
+
+        async def sink(payload):
+            sent.append(payload)
+
+        async def fake_transcribe(audio, prompt):
+            return "Baik, Bu"
+
+        engine.partial_sink = sink
+        engine._transcribe = fake_transcribe
+        engine._transcribe_turn = lambda *a: asyncio.sleep(0)
+        engine.expect("Baik, Bu Guru.")
+        await engine.set_listening(True)
+        speech = PcmData(samples=(np.sin(np.arange(1600)) * 3000).astype(np.int16), sample_rate=16000, format="s16", channels=1)
+        with patch.object(hybrid_engine, "PARTIAL_EVERY_SECONDS", 0.0), patch.object(hybrid_engine, "MIN_PARTIAL_SECONDS", 0.3):
+            for _ in range(5):
+                await engine.simple_audio_response(speech)
+                await asyncio.sleep(0.01)
+        self.assertTrue(sent)
+        self.assertEqual(sent[0], {"type": "transcript_partial", "speaker": "user", "text": "Baik, Bu"})

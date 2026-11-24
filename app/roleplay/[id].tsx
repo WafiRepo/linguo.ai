@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -1010,6 +1011,41 @@ function HearingCard({ info }: { info: HearingInfo }) {
   );
 }
 
+/**
+ * Web: the microphone's loudness (0-1) measured right here with Web Audio,
+ * so the voice wave follows the student even when the call reports no level.
+ */
+function useWebMicLevel(stream: MediaStream | undefined, active: boolean): number {
+  const [level, setLevel] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== "web" || !active || !stream || typeof window === "undefined") {
+      setLevel(0);
+      return;
+    }
+    const AudioCtx =
+      window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const context = new AudioCtx();
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 512;
+    const source = context.createMediaStreamSource(stream);
+    source.connect(analyser);
+    const samples = new Float32Array(analyser.fftSize);
+    const timer = setInterval(() => {
+      analyser.getFloatTimeDomainData(samples);
+      let sum = 0;
+      for (const value of samples) sum += value * value;
+      setLevel(Math.min(1, Math.sqrt(sum / samples.length) * 4));
+    }, 60);
+    return () => {
+      clearInterval(timer);
+      source.disconnect();
+      context.close().catch(() => {});
+    };
+  }, [stream, active]);
+  return level;
+}
+
 const PRACTICE_STEPS: ("listen" | "repeat" | "answer")[] = ["listen", "repeat", "answer"];
 
 function PracticePanel({
@@ -1391,6 +1427,7 @@ function ActiveRoleplayContent({
   // Bu Guru's face: her voice from the call, or her words still arriving.
   const teacher = participants.find((participant) => !participant.isLocalParticipant);
   const student = participants.find((participant) => participant.isLocalParticipant);
+  const webMicLevel = useWebMicLevel(mediaStream ?? undefined, holding);
   const teacherSpeaking = Boolean(teacher?.isSpeaking) || Boolean(partials.agent);
   const faceMood: TeacherMood =
     reaction ??
@@ -1484,7 +1521,7 @@ function ActiveRoleplayContent({
             mood={faceMood}
             teacherSpeaking={teacherSpeaking}
             teacherLevel={teacher?.audioLevel ?? 0}
-            studentLevel={student?.audioLevel ?? 0}
+            studentLevel={Math.max(webMicLevel, student?.audioLevel ?? 0)}
             holding={holding}
             canTalk={canTalk}
             status={talkStatus}
