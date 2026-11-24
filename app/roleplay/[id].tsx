@@ -1274,8 +1274,18 @@ function ActiveRoleplayContent({
       ) {
         const pronunciation =
           data.pronunciation && typeof data.pronunciation === "object"
-            ? (data.pronunciation as { word?: string; problem?: string })
+            ? (data.pronunciation as { word?: string; problem?: string; heard?: string })
             : undefined;
+        // A sound was off: show what was really heard ("Bai bukulu"), not the
+        // transcript that the expected line nudged toward the right words.
+        const heard = pronunciation?.heard;
+        if (heard) {
+          setMessages((prev) => {
+            const index = prev.map((message) => message.speaker).lastIndexOf("user");
+            if (index < 0) return prev;
+            return prev.map((message, i) => (i === index ? { ...message, text: heard } : message));
+          });
+        }
         onCorrection({
           turnIndex: data.turnIndex,
           said: data.said,

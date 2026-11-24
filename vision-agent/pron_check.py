@@ -38,7 +38,8 @@ How it sounds (KBBI): {guide}. Notation: ə = e pepet (short neutral "uh"), e/é
 Judge ONLY the sounds, not the voice, speed or accent. Standard Indonesian: a final k is a glottal stop [ʔ]
 (baik = [baiʔ]) and a final h is soft - both are CORRECT. Mark it wrong only for a clear sound error, such as:
 e pepet said as "é" or "a", r said as l, ng said as n, b said as p, d said as t, a missing or extra syllable.
-If you are not sure, answer correct.
+If you hear no speech, only noise, or not this line at all, answer correct=false.
+If you are not sure about a sound, answer correct.
 Return JSON: {{"heard": "<what you heard, in IPA>", "correct": true|false,
 "problem": "<short reason in English, empty if correct>",
 "word": "<the Indonesian word with the problem, exactly as written in the line, empty if correct>",

@@ -244,9 +244,18 @@ class GeminiPronunciationTest(unittest.IsolatedAsyncioTestCase):
         wrong = {"correct": False, "word": "Guru", "problem": "r said as l", "problem_zh": "guru 的 r 唸成 l 了"}
         verdict, notes = await self.judge_with([wrong])
         self.assertEqual(verdict, "unclear")
-        self.assertEqual(notes[0], {"word": "Guru", "problem": "guru 的 r 唸成 l 了"})
+        self.assertEqual(notes[0], {"word": "Guru", "problem": "guru 的 r 唸成 l 了", "heard": "Baik, Bu Gulu."})
 
     async def test_a_failed_check_counts_as_correct(self):
         verdict, notes = await self.judge_with([{"error": "timeout"}])
         self.assertEqual(verdict, "pass")
         self.assertEqual(notes, {})
+
+
+class SpeechTest(unittest.TestCase):
+    def test_noise_is_not_speech(self):
+        from hybrid_engine import is_speech
+
+        for noise in ["", "咳咳", "شیدا", "..."]:
+            self.assertFalse(is_speech(noise), noise)
+        self.assertTrue(is_speech("Bai bukulu."))

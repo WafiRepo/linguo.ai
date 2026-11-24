@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import re
 import time
 import wave
 from typing import Any, AsyncIterator, Optional
@@ -52,6 +53,12 @@ def _wav(pcm16: bytes, rate: int) -> io.BytesIO:
     buf.name = "turn.wav"
     buf.seek(0)
     return buf
+
+
+def is_speech(plain: str) -> bool:
+    """The no-hint transcript has Latin words (Indonesian was spoken);
+    silence and noise come back empty, as "咳咳" or in another script."""
+    return bool(re.search(r"[A-Za-z]{2,}", plain or ""))
 
 
 def hint_prompt(expected: str) -> str:
@@ -222,6 +229,11 @@ class HybridEngine(realtime.Realtime):
         print(f"[hybrid] heard {hinted!r} (no hint: {plain!r}), expected {expected!r}")
         if not hinted:
             return
+        if not is_speech(plain):
+            # Nothing said (a tap, a cough, noise): with the hint the
+            # transcriber invents the expected line, so ignore the turn.
+            print("[hybrid] no speech in this turn, ignored")
+            return
         self._plain[hinted] = plain
         self._audio[hinted] = audio
         self._emit_user_speech_transcription(hinted, mode="delta")
@@ -288,7 +300,9 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
                 if not pron["correct"]:
                     verdict = "unclear"
                     if hasattr(engine, "pron_notes"):
-                        engine.pron_notes[index] = {"word": pron.get("word", ""), "problem": pron.get("problem_zh", "")}
+                        # "heard": the no-hint transcript, closer to what was really said.
+                        engine.pron_notes[index] = {"word": pron.get("word", ""), "problem": pron.get("problem_zh", ""),
+                                                    "heard": plain}
         elif SequenceMatcher(None, _normalize(said), _normalize(expected)).ratio() >= GRAY_ZONE_SIMILARITY:
             verdict = "pass" if await _model_accepts(turns[index], said) else "wrong"
         else:
