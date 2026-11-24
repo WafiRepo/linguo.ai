@@ -275,3 +275,15 @@ class SpeechTest(unittest.TestCase):
         for noise in ["", "咳咳", "شیدا", "..."]:
             self.assertFalse(is_speech(noise), noise)
         self.assertTrue(is_speech("Bai bukulu."))
+
+
+class VoiceTest(unittest.TestCase):
+    def test_silence_has_no_voice(self):
+        import numpy as np
+        from hybrid_engine import MIN_VOICE_SECONDS, voiced_seconds
+
+        self.assertEqual(voiced_seconds(b"\x00\x00" * 16000), 0.0)
+        noise = (np.random.default_rng(1).normal(0, 60, 16000)).astype(np.int16).tobytes()
+        self.assertLess(voiced_seconds(noise), MIN_VOICE_SECONDS)
+        tone = (3000 * np.sin(np.arange(16000) / 5)).astype(np.int16).tobytes()
+        self.assertAlmostEqual(voiced_seconds(tone), 1.0, places=1)

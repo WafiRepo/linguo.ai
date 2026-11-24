@@ -38,6 +38,8 @@ ACTIVE_LEVEL = 40          # peak |sample| above this = the mic is open
 END_SILENCE_SECONDS = 0.5  # this much silence after a turn ends it
 MIN_TURN_SECONDS = 0.35    # shorter = a tap, not an answer
 CHUNK_SECONDS = 0.1
+VOICE_RMS = 300            # a 20 ms frame louder than this has a voice in it
+MIN_VOICE_SECONDS = 0.15   # less voice than this = nothing was said
 # While a turn is going on, its words are transcribed about this often.
 PARTIAL_EVERY_SECONDS = 1.0
 MIN_PARTIAL_SECONDS = 0.6
@@ -59,6 +61,17 @@ def is_speech(plain: str) -> bool:
     """The no-hint transcript has Latin words (Indonesian was spoken);
     silence and noise come back empty, as "咳咳" or in another script."""
     return bool(re.search(r"[A-Za-z]{2,}", plain or ""))
+
+
+def voiced_seconds(pcm16: bytes, rate: int = 16000) -> float:
+    """How long the audio is louder than a voice would be (20 ms frames)."""
+    samples = np.frombuffer(pcm16, dtype=np.int16).astype(np.float32)
+    frame = rate // 50
+    count = samples.size // frame
+    if count == 0:
+        return 0.0
+    rms = np.sqrt((samples[: count * frame].reshape(count, frame) ** 2).mean(axis=1))
+    return float((rms > VOICE_RMS).sum()) / 50
 
 
 def hint_prompt(expected: str) -> str:
@@ -239,7 +252,12 @@ class HybridEngine(realtime.Realtime):
         if not is_speech(plain):
             # Maybe nothing was said (a tap, a cough): with the hint the
             # transcriber invents the expected line. Without it, it sometimes
-            # writes real speech in another script, so Gemini decides.
+            # writes real speech in another script. Too quiet: nothing said
+            # (Gemini, too, imagines the line in silence); else Gemini decides.
+            voice = voiced_seconds(audio)
+            if voice < MIN_VOICE_SECONDS:
+                print(f"[hybrid] no speech in this turn, ignored (voice {voice:.2f} s)")
+                return
             import pron_check
 
             check = await pron_check.gemini_check(audio, expected)
