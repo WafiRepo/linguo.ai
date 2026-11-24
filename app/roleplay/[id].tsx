@@ -1011,8 +1011,12 @@ function HopWord({ text, order }: { text: string; order: number }) {
     transform: [{ translateY: -hop.value * 6 }, { scale: 1 + hop.value * 0.12 }],
   }));
   return (
-    <Animated.View style={style}>
-      <Text className="font-poppins-semibold text-[15px] bg-[#FDE68A] text-[#92400E] rounded">{text}</Text>
+    // The space goes outside the highlight, with room for the hop's scale,
+    // so two marked words next to each other ("Pak Guru") don't overlap.
+    <Animated.View style={style} className={text.endsWith(" ") ? "mr-2" : undefined}>
+      <Text className="font-poppins-semibold text-[15px] bg-[#FDE68A] text-[#92400E] rounded px-1">
+        {text.trimEnd()}
+      </Text>
     </Animated.View>
   );
 }
