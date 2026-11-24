@@ -89,6 +89,8 @@ type PracticeStep = "listen" | "repeat" | "answer-intro" | "answer" | "done";
 const COMIC_HEIGHT = Math.min(Dimensions.get("window").height * 0.3, 280);
 // Latihan also shows step chips and the line card, so its comic is smaller.
 const PRACTICE_COMIC_HEIGHT = Math.min(Dimensions.get("window").height * 0.22, 200);
+// While a correction card is shown the comic shrinks to this share of its height.
+const COMPACT_SCALE = 0.55;
 
 function parseFeedback(data: {
   praise?: unknown;
@@ -660,6 +662,7 @@ function LiveRoleplayScreen() {
   }
 
   const practiceCanSpeak = practiceStep === "repeat" || practiceStep === "answer";
+  const showingCorrection = !!correction && correction.turnIndex === displayTurn;
 
   const displayStatus = getDisplayStatus(callStatus, agentStatus, scenario.aiName, t);
 
@@ -697,9 +700,10 @@ function LiveRoleplayScreen() {
           turnIndex={displayTurn}
           step={practiceStep}
           stars={stars}
+          compact={showingCorrection}
         />
       ) : (
-        <ComicPanel topic={comic} turnIndex={displayTurn} phase={comicPhase} />
+        <ComicPanel topic={comic} turnIndex={displayTurn} phase={comicPhase} compact={showingCorrection} />
       )}
       {correction && correction.turnIndex === displayTurn ? (
         <CorrectionCard
@@ -854,10 +858,13 @@ function ComicPanel({
   topic,
   turnIndex,
   phase,
+  compact = false,
 }: {
   topic: ClassManagementTopic;
   turnIndex: number;
   phase: ComicPhase;
+  /** Smaller while the correction card is shown, so Bu Guru still fits below. */
+  compact?: boolean;
 }) {
   const total = topic.turns.length;
   const turn = topic.turns[turnIndex];
@@ -883,7 +890,7 @@ function ComicPanel({
       </View>
       <View
         className="rounded-2xl overflow-hidden bg-surface"
-        style={{ height: COMIC_HEIGHT }}
+        style={{ height: compact ? COMIC_HEIGHT * COMPACT_SCALE : COMIC_HEIGHT }}
       >
         <Image source={image} contentFit="contain" style={styles.comicImage} />
       </View>
@@ -1063,11 +1070,14 @@ function PracticePanel({
   turnIndex,
   step,
   stars,
+  compact = false,
 }: {
   topic: ClassManagementTopic;
   turnIndex: number;
   step: PracticeStep;
   stars: number[];
+  /** Smaller while the correction card is shown, so Bu Guru still fits below. */
+  compact?: boolean;
 }) {
   const total = topic.turns.length;
   const turn = topic.turns[turnIndex];
@@ -1111,7 +1121,7 @@ function PracticePanel({
 
       <View
         className="rounded-2xl overflow-hidden bg-surface"
-        style={{ height: PRACTICE_COMIC_HEIGHT }}
+        style={{ height: compact ? PRACTICE_COMIC_HEIGHT * COMPACT_SCALE : PRACTICE_COMIC_HEIGHT }}
       >
         <Image source={image} contentFit="contain" style={styles.comicImage} />
       </View>
