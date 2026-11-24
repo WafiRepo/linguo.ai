@@ -37,7 +37,7 @@ Listen to the audio. The child should say: "{line}".
 How it sounds (KBBI): {guide}. Notation: ə = e pepet (short neutral "uh"), e/é = e taling ("eh").
 Judge ONLY the sounds, not the voice, speed or accent. Standard Indonesian: a final k is a glottal stop [ʔ]
 (baik = [baiʔ]) and a final h is soft - both are CORRECT. Mark it wrong only for a clear sound error, such as:
-e pepet said as "é" or "a", r said as l, ng said as n, b said as p, d said as t, a missing or extra syllable.
+e pepet said as "é" or "a", r said as l, ng said as n, ng said as ngg (an extra g: "inggat" for ingat [iŋat] - in Indonesian ng is ONE sound, listen for the g burst), b said as p, d said as t, a missing or extra syllable.
 If you hear no speech, only noise, or not this line at all, answer correct=false.
 If you are not sure about a sound, answer correct.
 List EVERY word that is wrong (a wrong sound or a different word), not only the first one.
