@@ -26,11 +26,15 @@ async function authenticate(request: Request): Promise<string | Response> {
   return userId ?? Response.json({ error: "Forbidden" }, { status: 403 });
 }
 
-async function currentRole(userId: string): Promise<PortfolioRole | null> {
-  const rows = await supabaseRest<{ role: PortfolioRole }[]>(
-    `profiles?user_id=eq.${encodeURIComponent(userId)}&select=role`,
+async function currentProfile(userId: string): Promise<{ role: PortfolioRole; nickname: string | null } | null> {
+  const rows = await supabaseRest<{ role: PortfolioRole; nickname: string | null }[]>(
+    `profiles?user_id=eq.${encodeURIComponent(userId)}&select=role,nickname`,
   );
-  return rows[0]?.role ?? null;
+  return rows[0] ?? null;
+}
+
+async function currentRole(userId: string): Promise<PortfolioRole | null> {
+  return (await currentProfile(userId))?.role ?? null;
 }
 
 function codeMatches(input: string): boolean {
@@ -45,8 +49,13 @@ export async function GET(request: Request): Promise<Response> {
   const auth = await authenticate(request);
   if (auth instanceof Response) return auth;
   try {
-    let role = await currentRole(auth);
-    const registered = role !== null;
+    const profile = await currentProfile(auth);
+    let role = profile?.role ?? null;
+    // "Registered" = the role was really chosen: a teacher/admin, or a
+    // student whose child profile is filled in. A bare row does not count:
+    // other screens create one on their first call, e.g. right after
+    // "Delete Data", which must bring back the Student/Teacher choice.
+    const registered = role === "teacher" || role === "admin" || !!profile?.nickname;
     if (!role) {
       await supabaseRest("profiles?on_conflict=user_id", {
         method: "POST",
