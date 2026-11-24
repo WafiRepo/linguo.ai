@@ -40,12 +40,15 @@ Judge ONLY the sounds, not the voice, speed or accent. Standard Indonesian: a fi
 e pepet said as "é" or "a", r said as l, ng said as n, b said as p, d said as t, a missing or extra syllable.
 If you hear no speech, only noise, or not this line at all, answer correct=false.
 If you are not sure about a sound, answer correct.
-Return JSON: {{"heard": "<what you heard, in IPA>",
-"heard_text": "<what the child really said, written with normal Indonesian letters as it sounded, e.g. Baik, Bu Gulu>",
+List EVERY word that is wrong (a wrong sound or a different word), not only the first one.
+Return JSON: {{"speech": true|false (false = no speech at all, only noise or a cough),
+"heard": "<what you heard, in IPA>",
+"heard_text": "<what the child really said, written with normal Indonesian letters as it sounded, e.g. Bagi, Bu Gulu>",
 "correct": true|false,
 "problem": "<short reason in English, empty if correct>",
-"word": "<the Indonesian word with the problem, exactly as written in the line, empty if correct>",
-"problem_zh": "<the same reason for a young child, in Traditional Chinese (Taiwan), max 20 characters, e.g. guru 的 r 唸成 l 了>"}}"""
+"problems": [{{"word": "<the word as written in the line>",
+  "problem_zh": "<the reason for a young child, Traditional Chinese (Taiwan), max 15 characters, e.g. r 唸成 l 了>"}}]}}
+"problems" is empty when correct."""
 
 
 def _wav(pcm16: bytes, rate: int = 16000) -> bytes:
@@ -98,10 +101,15 @@ async def gemini_check(pcm16: bytes, line: str) -> dict[str, Any]:
 
     try:
         result = await asyncio.wait_for(asyncio.to_thread(call), GEMINI_SECONDS)
-        return {"correct": bool(result.get("correct")), "problem": str(result.get("problem") or ""),
+        problems = [
+            {"word": str(p.get("word") or ""), "problem_zh": str(p.get("problem_zh") or "")}
+            for p in (result.get("problems") or []) if isinstance(p, dict)
+        ]
+        first = problems[0] if problems else {"word": "", "problem_zh": ""}
+        return {"correct": bool(result.get("correct")), "speech": result.get("speech") is not False,
+                "problem": str(result.get("problem") or ""),
                 "heard": str(result.get("heard") or ""), "heard_text": str(result.get("heard_text") or ""),
-                "word": str(result.get("word") or ""),
-                "problem_zh": str(result.get("problem_zh") or "")}
+                "problems": problems, "word": first["word"], "problem_zh": first["problem_zh"]}
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)[:120]}
 
@@ -180,7 +188,7 @@ async def gemini_verdict(pcm16: bytes, line: str, runs: int = 1) -> dict[str, An
     if len(wrong) == runs:
         first = wrong[0]
         return {"correct": False, "runs": results, "word": first.get("word", ""),
-                "heard_text": first.get("heard_text", ""),
+                "heard_text": first.get("heard_text", ""), "problems": first.get("problems", []),
                 "problem": first.get("problem", ""), "problem_zh": first.get("problem_zh", "")}
     return {"correct": True, "runs": results}
 

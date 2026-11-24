@@ -69,6 +69,10 @@ import { Translate, useT } from "@/lib/i18n";
 type CallStatus = "idle" | "connecting" | "joined" | "error";
 type AgentStatus = "idle" | "connecting" | "connected" | "failed";
 type ComicPhase = "guru" | "student";
+// Gemini's notes on an answer (hybrid Practice): the words with a problem,
+// why (for a child), what it really heard, and whether only sounds were off.
+type Pronunciation = { words?: string[]; problem?: string; heard?: string; soundOnly?: boolean };
+
 type ComicCorrection = {
   turnIndex: number;
   said: string;
@@ -76,7 +80,7 @@ type ComicCorrection = {
   attempt?: number;
   // The words were right but a sound wasn't (hybrid Practice): which word,
   // and why, in words for a child.
-  pronunciation?: { word?: string; problem?: string };
+  pronunciation?: Pronunciation;
 };
 // Latihan steps sent by the server: listen → repeat → answer-intro → answer.
 type PracticeStep = "listen" | "repeat" | "answer-intro" | "answer" | "done";
@@ -702,8 +706,9 @@ function LiveRoleplayScreen() {
           expected={comic.turns[correction.turnIndex]?.studentLine.id ?? ""}
           translation={comic.turns[correction.turnIndex]?.studentLine.zhTW ?? ""}
           reveal={correctionReveal(correction)}
-          focusWord={correction.pronunciation?.word}
+          focusWords={correction.pronunciation?.words}
           problem={correction.pronunciation?.problem}
+          heard={correction.pronunciation?.heard}
         />
       ) : null}
 
@@ -899,8 +904,8 @@ type Reveal = "full" | "first-word" | "none";
 // Latihan's answer-from-memory step reveals the line gradually: a nudge,
 // then the first word, then (on the third miss Bu Guru models it anyway).
 function correctionReveal(correction: ComicCorrection): Reveal {
-  // A sound to fix: the student already knows the words, show the line.
-  if (correction.pronunciation) return "full";
+  // Only sounds to fix: the student already knows the words, show the line.
+  if (correction.pronunciation?.soundOnly) return "full";
   if (correction.step !== "answer") return "full";
   if ((correction.attempt ?? 1) <= 1) return "none";
   return "first-word";
@@ -912,29 +917,34 @@ function CorrectionCard({
   expected,
   translation,
   reveal = "full",
-  focusWord,
+  focusWords,
   problem,
+  heard,
 }: {
   said: string;
   expected: string;
   translation: string;
   reveal?: Reveal;
-  /** A pronunciation correction: the word whose sound was off (it hops). */
-  focusWord?: string;
-  /** Why, for a child (e.g. "guru 的 r 唸成 l 了"). */
+  /** Gemini's notes: the words that were off (they hop). */
+  focusWords?: string[];
+  /** Why, for a child (e.g. "Guru：r 唸成 l 了；Baik：k 唸成 g 了"). */
   problem?: string;
+  /** What Gemini really heard (e.g. "Bagi, Bu Gulu"). */
+  heard?: string;
 }) {
   const { t } = useT();
   const saidWords = new Set(said.split(/\s+/).map(normalizeWord));
-  const focus = focusWord ? normalizeWord(focusWord) : "";
+  const focus = new Set((focusWords ?? []).map(normalizeWord).filter(Boolean));
+  // The reasons name the words, so show them only once the line is shown.
+  const showProblem = !!problem && reveal === "full";
   // Each word with the space after it, so wrapping works word by word.
   const words = expected
     .split(/\s+/)
     .filter(Boolean)
     .map((text, index, all) => ({
       text: index < all.length - 1 ? `${text} ` : text,
-      // A sound to fix: only that word; otherwise the words left out.
-      missed: focus ? normalizeWord(text) === focus : !saidWords.has(normalizeWord(text)),
+      // Gemini's words when it named some; otherwise the words left out.
+      missed: focus.size ? focus.has(normalizeWord(text)) : !saidWords.has(normalizeWord(text)),
     }));
   const missedOrder = (index: number) => words.slice(0, index).filter((word) => word.missed).length;
 
@@ -943,13 +953,12 @@ function CorrectionCard({
       <Text className="font-poppins-semibold text-[13px] text-text-primary mb-1">
         {t("roleplay.tryAgain")}
       </Text>
-      {problem ? (
-        <Text className="font-poppins-semibold text-[13px] text-[#B45309]">🔊 {problem}</Text>
-      ) : (
-        <Text className="font-poppins text-xs text-text-secondary">
-          {t("roleplay.youSaid")}<Text className="text-text-primary">{said}</Text>
-        </Text>
-      )}
+      <Text className="font-poppins text-xs text-text-secondary">
+        {t("roleplay.youSaid")}<Text className="text-text-primary">{heard || said}</Text>
+      </Text>
+      {showProblem ? (
+        <Text className="font-poppins-semibold text-[13px] text-[#B45309] mt-0.5">🔊 {problem}</Text>
+      ) : null}
       {reveal === "none" ? null : reveal === "first-word" ? (
         <Text className="font-poppins text-[13px] text-text-secondary mt-1">
           {t("roleplay.hint")}
@@ -1274,7 +1283,7 @@ function ActiveRoleplayContent({
       ) {
         const pronunciation =
           data.pronunciation && typeof data.pronunciation === "object"
-            ? (data.pronunciation as { word?: string; problem?: string; heard?: string })
+            ? (data.pronunciation as Pronunciation)
             : undefined;
         // A sound was off: show what was really heard ("Bai bukulu"), not the
         // transcript that the expected line nudged toward the right words.

@@ -83,11 +83,14 @@ class HybridEngine(realtime.Realtime):
         self._plain: dict[str, str] = {}
         # The audio of each heard turn (for the pronunciation checks).
         self._audio: dict[str, bytes] = {}
+        # Gemini's check of a turn, when it already ran (unsure it was speech).
+        self._gemini: dict[str, dict[str, Any]] = {}
         self._openai: Any = None
         # Testers see what was heard and the verdict (set by main.py).
         self.debug_sink: Any = None
-        # The pronunciation problem of the latest unclear answer, per dialogue.
-        self.pron_notes: dict[int, dict[str, str]] = {}
+        # Gemini's notes on the latest answer, per dialogue: the words with a
+        # problem, why (for a child) and what it really heard.
+        self.pron_notes: dict[int, dict[str, Any]] = {}
         # Live words while the student talks (set by main.py).
         self.partial_sink: Any = None
         self._turn_id = 0
@@ -157,6 +160,10 @@ class HybridEngine(realtime.Realtime):
     def audio_for(self, hinted: str) -> Optional[bytes]:
         """The audio (16 kHz PCM16) of the turn that was heard as `hinted`."""
         return self._audio.get(hinted.strip())
+
+    def gemini_for(self, hinted: str) -> Optional[dict[str, Any]]:
+        """Gemini's check of the turn heard as `hinted`, if it already ran."""
+        return self._gemini.get(hinted.strip())
 
     def plain_for(self, hinted: str) -> Optional[str]:
         """The no-hint transcription of the turn that was heard as `hinted`."""
@@ -230,10 +237,16 @@ class HybridEngine(realtime.Realtime):
         if not hinted:
             return
         if not is_speech(plain):
-            # Nothing said (a tap, a cough, noise): with the hint the
-            # transcriber invents the expected line, so ignore the turn.
-            print("[hybrid] no speech in this turn, ignored")
-            return
+            # Maybe nothing was said (a tap, a cough): with the hint the
+            # transcriber invents the expected line. Without it, it sometimes
+            # writes real speech in another script, so Gemini decides.
+            import pron_check
+
+            check = await pron_check.gemini_check(audio, expected)
+            if check.get("speech") is False or "error" in check:
+                print(f"[hybrid] no speech in this turn, ignored ({check.get('problem') or check.get('error')})")
+                return
+            self._gemini[hinted] = check
         self._plain[hinted] = plain
         self._audio[hinted] = audio
         self._emit_user_speech_transcription(hinted, mode="delta")
@@ -289,26 +302,51 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
     async def judge(said: str, index: int) -> str:
         expected = turns[index]["student"]
         plain = engine.plain_for(said) or ""
-        pron: Optional[dict[str, Any]] = None
         audio = engine.audio_for(said) if hasattr(engine, "audio_for") else None
-        if fits(said, index):
-            verdict = "pass"
-            if audio:
-                import pron_check
+        notes = engine.pron_notes if hasattr(engine, "pron_notes") else {}
+        notes.pop(index, None)
 
-                pron = await pron_check.gemini_verdict(audio, expected)
-                if not pron["correct"]:
-                    verdict = "unclear"
-                    if hasattr(engine, "pron_notes"):
-                        # "heard": what Gemini heard, in plain letters (so it matches its
-                        # correction); the no-hint transcript if it gave none.
-                        engine.pron_notes[index] = {"word": pron.get("word", ""), "problem": pron.get("problem_zh", ""),
-                                                    "heard": pron.get("heard_text") or plain}
-        elif SequenceMatcher(None, _normalize(said), _normalize(expected)).ratio() >= GRAY_ZONE_SIMILARITY:
-            verdict = "pass" if await _model_accepts(turns[index], said) else "wrong"
-        else:
+        async def gemini() -> Optional[dict[str, Any]]:
+            # Gemini listens to every answer: the transcript (nudged by the
+            # hint) hides sound errors, and Gemini names every wrong word.
+            if not audio:
+                return None
+            import pron_check
+
+            early = engine.gemini_for(said) if hasattr(engine, "gemini_for") else None
+            if early is not None:
+                return early
+            return await pron_check.gemini_verdict(audio, expected)
+
+        async def words_ok() -> bool:
+            if fits(said, index):
+                return True
+            if SequenceMatcher(None, _normalize(said), _normalize(expected)).ratio() >= GRAY_ZONE_SIMILARITY:
+                return await _model_accepts(turns[index], said)
+            return False
+
+        ok, pron = await asyncio.gather(words_ok(), gemini())
+        sound_error = pron is not None and pron.get("correct") is False
+        if not ok:
             verdict = "wrong"
-        problem = f" ({pron.get('problem')})" if pron and not pron["correct"] else ""
+        elif sound_error:
+            verdict = "unclear"
+        else:
+            verdict = "pass"
+        if sound_error and pron is not None:
+            problems = pron.get("problems") or (
+                [{"word": pron.get("word", ""), "problem_zh": pron.get("problem_zh", "")}] if pron.get("word") else [])
+            notes[index] = {
+                "words": [p["word"] for p in problems if p.get("word")],
+                "problem": "；".join(
+                    f"{p['word']}：{p['problem_zh']}" if p.get("word") else p["problem_zh"]
+                    for p in problems if p.get("problem_zh")
+                ),
+                # What Gemini heard in plain letters (it matches the correction);
+                # the no-hint transcript if it gave none.
+                "heard": pron.get("heard_text") or plain,
+            }
+        problem = f" ({pron.get('problem')})" if sound_error and pron else ""
         print(f"[hybrid] judge dialogue {index}: {said!r} / plain {plain!r} -> {verdict}{problem}")
         sink = getattr(engine, "debug_sink", None)
         if sink is not None:

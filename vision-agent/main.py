@@ -640,8 +640,9 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 judge=make_judge(agent.llm, tracker, turns) if is_hybrid else None,
                 expect=agent.llm.expect if is_hybrid else None,
                 correction_extra=(
-                    (lambda index, verdict: {"pronunciation": agent.llm.pron_notes.get(index, {})}
-                     if verdict == "unclear" else {})
+                    (lambda index, verdict: {"pronunciation": {**agent.llm.pron_notes[index],
+                                                               "soundOnly": verdict == "unclear"}}
+                     if index in agent.llm.pron_notes else {})
                     if is_hybrid else None
                 ),
             )
