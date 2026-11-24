@@ -773,8 +773,17 @@ class RoleplayController:
             self._feedback_task.cancel()
         self._feedback_task = asyncio.create_task(self._feedback_after_idle())
 
-    async def _feedback_after_idle(self) -> None:
-        await asyncio.sleep(FEEDBACK_IDLE_SECONDS)
+    async def send_feedback_now(self) -> None:
+        """The lesson is over: the report now (the app drops any report that
+        came before the end, so it waits for this one)."""
+        if self.generate_feedback is None:
+            return
+        if self._feedback_task is not None:
+            self._feedback_task.cancel()
+        self._feedback_task = asyncio.create_task(self._feedback_after_idle(wait=0.0))
+
+    async def _feedback_after_idle(self, wait: Optional[float] = None) -> None:
+        await asyncio.sleep(FEEDBACK_IDLE_SECONDS if wait is None else wait)
         try:
             feedback = await self.generate_feedback([dict(turn) for turn in self.turns])
         except Exception:

@@ -231,6 +231,17 @@ class PracticeFlowTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("練習完成", self.spoken[-1])
         self.practice.close()
 
+    async def test_the_report_comes_after_the_end(self):
+        # The app drops a report from before the end and waits for the next.
+        self.controller.generate_feedback = self.practice.report
+        await self.practice.start()
+        for text in ("Selamat pagi", "Selamat pagi", "Semua hadir", "Semua hadir"):
+            await self.answer(text)
+        await asyncio.sleep(0.05)
+        types = [e["type"] if e["type"] != "practice_step" else e["step"] for e in self.events]
+        self.assertIn("roleplay_feedback", types[types.index("done"):])
+        self.practice.close()
+
 
 class PracticeHelpersTest(unittest.TestCase):
     def test_stars(self):

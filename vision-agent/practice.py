@@ -375,6 +375,8 @@ class ComicPractice:
         else:
             await self._set_step("done")
             await self.say(closing_line(self.help_language))
+            # The report after the end (one sent before it is dropped by the app).
+            await self.controller.send_feedback_now()
 
     async def _begin_dialogue(self, index: int) -> None:
         self.index, self.wrong, self.step_wrong = index, 0, 0
