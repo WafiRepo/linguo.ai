@@ -34,6 +34,8 @@ from instruction_language import (  # noqa: E402
     normalize_instruction_languages,
 )
 from gpt_live import GptLive  # noqa: E402
+from gemini_live import GeminiLive  # noqa: E402
+import gemini_live  # noqa: E402
 from practice import ComicPractice, build_comic_practice_prompt  # noqa: E402
 from pronunciation import append_pronunciation_guide  # noqa: E402
 from roleplay import (  # noqa: E402
@@ -234,12 +236,34 @@ class ModeAwareLauncher(AgentLauncher):
             _starting_call_id.reset(token)
 
 
+def _roleplay_engine(call_id: str) -> str:
+    """Which voice engine a Role Play / Practice call gets.
+
+    ROLEPLAY_LLM: gpt-live (default), gemini, or realtime (the kill switch back
+    to gpt-realtime-2). GEMINI_TEST_USERS (comma-separated Clerk user ids) puts
+    only those testers on Gemini Live while everyone else keeps the default.
+    """
+    if not call_id.startswith("roleplay-"):
+        return "realtime"
+    testers = [u.strip() for u in os.getenv("GEMINI_TEST_USERS", "").split(",") if u.strip()]
+    if any(call_id.endswith(f"-{user}") for user in testers):
+        return "gemini"
+    return os.getenv("ROLEPLAY_LLM", "gpt-live")
+
+
 def _uses_gpt_live(call_id: str) -> bool:
-    # ROLEPLAY_LLM=realtime is the kill switch back to gpt-realtime-2.
-    return call_id.startswith("roleplay-") and os.getenv("ROLEPLAY_LLM", "gpt-live") == "gpt-live"
+    return _roleplay_engine(call_id) == "gpt-live"
 
 
 async def create_agent(**kwargs) -> Agent:
+    if _roleplay_engine(_starting_call_id.get()) == "gemini":
+        print("[agent] Voice engine: Gemini Live (trial)")
+        return Agent(
+            edge=getstream.Edge(),
+            llm=GeminiLive(),
+            agent_user=User(name="AI Teacher", id=AGENT_USER_ID),
+            instructions=DEFAULT_SYSTEM_PROMPT,
+        )
     if _uses_gpt_live(_starting_call_id.get()):
         return Agent(
             edge=getstream.Edge(),
@@ -338,7 +362,9 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
 
     roleplay: RoleplayController | None = None
     practice: ComicPractice | None = None
-    is_gpt_live = isinstance(agent.llm, GptLive)
+    # GPT-Live and the Gemini Live trial share one surface (script lines voiced
+    # as written, quiet notes, mute): the same Role Play flow drives both.
+    is_gpt_live = isinstance(agent.llm, (GptLive, GeminiLive))
 
     if is_class_management:
         system_prompt = build_class_management_system_prompt(
@@ -367,7 +393,10 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         if is_gpt_live:
             # Read when the session connects. Always set: the agent is reused,
             # and a Pak Guru comic must not leave the male voice for Bu Guru.
-            agent.llm.voice = MALE_TEACHER_VOICE if teacher == "Pak Guru" else FEMALE_TEACHER_VOICE
+            if isinstance(agent.llm, GeminiLive):
+                agent.llm.voice = gemini_live.MALE_VOICE if teacher == "Pak Guru" else gemini_live.FEMALE_VOICE
+            else:
+                agent.llm.voice = MALE_TEACHER_VOICE if teacher == "Pak Guru" else FEMALE_TEACHER_VOICE
         if is_comic_practice:
             # The practice flow voices every next line itself; no status notes.
             status_text = lambda t, recent: None  # noqa: E731
