@@ -2,7 +2,7 @@ import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { Alert } from "@/lib/alert";
 
@@ -67,7 +67,13 @@ export default function ProfileScreen() {
             // based on whatever state remains) rather than assuming they
             // only need the child-profile step.
             resetCurrentAccountData();
-            router.replace("/" as Href);
+            // Straight to the Student/Teacher choice. On web, a full reload
+            // there, so no screen still open keeps the old account state.
+            if (Platform.OS === "web" && typeof window !== "undefined") {
+              window.location.replace("/role-select");
+            } else {
+              router.replace("/role-select" as Href);
+            }
           },
         },
       ],
