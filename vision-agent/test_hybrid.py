@@ -363,3 +363,15 @@ class LanguagePartsTest(unittest.TestCase):
              ("id", "Baik… Bu… Guru.")],
         )
         self.assertEqual(line_voice.language_parts("Selamat pagi, anak-anak."), [("id", "Selamat pagi, anak-anak.")])
+
+
+class GoogleVoiceChoiceTest(unittest.TestCase):
+    def test_chinese_and_indonesian_lines_but_not_english(self):
+        import line_voice
+
+        with patch.dict(os.environ, {"GOOGLE_TTS_API_KEY": "test"}):
+            self.assertTrue(line_voice._google_ready("很好！"))
+            self.assertTrue(line_voice._google_ready("Selamat pagi, anak-anak."))
+            self.assertFalse(line_voice._google_ready('Almost! Say it with me: "Baik, Bu Guru." Your turn.'))
+        with patch.dict(os.environ, {"GOOGLE_TTS_API_KEY": ""}):
+            self.assertFalse(line_voice._google_ready("Selamat pagi, anak-anak."))

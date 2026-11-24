@@ -14,6 +14,7 @@ import hashlib
 import io
 import logging
 import os
+import re
 import time
 import wave
 from difflib import SequenceMatcher
@@ -125,8 +126,25 @@ def _synthesize_google(text: str, voice: str) -> bytes:
     return pcm
 
 
+# English help lines ("Almost! Say it with me: ...") are left to the other
+# voices: Google's voices here are Indonesian and Taiwan Mandarin only.
+_ENGLISH_WORDS = re.compile(
+    r"\b(the|you|your|it|with|say|listen|now|once|again|great|well|done|very|good|almost|slowly|"
+    r"let's|that's|okay|go|on|thank|finished|did|conversation|without|text|more|repeat|answer|"
+    r"teacher|sounds|turn)\b",
+    re.IGNORECASE,
+)
+
+
 def _google_ready(text: str) -> bool:
-    return bool(os.getenv("GOOGLE_TTS_API_KEY")) and any(lang == "zh" for lang, _ in language_parts(text))
+    """Google voices a line with Chinese parts, or one all in Indonesian
+    (a Role Play comic line), but not an English help line."""
+    if not os.getenv("GOOGLE_TTS_API_KEY"):
+        return False
+    parts = language_parts(text)
+    if any(lang == "zh" for lang, _ in parts):
+        return True
+    return bool(parts) and not _ENGLISH_WORDS.search(text)
 
 
 def openai_cache_path(text: str, voice: str) -> Path:
