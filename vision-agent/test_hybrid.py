@@ -262,13 +262,19 @@ class GeminiPronunciationTest(unittest.IsolatedAsyncioTestCase):
         verdict, notes = await self.judge_with([wrong])
         self.assertEqual(notes[0]["heard"], "Vai, Bu Gulu")
 
-    async def test_an_exact_no_hint_transcript_overrules_gemini(self):
+    async def test_an_exact_no_hint_transcript_overrules_a_final_consonant_alarm(self):
         # "Kami belajar salam" heard exactly without the hint, yet Gemini
         # flagged soft final consonants again and again.
-        wrong = {"correct": False, "problems": [{"word": "Guru", "problem_zh": "少了尾音"}]}
+        wrong = {"correct": False, "problems": [{"word": "Guru", "problem_zh": "少了尾音", "final_only": True}]}
         verdict, notes = await self.judge_with([wrong], plain="Baik, Bu Guru.")
         self.assertEqual(verdict, "pass")
         self.assertEqual(notes, {})
+
+    async def test_other_errors_stand_even_with_an_exact_transcript(self):
+        # "inggat": the transcriber still spells it "ingat".
+        wrong = {"correct": False, "problems": [{"word": "Guru", "problem_zh": "多了 g", "final_only": False}]}
+        verdict, notes = await self.judge_with([wrong], plain="Baik, Bu Guru.")
+        self.assertEqual(verdict, "unclear")
 
     async def test_you_shows_what_gemini_heard_also_on_a_pass(self):
         import pron_check

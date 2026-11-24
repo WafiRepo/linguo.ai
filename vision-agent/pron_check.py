@@ -47,6 +47,7 @@ Return JSON: {{"speech": true|false (false = no speech at all, only noise or a c
 "correct": true|false,
 "problem": "<short reason in English, empty if correct>",
 "problems": [{{"word": "<the word as written in the line>",
+  "final_only": true|false (true = the ONLY issue is a weak or missing final consonant, like the r of belajar),
   "problem_zh": "<the reason for a young child, Traditional Chinese (Taiwan), max 15 characters, e.g. r 唸成 l 了>"}}]}}
 "problems" is empty when correct."""
 
@@ -102,7 +103,8 @@ async def gemini_check(pcm16: bytes, line: str) -> dict[str, Any]:
     try:
         result = await asyncio.wait_for(asyncio.to_thread(call), GEMINI_SECONDS)
         problems = [
-            {"word": str(p.get("word") or ""), "problem_zh": str(p.get("problem_zh") or "")}
+            {"word": str(p.get("word") or ""), "problem_zh": str(p.get("problem_zh") or ""),
+             "final_only": p.get("final_only") is True}
             for p in (result.get("problems") or []) if isinstance(p, dict)
         ]
         first = problems[0] if problems else {"word": "", "problem_zh": ""}
