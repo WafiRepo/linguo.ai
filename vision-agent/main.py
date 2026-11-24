@@ -242,10 +242,11 @@ class ModeAwareLauncher(AgentLauncher):
 def _roleplay_engine(call_id: str) -> str:
     """Which voice engine a Role Play / Practice call gets.
 
+    Practice: the hybrid engine (recorded lines, careful listening) for every
+    student; PRACTICE_ENGINE=default switches it back to the live engine.
     ROLEPLAY_LLM: gpt-live (default), gemini, or realtime (the kill switch back
     to gpt-realtime-2). Trials for testers only (comma-separated Clerk user ids):
-    - HYBRID_TEST_USERS: Practice with recorded lines and careful listening
-      (hybrid_engine); their Role Play stays on the default engine
+    - HYBRID_TEST_USERS: hybrid Practice even when PRACTICE_ENGINE=default
     - GEMINI_TEST_USERS: Role Play and Practice on Gemini Live
     """
     if not call_id.startswith("roleplay-"):
@@ -255,7 +256,11 @@ def _roleplay_engine(call_id: str) -> str:
         users = [u.strip() for u in os.getenv(name, "").split(",") if u.strip()]
         return any(call_id.endswith(f"-{user}") for user in users)
 
-    if call_id.startswith("roleplay-practice-") and listed("HYBRID_TEST_USERS"):
+    if call_id.startswith("roleplay-practice-") and (
+        os.getenv("PRACTICE_ENGINE", "hybrid") == "hybrid" or listed("HYBRID_TEST_USERS")
+    ):
+        # Practice: recorded lines and careful listening, for every student
+        # (PRACTICE_ENGINE=default switches back to the live engine).
         return "hybrid"
     if listed("GEMINI_TEST_USERS"):
         return "gemini"

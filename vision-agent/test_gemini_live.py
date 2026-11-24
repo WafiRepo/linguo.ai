@@ -10,7 +10,8 @@ from gemini_live import GeminiLive, say_exactly
 
 class EngineChoiceTest(unittest.TestCase):
     def test_only_listed_testers_get_gemini(self):
-        with patch.dict(os.environ, {"GEMINI_TEST_USERS": "user_abc, user_def", "ROLEPLAY_LLM": ""}):
+        env = {"GEMINI_TEST_USERS": "user_abc, user_def", "ROLEPLAY_LLM": "", "PRACTICE_ENGINE": "default"}
+        with patch.dict(os.environ, env):
             os.environ.pop("ROLEPLAY_LLM")
             self.assertEqual(main._roleplay_engine("roleplay-comic-b-topik-6-user_abc"), "gemini")
             self.assertEqual(main._roleplay_engine("roleplay-practice-b-topik-2-user_def"), "gemini")

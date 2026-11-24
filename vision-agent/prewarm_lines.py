@@ -59,7 +59,7 @@ async def main() -> None:
         lines = all_script_lines(comic_turns(raw), HELP_ZH)
         started = time.monotonic()
         print(f"{topic}: {len(raw)} dialogues, {len(lines)} lines, voice {voice}")
-        await line_voice.prewarm(lines, voice)
+        await line_voice.prewarm(lines, voice, fallback="--with-openai" in sys.argv)
         missing = [line for line in dict.fromkeys(lines) if not line_voice.cache_path(line, voice).exists()]
         print(f"{topic}: done in {time.monotonic() - started:.0f}s, missing {len(missing)}")
 

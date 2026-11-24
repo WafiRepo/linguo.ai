@@ -24,8 +24,17 @@ TURNS_RAW = [
 
 
 class EngineChoiceTest(unittest.TestCase):
-    def test_hybrid_only_for_tester_practice(self):
-        env = {"HYBRID_TEST_USERS": "user_abc", "GEMINI_TEST_USERS": "", "ROLEPLAY_LLM": "gpt-live"}
+    def test_hybrid_practice_for_everyone(self):
+        env = {"HYBRID_TEST_USERS": "", "GEMINI_TEST_USERS": "", "ROLEPLAY_LLM": "gpt-live"}
+        with patch.dict(os.environ, env):
+            os.environ.pop("PRACTICE_ENGINE", None)
+            self.assertEqual(main._roleplay_engine("roleplay-practice-c-topik-4-user_xyz"), "hybrid")
+            # Role Play stays on the live engine.
+            self.assertEqual(main._roleplay_engine("roleplay-comic-topik-2-user_xyz"), "gpt-live")
+
+    def test_switch_back_keeps_hybrid_only_for_testers(self):
+        env = {"HYBRID_TEST_USERS": "user_abc", "GEMINI_TEST_USERS": "", "ROLEPLAY_LLM": "gpt-live",
+               "PRACTICE_ENGINE": "default"}
         with patch.dict(os.environ, env):
             self.assertEqual(main._roleplay_engine("roleplay-practice-topik-2-user_abc"), "hybrid")
             self.assertEqual(main._roleplay_engine("roleplay-comic-topik-2-user_abc"), "gpt-live")
@@ -257,6 +266,12 @@ class GeminiPronunciationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(notes[0]["words"], ["Baik", "Guru"])
         self.assertEqual(notes[0]["heard"], "Bagi, Bu Gulu")
 
+    async def test_a_changed_word_is_marked_when_gemini_misses_it(self):
+        verdict, notes = await self.judge_with([{"correct": True}], said="Baik, Bu Gulu.")
+        self.assertEqual(verdict, "wrong")
+        self.assertEqual(notes[0]["words"], ["Guru"])
+        self.assertEqual(notes[0]["problem"], "Guru：說成 Gulu 了")
+
     async def test_the_shown_words_are_what_gemini_heard(self):
         wrong = {"correct": False, "word": "Guru", "problem_zh": "r 唸成 l 了", "heard_text": "Vai, Bu Gulu"}
         verdict, notes = await self.judge_with([wrong])
@@ -325,3 +340,12 @@ class VoiceTest(unittest.TestCase):
         self.assertLess(voiced_seconds(noise), MIN_VOICE_SECONDS)
         tone = (3000 * np.sin(np.arange(16000) / 5)).astype(np.int16).tobytes()
         self.assertAlmostEqual(voiced_seconds(tone), 1.0, places=1)
+
+
+class ChangedWordsTest(unittest.TestCase):
+    def test_a_swapped_and_a_missing_word(self):
+        from hybrid_engine import changed_words
+
+        self.assertEqual(changed_words("Kami belajar salam.", "Kami belajar salah."), [("salam", "說成 salah 了")])
+        self.assertEqual(changed_words("Kami belajar salam.", "Belajar salam."), [("Kami", "漏掉了")])
+        self.assertEqual(changed_words("Baik, Bu Guru.", "Baik, Bu Guru."), [])

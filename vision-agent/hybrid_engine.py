@@ -74,6 +74,25 @@ def voiced_seconds(pcm16: bytes, rate: int = 16000) -> float:
     return float((rms > VOICE_RMS).sum()) / 50
 
 
+def changed_words(expected: str, said: str) -> list[tuple[str, str]]:
+    """The words of `expected` said differently or left out, with a reason
+    for a child: [("salam", "說成 salah 了"), ("Kami", "漏掉了")]."""
+    from difflib import SequenceMatcher
+
+    want = re.findall(r"[A-Za-z']+", expected)
+    got = re.findall(r"[A-Za-z']+", said)
+    matcher = SequenceMatcher(None, [w.lower() for w in want], [w.lower() for w in got])
+    out: list[tuple[str, str]] = []
+    for op, i1, i2, j1, j2 in matcher.get_opcodes():
+        if op == "replace":
+            for k, word in enumerate(want[i1:i2]):
+                instead = got[j1 + k] if j1 + k < j2 else ""
+                out.append((word, f"說成 {instead} 了" if instead else "漏掉了"))
+        elif op == "delete":
+            out.extend((word, "漏掉了") for word in want[i1:i2])
+    return out
+
+
 def hint_prompt(expected: str) -> str:
     return (
         "A child in Taiwan practising Indonesian answers a teacher. "
@@ -379,6 +398,17 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
                 # the no-hint transcript if it gave none.
                 "heard": pron.get("heard_text") or plain,
             }
+        if verdict == "wrong":
+            # A different word ("salah" for "salam") shows in the transcript;
+            # Gemini, expecting the line, may not name it. Mark it too.
+            swapped = changed_words(expected, said)
+            if swapped:
+                note = notes.setdefault(index, {"words": [], "problem": "",
+                                                "heard": (pron or {}).get("heard_text") or said})
+                for word, reason in swapped:
+                    if word not in note["words"]:
+                        note["words"].append(word)
+                        note["problem"] = "；".join(filter(None, [note["problem"], f"{word}：{reason}"]))
         # "You:" shows what Gemini heard for every answer (the hinted
         # transcript leans toward the right line); when Gemini was overruled,
         # the exact no-hint transcript.

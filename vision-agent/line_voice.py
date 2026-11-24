@@ -28,6 +28,13 @@ TTS_MODEL = os.getenv("LINE_TTS_MODEL", "gemini-2.5-pro-preview-tts")
 FALLBACK_MODEL = os.getenv("LINE_TTS_FALLBACK_MODEL", "gemini-2.5-flash-preview-tts")
 PRO_REST_SECONDS = 3600
 _pro_resting_until = 0.0
+# When the flash quota is used up too, Gemini is skipped for a while and the
+# line is voiced by OpenAI right away (no waiting on refused requests).
+_flash_resting_until = 0.0
+# Last resort, so Bu Guru never stays silent: OpenAI's voice (cached apart,
+# so a later Gemini recording of the line still replaces it).
+OPENAI_TTS_MODEL = os.getenv("LINE_OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
+OPENAI_VOICES = {"Kore": "coral", "Charon": "ash"}
 SAMPLE_RATE = 24000
 CACHE_DIR = Path(__file__).resolve().parent / ".line-audio-cache"
 MAX_TRIES = 3
@@ -58,6 +65,25 @@ def _style(text: str, voice: str) -> str:
 def cache_path(text: str, voice: str) -> Path:
     key = hashlib.sha1(f"{TTS_MODEL}|{voice}|{text}".encode("utf-8")).hexdigest()
     return CACHE_DIR / f"{key}.pcm"
+
+
+def openai_cache_path(text: str, voice: str) -> Path:
+    key = hashlib.sha1(f"{OPENAI_TTS_MODEL}|{voice}|{text}".encode("utf-8")).hexdigest()
+    return CACHE_DIR / "openai" / f"{key}.pcm"
+
+
+def _synthesize_openai(text: str, voice: str) -> bytes:
+    """24 kHz PCM16 mono, like the Gemini recordings."""
+    from openai import OpenAI
+
+    response = OpenAI().audio.speech.create(
+        model=OPENAI_TTS_MODEL,
+        voice=OPENAI_VOICES.get(voice, "coral"),
+        input=text,
+        instructions=_style(text, voice),
+        response_format="pcm",
+    )
+    return response.content
 
 
 def _plain(text: str) -> str:
@@ -102,15 +128,21 @@ def _transcribe_check(pcm: bytes) -> str:
 def synthesize(text: str, voice: str) -> bytes:
     """Mono 24 kHz PCM16 for `text`; the closest of a few takes."""
     best, best_score = b"", -1.0
-    global _pro_resting_until
+    global _pro_resting_until, _flash_resting_until
     for attempt in range(1, MAX_TRIES + 1):
-        model = TTS_MODEL if time.monotonic() >= _pro_resting_until else FALLBACK_MODEL
+        now = time.monotonic()
+        if now < _pro_resting_until and now < _flash_resting_until:
+            break  # both Gemini quotas used up: no recording from Gemini now
+        model = TTS_MODEL if now >= _pro_resting_until else FALLBACK_MODEL
         try:
             pcm = _synthesize_once(text, voice, model)
         except Exception as e:  # noqa: BLE001 - try again, then give up
-            if model == TTS_MODEL and "RESOURCE_EXHAUSTED" in str(e):
-                logger.warning("[line-voice] %s quota used up; using %s for a while", TTS_MODEL, FALLBACK_MODEL)
-                _pro_resting_until = time.monotonic() + PRO_REST_SECONDS
+            if "RESOURCE_EXHAUSTED" in str(e):
+                logger.warning("[line-voice] %s quota used up; resting it for a while", model)
+                if model == TTS_MODEL:
+                    _pro_resting_until = time.monotonic() + PRO_REST_SECONDS
+                else:
+                    _flash_resting_until = time.monotonic() + PRO_REST_SECONDS
             else:
                 logger.warning("[line-voice] TTS failed (try %d, %s): %s", attempt, model, str(e)[:160])
             continue
@@ -129,8 +161,9 @@ def synthesize(text: str, voice: str) -> bytes:
     return best
 
 
-async def line_audio(text: str, voice: str) -> Optional[bytes]:
-    """Cached recording of a line (made on first use)."""
+async def line_audio(text: str, voice: str, fallback: bool = True) -> Optional[bytes]:
+    """Cached recording of a line (made on first use). When Gemini can't make
+    one now (quota), OpenAI's voice is used (unless fallback=False)."""
     path = cache_path(text, voice)
     if path.exists():
         return path.read_bytes()
@@ -139,21 +172,34 @@ async def line_audio(text: str, voice: str) -> Optional[bytes]:
         if path.exists():
             return path.read_bytes()
         pcm = await asyncio.to_thread(synthesize, text, voice)
-        if not pcm:
-            return None
-        CACHE_DIR.mkdir(exist_ok=True)
-        path.write_bytes(pcm)
-        return pcm
+        if pcm:
+            CACHE_DIR.mkdir(exist_ok=True)
+            path.write_bytes(pcm)
+            return pcm
+    if not fallback:
+        return None
+    spare = openai_cache_path(text, voice)
+    if spare.exists():
+        return spare.read_bytes()
+    try:
+        pcm = await asyncio.to_thread(_synthesize_openai, text, voice)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[line-voice] OpenAI voice failed: %s", str(e)[:160])
+        return None
+    if pcm:
+        spare.parent.mkdir(parents=True, exist_ok=True)
+        spare.write_bytes(pcm)
+    return pcm or None
 
 
-async def prewarm(lines: list[str], voice: str, concurrency: int = 3) -> None:
+async def prewarm(lines: list[str], voice: str, concurrency: int = 3, fallback: bool = True) -> None:
     """Record every line of a lesson ahead of time (cached ones are skipped)."""
     gate = asyncio.Semaphore(concurrency)
 
     async def one(line: str) -> None:
         async with gate:
             try:
-                await line_audio(line, voice)
+                await line_audio(line, voice, fallback=fallback)
             except Exception as e:  # noqa: BLE001
                 logger.warning("[line-voice] prewarm failed for %r: %s", line[:40], e)
 
