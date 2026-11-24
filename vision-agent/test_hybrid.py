@@ -218,3 +218,35 @@ class LiveWordsTest(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(0.01)
         self.assertTrue(sent)
         self.assertEqual(sent[0], {"type": "transcript_partial", "speaker": "user", "text": "Baik, Bu"})
+
+
+class GeminiPronunciationTest(unittest.IsolatedAsyncioTestCase):
+    async def judge_with(self, runs):
+        import pron_check
+
+        turns = roleplay.comic_turns([{"guruLine": "Mari kita mengulas pelajaran kemarin.",
+                                       "studentLine": "Baik, Bu Guru.", "expectedAnswers": ["Baik, Bu Guru"]}])
+        tracker = RoleplayTracker(roleplay.comic_objectives(turns), sequential=True)
+        engine = HybridEngine()
+        engine._plain["Baik, Bu Guru."] = "Baik, Bu Gulu."
+        engine._audio["Baik, Bu Guru."] = b"\x00\x01" * 800
+        answers = iter(runs)
+
+        async def fake_check(pcm, line):
+            return next(answers)
+
+        with patch.object(pron_check, "gemini_check", fake_check), \
+                patch.object(pron_check.WORKER, "check", lambda *a: asyncio.sleep(0, {"correct": True})):
+            verdict = await make_judge(engine, tracker, turns)("Baik, Bu Guru.", 0)
+        return verdict, engine.pron_notes
+
+    async def test_both_runs_wrong_is_unclear_with_a_note(self):
+        wrong = {"correct": False, "word": "Guru", "problem": "r said as l", "problem_zh": "guru 的 r 唸成 l 了"}
+        verdict, notes = await self.judge_with([wrong, wrong])
+        self.assertEqual(verdict, "unclear")
+        self.assertEqual(notes[0], {"word": "Guru", "problem": "guru 的 r 唸成 l 了"})
+
+    async def test_one_odd_run_is_no_false_alarm(self):
+        verdict, notes = await self.judge_with([{"correct": False, "word": "Guru"}, {"correct": True}])
+        self.assertEqual(verdict, "pass")
+        self.assertEqual(notes, {})

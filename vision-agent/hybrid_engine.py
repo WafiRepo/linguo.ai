@@ -79,6 +79,8 @@ class HybridEngine(realtime.Realtime):
         self._openai: Any = None
         # Testers see what was heard and the verdict (set by main.py).
         self.debug_sink: Any = None
+        # The pronunciation problem of the latest unclear answer, per dialogue.
+        self.pron_notes: dict[int, dict[str, str]] = {}
         # Live words while the student talks (set by main.py).
         self.partial_sink: Any = None
         self._turn_id = 0
@@ -258,8 +260,10 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
       changes the meaning is wrong
     - otherwise: wrong
     The no-hint transcript is NOT used for the grade (on short lines like
-    "Baik, Bu Guru" it garbled right answers too). Pronunciation is checked
-    separately by Gemini and wav2vec2 and only shown to testers for now.
+    "Baik, Bu Guru" it garbled right answers too).
+    Pronunciation: when the words fit, Gemini listens to the audio twice; if
+    both runs hear a clear sound error the answer is "unclear" (Bu Guru
+    models the line and the student says it again). wav2vec2 is only logged.
     """
     from difflib import SequenceMatcher
 
@@ -273,8 +277,18 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
     async def judge(said: str, index: int) -> str:
         expected = turns[index]["student"]
         plain = engine.plain_for(said) or ""
+        pron: Optional[dict[str, Any]] = None
+        audio = engine.audio_for(said) if hasattr(engine, "audio_for") else None
         if fits(said, index):
             verdict = "pass"
+            if audio:
+                import pron_check
+
+                pron = await pron_check.gemini_verdict(audio, expected)
+                if not pron["correct"]:
+                    verdict = "unclear"
+                    if hasattr(engine, "pron_notes"):
+                        engine.pron_notes[index] = {"word": pron.get("word", ""), "problem": pron.get("problem_zh", "")}
         elif SequenceMatcher(None, _normalize(said), _normalize(expected)).ratio() >= GRAY_ZONE_SIMILARITY:
             verdict = "pass" if await _model_accepts(turns[index], said) else "wrong"
         else:
@@ -287,20 +301,26 @@ def make_judge(engine: "HybridEngine", tracker: Any, turns: list[dict[str, Any]]
                             "hinted": said, "plain": plain, "verdict": verdict})
             except Exception as e:  # noqa: BLE001
                 logger.warning("[hybrid] hearing event failed: %s", e)
-            audio = engine.audio_for(said) if hasattr(engine, "audio_for") else None
             if audio:
-                asyncio.create_task(_pronunciation_report(sink, index, said, expected, audio))
+                asyncio.create_task(_pronunciation_report(sink, index, said, expected, audio, pron))
         return verdict
 
     return judge
 
 
-async def _pronunciation_report(sink: Any, index: int, said: str, expected: str, audio: bytes) -> None:
-    """Gemini and wav2vec2 on the turn's audio: logged and shown to testers."""
+async def _pronunciation_report(
+    sink: Any, index: int, said: str, expected: str, audio: bytes, pron: Optional[dict[str, Any]]
+) -> None:
+    """Gemini (from the judge) and wav2vec2: logged and shown to testers."""
     import pron_check
 
-    result = await pron_check.check_both(audio, expected)
-    gemini, phonemes = result["gemini"], result["phonemes"]
+    phonemes = await pron_check.WORKER.check(audio, expected)
+    if pron is None:
+        gemini: dict[str, Any] = {"note": "words did not fit; sounds not checked"}
+    else:
+        first = (pron.get("runs") or [{}])[0]
+        gemini = {"correct": pron["correct"], "problem": pron.get("problem") or first.get("problem", ""),
+                  "heard": first.get("heard", ""), "runs": [r.get("correct") for r in pron.get("runs", [])]}
     print(f"[pron] dialogue {index} {said!r}: gemini {gemini} | phonemes {phonemes}")
     try:
         await sink({"type": "hearing_pron", "turnIndex": index, "hinted": said,

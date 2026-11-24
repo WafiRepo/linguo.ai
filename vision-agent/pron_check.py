@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import threading
 import wave
 from pathlib import Path
 from typing import Any, Optional
@@ -38,7 +39,10 @@ Judge ONLY the sounds, not the voice, speed or accent. Standard Indonesian: a fi
 (baik = [baiʔ]) and a final h is soft - both are CORRECT. Mark it wrong only for a clear sound error, such as:
 e pepet said as "é" or "a", r said as l, ng said as n, b said as p, d said as t, a missing or extra syllable.
 If you are not sure, answer correct.
-Return JSON: {{"heard": "<what you heard, in IPA>", "correct": true|false, "problem": "<short reason, empty if correct>"}}"""
+Return JSON: {{"heard": "<what you heard, in IPA>", "correct": true|false,
+"problem": "<short reason in English, empty if correct>",
+"word": "<the Indonesian word with the problem, exactly as written in the line, empty if correct>",
+"problem_zh": "<the same reason for a young child, in Traditional Chinese (Taiwan), max 20 characters, e.g. guru 的 r 唸成 l 了>"}}"""
 
 
 def _wav(pcm16: bytes, rate: int = 16000) -> bytes:
@@ -60,15 +64,18 @@ def _guide(line: str) -> str:
 
 
 _client: Any = None
+_client_lock = threading.Lock()
 
 
 def _gemini() -> Any:
-    """One Gemini client for the process (a throwaway one gets closed mid-call)."""
+    """One Gemini client for the process: a throwaway one (or a second one
+    made by a parallel call) gets closed mid-call."""
     global _client
-    if _client is None:
-        from google import genai
+    with _client_lock:
+        if _client is None:
+            from google import genai
 
-        _client = genai.Client()
+            _client = genai.Client()
     return _client
 
 
@@ -89,7 +96,8 @@ async def gemini_check(pcm16: bytes, line: str) -> dict[str, Any]:
     try:
         result = await asyncio.wait_for(asyncio.to_thread(call), GEMINI_SECONDS)
         return {"correct": bool(result.get("correct")), "problem": str(result.get("problem") or ""),
-                "heard": str(result.get("heard") or "")}
+                "heard": str(result.get("heard") or ""), "word": str(result.get("word") or ""),
+                "problem_zh": str(result.get("problem_zh") or "")}
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)[:120]}
 
@@ -157,6 +165,19 @@ class PhonemeWorker:
 
 
 WORKER = PhonemeWorker()
+
+
+async def gemini_verdict(pcm16: bytes, line: str, runs: int = 2) -> dict[str, Any]:
+    """Gemini listens `runs` times; the sounds count as wrong only when EVERY
+    run says so (no false alarm from one odd answer). An error or a timeout
+    counts as correct."""
+    results = await asyncio.gather(*(gemini_check(pcm16, line) for _ in range(runs)))
+    wrong = [r for r in results if r.get("correct") is False]
+    if len(wrong) == runs:
+        first = wrong[0]
+        return {"correct": False, "runs": results, "word": first.get("word", ""),
+                "problem": first.get("problem", ""), "problem_zh": first.get("problem_zh", "")}
+    return {"correct": True, "runs": results}
 
 
 async def check_both(pcm16: bytes, line: str) -> dict[str, Any]:

@@ -639,6 +639,11 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 set_listening=agent.llm.set_listening if (is_gpt_live or is_hybrid) else None,
                 judge=make_judge(agent.llm, tracker, turns) if is_hybrid else None,
                 expect=agent.llm.expect if is_hybrid else None,
+                correction_extra=(
+                    (lambda index, verdict: {"pronunciation": agent.llm.pron_notes.get(index, {})}
+                     if verdict == "unclear" else {})
+                    if is_hybrid else None
+                ),
             )
             if is_hybrid:
                 # Testers see what the server heard and how it judged it.

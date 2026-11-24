@@ -74,6 +74,9 @@ type ComicCorrection = {
   said: string;
   step?: string;
   attempt?: number;
+  // The words were right but a sound wasn't (hybrid Practice): which word,
+  // and why, in words for a child.
+  pronunciation?: { word?: string; problem?: string };
 };
 // Latihan steps sent by the server: listen → repeat → answer-intro → answer.
 type PracticeStep = "listen" | "repeat" | "answer-intro" | "answer" | "done";
@@ -699,6 +702,8 @@ function LiveRoleplayScreen() {
           expected={comic.turns[correction.turnIndex]?.studentLine.id ?? ""}
           translation={comic.turns[correction.turnIndex]?.studentLine.zhTW ?? ""}
           reveal={correctionReveal(correction)}
+          focusWord={correction.pronunciation?.word}
+          problem={correction.pronunciation?.problem}
         />
       ) : null}
 
@@ -894,6 +899,8 @@ type Reveal = "full" | "first-word" | "none";
 // Latihan's answer-from-memory step reveals the line gradually: a nudge,
 // then the first word, then (on the third miss Bu Guru models it anyway).
 function correctionReveal(correction: ComicCorrection): Reveal {
+  // A sound to fix: the student already knows the words, show the line.
+  if (correction.pronunciation) return "full";
   if (correction.step !== "answer") return "full";
   if ((correction.attempt ?? 1) <= 1) return "none";
   return "first-word";
@@ -905,21 +912,29 @@ function CorrectionCard({
   expected,
   translation,
   reveal = "full",
+  focusWord,
+  problem,
 }: {
   said: string;
   expected: string;
   translation: string;
   reveal?: Reveal;
+  /** A pronunciation correction: the word whose sound was off (it hops). */
+  focusWord?: string;
+  /** Why, for a child (e.g. "guru 的 r 唸成 l 了"). */
+  problem?: string;
 }) {
   const { t } = useT();
   const saidWords = new Set(said.split(/\s+/).map(normalizeWord));
+  const focus = focusWord ? normalizeWord(focusWord) : "";
   // Each word with the space after it, so wrapping works word by word.
   const words = expected
     .split(/\s+/)
     .filter(Boolean)
     .map((text, index, all) => ({
       text: index < all.length - 1 ? `${text} ` : text,
-      missed: !saidWords.has(normalizeWord(text)),
+      // A sound to fix: only that word; otherwise the words left out.
+      missed: focus ? normalizeWord(text) === focus : !saidWords.has(normalizeWord(text)),
     }));
   const missedOrder = (index: number) => words.slice(0, index).filter((word) => word.missed).length;
 
@@ -928,9 +943,13 @@ function CorrectionCard({
       <Text className="font-poppins-semibold text-[13px] text-text-primary mb-1">
         {t("roleplay.tryAgain")}
       </Text>
-      <Text className="font-poppins text-xs text-text-secondary">
-        {t("roleplay.youSaid")}<Text className="text-text-primary">{said}</Text>
-      </Text>
+      {problem ? (
+        <Text className="font-poppins-semibold text-[13px] text-[#B45309]">🔊 {problem}</Text>
+      ) : (
+        <Text className="font-poppins text-xs text-text-secondary">
+          {t("roleplay.youSaid")}<Text className="text-text-primary">{said}</Text>
+        </Text>
+      )}
       {reveal === "none" ? null : reveal === "first-word" ? (
         <Text className="font-poppins text-[13px] text-text-secondary mt-1">
           {t("roleplay.hint")}
@@ -1179,6 +1198,7 @@ interface RoleplayCustomEvent {
     verdict?: string;
     gemini?: unknown;
     phonemes?: unknown;
+    pronunciation?: unknown;
   };
 }
 
@@ -1309,11 +1329,16 @@ function ActiveRoleplayContent({
         typeof data.turnIndex === "number" &&
         data.said
       ) {
+        const pronunciation =
+          data.pronunciation && typeof data.pronunciation === "object"
+            ? (data.pronunciation as { word?: string; problem?: string })
+            : undefined;
         onCorrection({
           turnIndex: data.turnIndex,
           said: data.said,
           step: data.step,
           attempt: data.attempt,
+          pronunciation,
         });
         return;
       }

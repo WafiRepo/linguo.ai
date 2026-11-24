@@ -191,6 +191,8 @@ class ComicPractice:
     judge: Optional[Callable[[str, int], Awaitable[str]]] = None
     # Hybrid Practice: told the line the student should say next.
     expect: Optional[Callable[[str], None]] = None
+    # Hybrid Practice: extra fields for a correction (the pronunciation note).
+    correction_extra: Optional[Callable[[int, str], dict[str, Any]]] = None
     index: int = 0
     step: str = "listen"
     wrong: int = 0
@@ -294,12 +296,14 @@ class ComicPractice:
         # heard, Bu Guru models the line and the student tries again.
         self.wrong += 1
         self.step_wrong += 1
+        extra = self.correction_extra(index, verdict) if self.correction_extra else {}
         await self.send_event({
             "type": "roleplay_correction",
             "turnIndex": index,
             "said": said[:120],
             "step": step,
             "attempt": self.step_wrong,
+            **extra,
         })
         if self.step_wrong >= MAX_STEP_ATTEMPTS:
             await self._speak_and_wait(modeled_line(turn, self.help_language), confirm=turn["student"])
