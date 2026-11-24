@@ -36,7 +36,9 @@ from instruction_language import (  # noqa: E402
 from gpt_live import GptLive  # noqa: E402
 from gemini_live import GeminiLive  # noqa: E402
 import gemini_live  # noqa: E402
-from practice import ComicPractice, build_comic_practice_prompt  # noqa: E402
+import line_voice  # noqa: E402
+from hybrid_engine import HybridEngine, make_judge  # noqa: E402
+from practice import ComicPractice, all_script_lines, build_comic_practice_prompt  # noqa: E402
 from pronunciation import append_pronunciation_guide  # noqa: E402
 from roleplay import (  # noqa: E402
     CORRECTION_GRACE_SECONDS,
@@ -240,13 +242,21 @@ def _roleplay_engine(call_id: str) -> str:
     """Which voice engine a Role Play / Practice call gets.
 
     ROLEPLAY_LLM: gpt-live (default), gemini, or realtime (the kill switch back
-    to gpt-realtime-2). GEMINI_TEST_USERS (comma-separated Clerk user ids) puts
-    only those testers on Gemini Live while everyone else keeps the default.
+    to gpt-realtime-2). Trials for testers only (comma-separated Clerk user ids):
+    - HYBRID_TEST_USERS: Practice with recorded lines and careful listening
+      (hybrid_engine); their Role Play stays on the default engine
+    - GEMINI_TEST_USERS: Role Play and Practice on Gemini Live
     """
     if not call_id.startswith("roleplay-"):
         return "realtime"
-    testers = [u.strip() for u in os.getenv("GEMINI_TEST_USERS", "").split(",") if u.strip()]
-    if any(call_id.endswith(f"-{user}") for user in testers):
+
+    def listed(name: str) -> bool:
+        users = [u.strip() for u in os.getenv(name, "").split(",") if u.strip()]
+        return any(call_id.endswith(f"-{user}") for user in users)
+
+    if call_id.startswith("roleplay-practice-") and listed("HYBRID_TEST_USERS"):
+        return "hybrid"
+    if listed("GEMINI_TEST_USERS"):
         return "gemini"
     return os.getenv("ROLEPLAY_LLM", "gpt-live")
 
@@ -256,6 +266,14 @@ def _uses_gpt_live(call_id: str) -> bool:
 
 
 async def create_agent(**kwargs) -> Agent:
+    if _roleplay_engine(_starting_call_id.get()) == "hybrid":
+        print("[agent] Voice engine: hybrid Practice (recorded lines, trial)")
+        return Agent(
+            edge=getstream.Edge(),
+            llm=HybridEngine(),
+            agent_user=User(name="AI Teacher", id=AGENT_USER_ID),
+            instructions=DEFAULT_SYSTEM_PROMPT,
+        )
     if _roleplay_engine(_starting_call_id.get()) == "gemini":
         print("[agent] Voice engine: Gemini Live (trial)")
         return Agent(
@@ -390,6 +408,8 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
         topic_title = str(custom.get("topic_title") or "")
         # Some comics have a male teacher; only these two roles exist.
         teacher = "Pak Guru" if custom.get("ai_name") == "Pak Guru" else "Bu Guru"
+        if isinstance(agent.llm, HybridEngine):
+            agent.llm.voice = line_voice.MALE_VOICE if teacher == "Pak Guru" else line_voice.FEMALE_VOICE
         if is_gpt_live:
             # Read when the session connects. Always set: the agent is reused,
             # and a Pak Guru comic must not leave the male voice for Bu Guru.
@@ -607,6 +627,7 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 async for _ in agent.llm.simple_response(text):
                     pass
 
+            is_hybrid = isinstance(agent.llm, HybridEngine)
             practice = ComicPractice(
                 turns=turns,
                 controller=roleplay,
@@ -614,8 +635,15 @@ async def join_call(agent: Agent, call_type: str, call_id: str, **kwargs) -> Non
                 say=say_script,
                 note=agent.llm.append_thinking if is_gpt_live else None,
                 help_language=help_language,
-                set_listening=agent.llm.set_listening if is_gpt_live else None,
+                set_listening=agent.llm.set_listening if (is_gpt_live or is_hybrid) else None,
+                judge=make_judge(agent.llm, tracker, turns) if is_hybrid else None,
+                expect=agent.llm.expect if is_hybrid else None,
             )
+            if is_hybrid:
+                # Record every line of this lesson now (cached after the first time).
+                asyncio.create_task(
+                    line_voice.prewarm(all_script_lines(turns, help_language), agent.llm.voice)
+                )
             roleplay.on_user_answer = practice.on_answer
 
         system_prompt = append_emotion_to_prompt(

@@ -120,6 +120,48 @@ def modeled_line(turn: dict[str, Any], help_language: str) -> str:
     )
 
 
+# ---- Hybrid Practice: fixed lines for Bu Guru's reactions ----
+PRAISES_ZH = ("很好！", "好棒！", "說得很好！")
+PRAISES_EN = ("Great!", "Well done!", "Very good!")
+
+
+def praise_line(help_language: str, n: int = 0) -> str:
+    praises = PRAISES_ZH if is_chinese_help(help_language) else PRAISES_EN
+    return praises[n % len(praises)]
+
+
+def correction_line(turn: dict[str, Any], help_language: str) -> str:
+    """A wrong answer: the right line, normal then slowly, then try again."""
+    line = turn["student"]
+    if is_chinese_help(help_language):
+        return f"差一點喔。跟著我說：「{line}」慢慢再說一次：「{slow_line(line)}」換你說說看。"
+    return f'Almost! Say it with me: "{line}" Once more, slowly: "{slow_line(line)}" Your turn.'
+
+
+def unclear_line(turn: dict[str, Any], help_language: str) -> str:
+    """Right words, unclear sounds: praise, and the line once more to copy."""
+    line = turn["student"]
+    if is_chinese_help(help_language):
+        return f"說對了！注意發音，再聽一次：「{line}」慢慢說：「{slow_line(line)}」"
+    return f'That\'s right! Listen to the sounds once more: "{line}" Slowly: "{slow_line(line)}"'
+
+
+def all_script_lines(turns: list[dict[str, Any]], help_language: str) -> list[str]:
+    """Every line Bu Guru can say in this practice (to record them ahead)."""
+    lines: list[str] = []
+    for turn in turns:
+        lines += [
+            listen_line(turn, help_language),
+            answer_prompt_line(turn, help_language),
+            correction_line(turn, help_language),
+            unclear_line(turn, help_language),
+            modeled_line(turn, help_language),
+        ]
+    lines += [praise_line(help_language, n) for n in range(3)]
+    lines.append(closing_line(help_language))
+    return lines
+
+
 def closing_line(help_language: str) -> str:
     if is_chinese_help(help_language):
         return "練習完成了，你很棒！謝謝你認真練習。"
@@ -144,6 +186,11 @@ class ComicPractice:
     help_language: str
     # Turns the model's hearing of the student on/off (None: always on).
     set_listening: Optional[Callable[[bool], Awaitable[None]]] = None
+    # Hybrid Practice: judges an answer ("pass" / "unclear" / "wrong") instead
+    # of a live AI, and Bu Guru's reactions are fixed recorded lines.
+    judge: Optional[Callable[[str, int], Awaitable[str]]] = None
+    # Hybrid Practice: told the line the student should say next.
+    expect: Optional[Callable[[str], None]] = None
     index: int = 0
     step: str = "listen"
     wrong: int = 0
@@ -186,6 +233,16 @@ class ComicPractice:
         )
 
     async def _resolve(self, said: str, index: int, step: str, started_at: Optional[float]) -> None:
+        if self.judge is not None:
+            verdict = await self.judge(said, index)
+            if (self.index, self.step) != (index, step):
+                return
+            self._settling = True
+            try:
+                await self._settle_judged(said, index, step, verdict)
+            finally:
+                self._settling = False
+            return
         turn = self.turns[index]
         objective = self.controller.tracker.objectives[index]
         matched = objective_hit(objective, said)
@@ -225,6 +282,35 @@ class ComicPractice:
             note = comic_correction_note(said, turn["student"], self.help_language, agent_text)
             if note:
                 await self.note(note)
+
+    async def _settle_judged(self, said: str, index: int, step: str, verdict: str) -> None:
+        """Hybrid Practice: act on the judge's verdict with recorded lines."""
+        turn = self.turns[index]
+        if verdict == "pass":
+            await self.say(praise_line(self.help_language, index + len(self.stars)))
+            await self._passed()
+            return
+        if verdict == "unclear":
+            # The words were right but the sounds unclear: one star less,
+            # the line once more to copy, and on.
+            self.wrong += 1
+            await self._speak_and_wait(unclear_line(turn, self.help_language), confirm=turn["student"])
+            await self._passed()
+            return
+        self.wrong += 1
+        self.step_wrong += 1
+        await self.send_event({
+            "type": "roleplay_correction",
+            "turnIndex": index,
+            "said": said[:120],
+            "step": step,
+            "attempt": self.step_wrong,
+        })
+        if self.step_wrong >= MAX_STEP_ATTEMPTS:
+            await self._speak_and_wait(modeled_line(turn, self.help_language), confirm=turn["student"])
+            await self._passed()
+            return
+        await self._speak_and_wait(correction_line(turn, self.help_language), confirm=turn["student"])
 
     async def _await_ai_verdict(self, matched: bool, started_at: Optional[float]) -> str:
         """Wait (at most the grace period) for the AI's reaction to the answer
@@ -268,6 +354,8 @@ class ComicPractice:
         self.index, self.wrong, self.step_wrong = index, 0, 0
         await self._set_step("listen")
         turn = self.turns[index]
+        if self.expect is not None:
+            self.expect(turn["student"])
         await self._speak_and_wait(
             listen_line(turn, self.help_language), confirm=turn["student"]
         )
