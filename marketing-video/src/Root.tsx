@@ -9,6 +9,7 @@ import { featuresFor, introVideoFrames, IntroVideo, sceneFrames } from "./IntroV
 import { FeatureScene } from "./scenes/FeatureScene";
 import { IntroScene } from "./scenes/IntroScene";
 import { OutroScene } from "./scenes/OutroScene";
+import { ONBOARDING_FRAMES, ONBOARDING_VIDEO, OnboardingVideo } from "./onboarding/OnboardingVideo";
 import { TrustScene } from "./scenes/TrustScene";
 import { VIDEO } from "./theme";
 import { Locale } from "./voiceover";
@@ -83,6 +84,13 @@ export const RemotionRoot: React.FC = () => {
           {...VIDEO}
         />
       ))}
+      {/* Bilingual onboarding video, 16:9, with music. */}
+      <Composition
+        id="OnboardingVideo"
+        component={OnboardingVideo}
+        durationInFrames={ONBOARDING_FRAMES}
+        {...ONBOARDING_VIDEO}
+      />
     </>
   );
 };
